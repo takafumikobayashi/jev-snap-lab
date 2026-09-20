@@ -75,6 +75,7 @@ question catalog / labels ─────────┴─ server only
 ```text
 .
 ├── src/
+│   ├── hooks.server.ts
 │   ├── routes/
 │   │   ├── +page.svelte
 │   │   └── api/
@@ -113,9 +114,13 @@ question catalog / labels ─────────┴─ server only
 │   └── e2e/
 ├── docs/
 ├── .env.example
+├── vercel.json          # /api/judge の maxDuration
 ├── package.json
-└── svelte.config.js
+├── pnpm-lock.yaml
+└── vite.config.ts       # SvelteKit + Tailwind + adapter-vercel + Vitest
 ```
+
+SvelteKit 2.63 以降は `svelte.config.js` を持たず、`sveltekit()` プラグインのオプションとして `vite.config.ts` に集約する。runes モード（Svelte 5）は同ファイルで強制している。
 
 `*.server.ts`はブラウザへバンドルされないserver-only境界を意図する。Jevキーを持つモジュールは `src/lib/server/` からしかimportしない。
 

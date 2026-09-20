@@ -28,29 +28,42 @@ CITY は正式な行政案内サービスではなく、Jev と根拠付きル�
 
 - SvelteKit + TypeScript
 - Tailwind CSS
-- Node.js 20 以上
+- Node.js 20 以上 / pnpm
 - TypeSafe 公式 JavaScript SDK (`@typesafe-ai/sdk`)
 - Vercel (`@sveltejs/adapter-vercel`)
 - 永続データベースなし。CITY データはバージョン管理する静的 JSON
 
 採用理由と代替案は [アーキテクチャ](docs/ARCHITECTURE.md) に記載しています。
 
-## ローカル実行方法（実装後）
+## ローカル実行方法
 
-現在は設計段階のため、実行可能なアプリケーションコードや `package.json` はまだありません。実装後の標準手順は次の形にします。
+パッケージマネージャは **pnpm** です（npm 10 系に依存解決のバグがあるため）。Node.js 20 以上が必要です。
 
 ```bash
-npm install
+corepack enable          # pnpm が未導入の場合のみ
+pnpm install
 cp .env.example .env
 # .env に TYPESAFE_API_KEY を設定
-npm run dev
+pnpm dev
 ```
 
-想定する環境変数は次のとおりです。
+| コマンド       | 内容                             |
+| -------------- | -------------------------------- |
+| `pnpm dev`     | 開発サーバー                     |
+| `pnpm build`   | 本番ビルド                       |
+| `pnpm preview` | 本番ビルドのプレビュー           |
+| `pnpm check`   | TypeScript / Svelte の型チェック |
+| `pnpm lint`    | Prettier + ESLint                |
+| `pnpm format`  | 整形の適用                       |
+| `pnpm test`    | ユニットテスト                   |
+
+主な環境変数は次のとおりです。全項目は `.env.example` を参照してください。
 
 ```dotenv
 TYPESAFE_API_KEY=your_server_side_key
 TYPESAFE_DEFAULT_MODEL=jev-latest
+JEV_TIMEOUT_MS=3500
+JEV_TOTAL_TIMEOUT_MS=12000
 ```
 
 API キーはブラウザへ渡さず、サーバーの API route からのみ使用します。環境変数名、タイムアウト、レート制限、コスト計算の詳細は [アーキテクチャ](docs/ARCHITECTURE.md) と [Jev 設計](docs/JEV_DESIGN.md) を参照してください。
