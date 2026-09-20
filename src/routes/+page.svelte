@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { requestJudge } from '$lib/client/api';
+	import { shouldApplyResult, type Submission } from '$lib/client/submission';
 	import { formatCostUsd } from '$lib/display';
 	import JudgeForm from '$lib/components/JudgeForm.svelte';
 	import ModeTabs from '$lib/components/ModeTabs.svelte';
@@ -17,12 +18,20 @@
 
 	/** 送信中のリクエスト。モード切替と再送信で中断する。 */
 	let inFlight: AbortController | null = null;
-	/** 最後に送った通し番号。古いレスポンスを表示しないために照合する。 */
+	/** 最後に送った通し番号。追い越された結果を捨てるために照合する。 */
 	let latestSubmission = 0;
 
+	/**
+	 * 走っている判定を無効化する。
+	 *
+	 * abort だけでは足りない。fetch が既に解決していれば例外は飛ばず、
+	 * そのまま結果が返る。通し番号も必ず進めて、解決済みのレスポンスを
+	 * 確実に古いものとして扱う。
+	 */
 	function cancelInFlight() {
 		inFlight?.abort();
 		inFlight = null;
+		latestSubmission += 1;
 	}
 
 	function switchMode(next: Mode) {
@@ -38,15 +47,21 @@
 		cancelInFlight();
 		const controller = new AbortController();
 		inFlight = controller;
-		const submission = ++latestSubmission;
+		const submission: Submission = { id: latestSubmission, mode, text };
 
 		status = 'judging';
 		errorMessage = '';
 
 		try {
-			const outcome = await requestJudge(mode, text, controller.signal);
-			// 中断せずに追い越された場合でも、古い結果は捨てる。
-			if (submission !== latestSubmission) return;
+			const outcome = await requestJudge(submission.mode, submission.text, controller.signal);
+
+			// 判定中もモード切替と textarea の編集ができる。通し番号に加えて
+			// モードと入力文の一致も確認し、画面と食い違う結果を出さない。
+			if (!shouldApplyResult(submission, { id: latestSubmission, mode, text })) {
+				// 入力が変わっただけの場合は判定中のまま止まらないよう idle へ戻す。
+				if (status === 'judging') status = 'idle';
+				return;
+			}
 
 			if (outcome.ok) {
 				response = outcome.response;
@@ -79,76 +94,84 @@
 		<ModeTabs value={mode} onchange={switchMode} />
 	</div>
 
-	<div class="mt-6">
-		<JudgeForm bind:text busy={status === 'judging'} onsubmit={judge} />
-	</div>
+	<!--
+		タブが制御する領域。モードによって質問群と結果が入れ替わるため、
+		入力フォームから結果までをひとつの tabpanel にする。
+	-->
+	<div id="mode-panel" role="tabpanel" aria-labelledby="mode-tab-{mode}" tabindex="-1">
+		<div class="mt-6">
+			<JudgeForm bind:text busy={status === 'judging'} onsubmit={judge} />
+		</div>
 
-	{#if mode === 'city'}
-		<!-- CITY は常時表示。公式サービスと誤認させない（docs/PRODUCT_SPEC.md §8）。 -->
-		<p
-			class="mt-4 rounded-md border border-neutral-300 px-3 py-2 text-xs text-neutral-600 dark:border-neutral-700 dark:text-neutral-400"
-		>
-			安芸高田市の公開情報をモデルケースにした<strong>技術検証・デモ</strong
-			>です。正式な行政案内ではありません。最終確認は必ず公式窓口へ。
-		</p>
-	{/if}
-
-	<!-- 結果の更新をスクリーンリーダーへ通知する。 -->
-	<section class="mt-10" aria-live="polite" aria-busy={status === 'judging'}>
-		{#if status === 'judging'}
-			<p class="text-sm text-neutral-500">判定中です…</p>
-		{:else if status === 'error'}
-			<div class="rounded-lg border border-amber-500 p-4">
-				<p class="text-sm">{errorMessage}</p>
-				{#if errorRetryable}
-					<button
-						type="button"
-						class="mt-3 rounded-md border border-neutral-400 px-4 py-1.5 text-sm font-medium
-							focus:outline-2 focus:outline-offset-2 focus:outline-neutral-900
-							dark:focus:outline-neutral-100"
-						onclick={judge}
-					>
-						再試行
-					</button>
-				{/if}
-			</div>
-		{:else if status === 'success' && response}
-			<h2 class="text-xs font-semibold tracking-widest text-neutral-400 uppercase">Results</h2>
-
-			<!-- モバイルは1列、デスクトップは2列まで。 -->
-			<div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-				{#each response.results as card (card.id)}
-					<ResultCard {card} />
-				{/each}
-			</div>
-
-			{#if response.city}
-				<div class="mt-4 rounded-md border border-neutral-300 p-3 text-xs dark:border-neutral-700">
-					{#if response.city.provisional}
-						<p class="font-semibold text-amber-700 dark:text-amber-400">根拠データ未登録</p>
-						<p class="mt-1 text-neutral-600 dark:text-neutral-400">
-							この候補には公式の組織・事務分掌データがまだ紐付いていません。担当課の確定として扱わないでください。
-						</p>
-					{/if}
-					<p class="mt-1 text-neutral-400">
-						データバージョン: {response.city.directoryVersion}
-					</p>
-				</div>
-			{/if}
-
-			<p class="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-400 tabular-nums">
-				<span>Response: {response.latencyMs}ms</span>
-				<span>Model: {response.model}</span>
-				{#if response.usage?.inputTokens !== undefined}
-					<span>Input: {response.usage.inputTokens} tokens</span>
-				{/if}
-				{#if response.usage?.estimatedCostUsd !== undefined}
-					<!-- output tokens は課金対象外なので、コストは input のみの推計。 -->
-					<span>Cost (推計): {formatCostUsd(response.usage.estimatedCostUsd)}</span>
-				{/if}
+		{#if mode === 'city'}
+			<!-- CITY は常時表示。公式サービスと誤認させない（docs/PRODUCT_SPEC.md §8）。 -->
+			<p
+				class="mt-4 rounded-md border border-neutral-300 px-3 py-2 text-xs text-neutral-600 dark:border-neutral-700 dark:text-neutral-400"
+			>
+				安芸高田市の公開情報をモデルケースにした<strong>技術検証・デモ</strong
+				>です。正式な行政案内ではありません。最終確認は必ず公式窓口へ。
 			</p>
 		{/if}
-	</section>
+
+		<!-- 結果の更新をスクリーンリーダーへ通知する。 -->
+		<section class="mt-10" aria-live="polite" aria-busy={status === 'judging'}>
+			{#if status === 'judging'}
+				<p class="text-sm text-neutral-500">判定中です…</p>
+			{:else if status === 'error'}
+				<div class="rounded-lg border border-amber-500 p-4">
+					<p class="text-sm">{errorMessage}</p>
+					{#if errorRetryable}
+						<button
+							type="button"
+							class="mt-3 rounded-md border border-neutral-400 px-4 py-1.5 text-sm font-medium
+							focus:outline-2 focus:outline-offset-2 focus:outline-neutral-900
+							dark:focus:outline-neutral-100"
+							onclick={judge}
+						>
+							再試行
+						</button>
+					{/if}
+				</div>
+			{:else if status === 'success' && response}
+				<h2 class="text-xs font-semibold tracking-widest text-neutral-400 uppercase">Results</h2>
+
+				<!-- モバイルは1列、デスクトップは2列まで。 -->
+				<div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+					{#each response.results as card (card.id)}
+						<ResultCard {card} />
+					{/each}
+				</div>
+
+				{#if response.city}
+					<div
+						class="mt-4 rounded-md border border-neutral-300 p-3 text-xs dark:border-neutral-700"
+					>
+						{#if response.city.provisional}
+							<p class="font-semibold text-amber-700 dark:text-amber-400">根拠データ未登録</p>
+							<p class="mt-1 text-neutral-600 dark:text-neutral-400">
+								この候補には公式の組織・事務分掌データがまだ紐付いていません。担当課の確定として扱わないでください。
+							</p>
+						{/if}
+						<p class="mt-1 text-neutral-400">
+							データバージョン: {response.city.directoryVersion}
+						</p>
+					</div>
+				{/if}
+
+				<p class="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-400 tabular-nums">
+					<span>Response: {response.latencyMs}ms</span>
+					<span>Model: {response.model}</span>
+					{#if response.usage?.inputTokens !== undefined}
+						<span>Input: {response.usage.inputTokens} tokens</span>
+					{/if}
+					{#if response.usage?.estimatedCostUsd !== undefined}
+						<!-- output tokens は課金対象外なので、コストは input のみの推計。 -->
+						<span>Cost (推計): {formatCostUsd(response.usage.estimatedCostUsd)}</span>
+					{/if}
+				</p>
+			{/if}
+		</section>
+	</div>
 
 	<footer
 		class="mt-12 border-t border-neutral-200 pt-4 text-xs text-neutral-400 dark:border-neutral-800"

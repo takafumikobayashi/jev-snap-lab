@@ -332,7 +332,18 @@ sveltekit({
 
 実装時に注意する点が3つある。
 
-1. **Svelte transition は `style-src` に影響する。** 多くのtransitionはインライン `<style>` を生成するため、UIでtransitionを使う場合は `style-src` を未指定にするか `unsafe-inline` を許可する必要がある。CITYの出典リンク以外に外部リソースを読まない設計なので、`style-src` を未指定のままにして他を締める方針で始める。
+1. **Svelte transition は `style-src` に影響する。** 多くのtransitionはインライン `<style>` を生成するため、UIでtransitionを使う場合は `style-src` を未指定にするか `unsafe-inline` を許可する必要がある。本プロジェクトは `style-src` を指定せず、他のディレクティブを締める方針を採る。
+
+   **未指定にすると SvelteKit が `style-src 'self' 'unsafe-inline'` を補う。** 実際のレスポンスヘッダーで確認した値は次のとおりで、「`style-src` が出力されない」わけではない。
+
+   ```text
+   content-security-policy: default-src 'self'; connect-src 'self'; font-src 'self';
+     img-src 'self' data:; object-src 'none';
+     script-src 'self' 'nonce-…'; base-uri 'self'; form-action 'self';
+     frame-ancestors 'none'; style-src 'self' 'unsafe-inline'
+   ```
+
+   `style-src` がゆるい分、`script-src` を nonce で締めることと `object-src 'none'` / `base-uri 'self'` / `form-action 'self'` を効かせることで XSS の実害を抑える。インラインスタイルを締めたい場合は transition の利用をやめる必要があり、MVPでは割に合わない。
 2. **prerenderされたページではCSPが `<meta http-equiv>` で入る。** この場合 `frame-ancestors`、`report-uri`、`sandbox` は無視される。
 3. **`connect-src` は `self` で足りる。** ブラウザはTypeSafe APIを直接呼ばず、`/api/judge` だけを叩くため。
 

@@ -30,6 +30,7 @@
 			role="tab"
 			type="button"
 			aria-selected={value === mode}
+			aria-controls="mode-panel"
 			tabindex={value === mode ? 0 : -1}
 			class="rounded-md border px-4 py-2 text-sm font-semibold tracking-wide uppercase transition
 				{value === mode
