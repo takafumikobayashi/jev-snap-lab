@@ -282,11 +282,46 @@ Client-visible error shape:
 
 ### 応答ヘッダー
 
-- `Cache-Control: no-store`
-- 可能なら `Content-Type: application/json; charset=utf-8`
-- Content Security Policyを実装フレームワークの方式で設定
-- `X-Content-Type-Options: nosniff`
-- `Referrer-Policy: strict-origin-when-cross-origin`
+| ヘッダー | 導入フェーズ | 実装場所 |
+|---|---|---|
+| `X-Content-Type-Options: nosniff` | Phase 1（実装済み） | `src/hooks.server.ts` |
+| `Referrer-Policy: strict-origin-when-cross-origin` | Phase 1（実装済み） | `src/hooks.server.ts` |
+| `Cache-Control: no-store`（`/api/*`） | Phase 1（実装済み） | `src/hooks.server.ts` |
+| `Content-Type: application/json; charset=utf-8` | Phase 2 | `/api/judge` の `+server.ts` |
+| **Content Security Policy** | **Phase 3** | `vite.config.ts` の `csp` |
+
+### Content Security Policy の実装方式
+
+**`hooks.server.ts` で手書きしない。** SvelteKitはハイドレーション用のインラインスクリプトを自前で生成するため、素の `Content-Security-Policy` ヘッダーを後付けするとページが動かなくなる。SvelteKitの `csp` 設定を使えば、生成した各インライン要素へnonceまたはhashが自動付与される。
+
+設定は `sveltekit()` プラグインへ渡す（`KitConfig` を直接受けるため、`adapter` と同階層）。
+
+```ts
+// vite.config.ts
+sveltekit({
+	adapter: adapter({ maxDuration: 20 }),
+	csp: {
+		mode: 'auto',
+		directives: {
+			'default-src': ['self'],
+			'script-src': ['self'],
+			'connect-src': ['self'],
+			'img-src': ['self', 'data:'],
+			'frame-ancestors': ['none'],
+			'base-uri': ['self'],
+			'form-action': ['self']
+		}
+	}
+})
+```
+
+実装時に注意する点が3つある。
+
+1. **Svelte transition は `style-src` に影響する。** 多くのtransitionはインライン `<style>` を生成するため、UIでtransitionを使う場合は `style-src` を未指定にするか `unsafe-inline` を許可する必要がある。CITYの出典リンク以外に外部リソースを読まない設計なので、`style-src` を未指定のままにして他を締める方針で始める。
+2. **prerenderされたページではCSPが `<meta http-equiv>` で入る。** この場合 `frame-ancestors`、`report-uri`、`sandbox` は無視される。
+3. **`connect-src` は `self` で足りる。** ブラウザはTypeSafe APIを直接呼ばず、`/api/judge` だけを叩くため。
+
+**Phase 3に置く理由。** 空のページへ先にCSPを入れても、違反が起きないため通って当然であり、UIが増えた時点で壊れる。結果カード、favicon、Tailwindの生成CSSが出揃うPhase 3で入れ、以後の実装で違反が出たらその場で気付ける状態にする。Production直前（Phase 6）に後付けすると、最も直したくないタイミングで壊れる。
 
 ## 9. Rate limit / abuse対策
 
@@ -320,6 +355,7 @@ upstreamから429 / 529が返ったときは、公式SDKのbackoffと`retry-afte
   - timeout / 429 / 422を画面が処理する
   - CITYの出典リンクが許可ドメインだけを開く
   - 画面に入力本文が保存されない
+  - CSPヘッダーが付与され、コンソールにCSP違反が出ない
 
 ## 12. 監視の最小項目
 

@@ -93,10 +93,12 @@
 - latency、model、usage推計を表示
 - idle / validating / judging / success / errorを作る
 - モバイル・キーボード・スクリーンリーダー対応
+- `vite.config.ts` に `csp` を設定する（手書きヘッダーではなくSvelteKitの機構を使う。[ARCHITECTURE.md](ARCHITECTURE.md) の §8 を参照）
 
 完了条件:
 
 - モックレスポンスで3モードの画面が崩れず表示される。
+- CSP有効時にハイドレーションが動作し、ブラウザコンソールにCSP違反が出ない。
 - 280文字超過、空白のみ、通信失敗を画面で確認できる。
 - バーの色だけに依存せず数値とラベルが表示される。
 
@@ -134,6 +136,7 @@
 - CITY data test: active recordのsourceRefs、URL allowlist、effective date
 - e2e: 入力→送信→結果、エラー→再試行、モード切替
 - secret scanとclient bundle確認
+- CSPヘッダーが実際に付与され、違反なくページが動作することを確認
 - request本文がログに出ないことを確認
 - p50 / p95 latencyとupstream errorのログを確認
 
@@ -259,6 +262,7 @@ Phase 2とPhase 3はAPI契約を先に固定すれば並行できる。Phase 4 C
 - [ ] `{@html}`を使わずXSSを防ぐ
 - [ ] responseにAPIキー、生レスポンス、内部stack traceを含めない
 - [ ] `Cache-Control: no-store`を設定する
+- [ ] Content Security Policyを設定し、CSP違反なくページが動作する
 
 ### CITY
 
