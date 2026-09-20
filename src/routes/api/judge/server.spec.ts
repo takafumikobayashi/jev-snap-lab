@@ -116,10 +116,11 @@ describe('POST /api/judge', () => {
 				await post({ mode: 'city', text: '家の前の防犯灯が切れてます' })
 			).json()) as JudgeResponse;
 			expect(body.city?.provisional).toBe(false);
-			expect(body.city?.directoryVersion).toBe('akitakata-2026-04-01');
+			expect(body.city?.directoryVersion).toBe('mcity-2026-04-01');
 			expect(body.city?.sources.length).toBeGreaterThan(0);
 			for (const source of body.city?.sources ?? []) {
-				expect(source.url).toMatch(/^https:\/\//);
+				// 架空データの出典は URL を持たない。
+				expect(source.url).toBeNull();
 				expect(source.retrievedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
 			}
 		});
@@ -132,7 +133,7 @@ describe('POST /api/judge', () => {
 				await post({ mode: 'city', text: '家の前の防犯灯が切れてます' })
 			).json()) as JudgeResponse;
 			expect(body.city?.resolvedUnit).toBeDefined();
-			expect(body.city?.resolvedUnit?.officialName).toContain('安芸高田市');
+			expect(body.city?.resolvedUnit?.officialName).toContain('M市');
 		});
 
 		it('LOVE / SOCIAL には city ブロックを付けない', async () => {

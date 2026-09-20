@@ -108,8 +108,8 @@
 			<p
 				class="mt-4 rounded-md border border-neutral-300 px-3 py-2 text-xs text-neutral-600 dark:border-neutral-700 dark:text-neutral-400"
 			>
-				安芸高田市の公開情報をモデルケースにした<strong>技術検証・デモ</strong
-				>です。正式な行政案内ではありません。最終確認は必ず公式窓口へ。
+				<strong>架空の市</strong>をモデルにした<strong>技術検証・デモ</strong
+				>です。実在の自治体の公式案内ではありません。組織名・分掌・条文はすべて架空のものです。
 			</p>
 		{/if}
 
@@ -175,18 +175,23 @@
 								<ul class="mt-2 space-y-1">
 									{#each city.sources as source (source.sourceId)}
 										<li>
-											<!--
-												外部の公式サイトへの固定リンク。URL は静的データ由来で、
-												許可ホストに限られることを contract test で固定している。
-											-->
-											<a
-												href={source.url}
-												target="_blank"
-												rel="noopener noreferrer"
-												class="underline underline-offset-2"
-											>
-												{source.title}
-											</a>
+											{#if source.url}
+												<!--
+													外部の公式サイトへの固定リンク。URL は静的データ由来で、
+													許可ホストに限られることを contract test で固定している。
+													架空データでは URL を持たないためリンクにしない。
+												-->
+												<a
+													href={source.url}
+													target="_blank"
+													rel="noopener noreferrer"
+													class="underline underline-offset-2"
+												>
+													{source.title}
+												</a>
+											{:else}
+												<span>{source.title}</span>
+											{/if}
 											<span class="text-neutral-500">
 												（{source.locator} / 取得日 {source.retrievedAt}{source.effectiveFrom
 													? ` / 有効日 ${source.effectiveFrom}`

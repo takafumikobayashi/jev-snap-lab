@@ -1,3 +1,7 @@
-# allow crawling everything by default
+# 検索エンジンにインデックスさせない。
+#
+# CITY は自治体の担当候補を判定するデモで、公式の行政案内ではない。
+# 「<自治体名> <用件> 担当」のような検索で住民が迷い込み、公式案内と
+# 誤認する経路を塞ぐ（docs/CITY_DATA.md §10）。
 User-agent: *
-Disallow:
+Disallow: /

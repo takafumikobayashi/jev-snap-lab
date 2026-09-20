@@ -77,7 +77,8 @@ export type ResultCard = ChoiceCard | ScoreCard | NoulCard;
 export type CitySource = {
 	sourceId: string;
 	title: string;
-	url: string;
+	/** 架空データでは null。実在の自治体を特定できるため URL を持たせない。 */
+	url: string | null;
 	locator: string;
 	retrievedAt: string;
 	effectiveFrom: string | null;

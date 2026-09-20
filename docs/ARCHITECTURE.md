@@ -106,7 +106,7 @@ question catalog / labels ─────────┴─ server only
 │   └── app.html
 ├── data/
 │   └── city/
-│       └── akitakata-2026-04-01.json
+│       └── mcity-2026-04-01.json
 ├── static/
 ├── tests/
 │   ├── unit/
@@ -285,7 +285,7 @@ Client-visible error shape:
 - Svelteの通常のテキストバインディングで表示し、`{@html}`を使わない。
 - 入力はJevへ渡すだけで、Markdown / HTMLとして解釈しない。
 - 結果ラベルとCITYのURLは静的なカタログからのみ出す。
-- `source.url`は許可した`https://www.akitakata.jp/`または公式例規集ホストだけに制限し、ユーザー入力URLをリンクにしない。
+- `source.url`は許可した`https://www.mcity.jp/`または公式例規集ホストだけに制限し、ユーザー入力URLをリンクにしない。
 - レスポンス本文をそのままDOMへ挿入しない。
 
 ### ログ・保存

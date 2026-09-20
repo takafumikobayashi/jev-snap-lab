@@ -21,3 +21,9 @@ Thumbs.db
 # Vite
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# 実在の自治体データと、その匿名化に使う対応表。
+# 公開リポジトリには架空データ（data/city/fictional-*.json）だけを置く。
+# 詳細は docs/CITY_DATA.md の §10。
+/data/city/local-*.json
+/scripts/*.local.json

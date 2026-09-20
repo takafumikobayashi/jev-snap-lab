@@ -8,19 +8,30 @@ import {
 	resolveUnit,
 	routeCandidates,
 	routeCriteria,
+	isFictional,
 	routeLabels,
 	sourcesFor
 } from './city-directory.server';
 import { MAX_CHOICE_OPTIONS } from './question-validation.server';
 
 const directory = getDirectory();
-const ALLOWED_HOSTS = ['www.akitakata.jp', 'www1.g-reiki.net'];
 
 describe('city-directory.json の健全性', () => {
-	it('安芸高田市のデータである', () => {
-		expect(directory.jurisdiction).toBe('akitakata');
-		expect(jurisdictionName()).toBe('安芸高田市');
-		expect(directoryVersion()).toBe('akitakata-2026-04-01');
+	it('既定は架空の自治体データである', () => {
+		// CITY_DIRECTORY の設定漏れで実在の自治体データが公開されないよう、
+		// 既定値を架空版にしている（docs/CITY_DATA.md §10）。
+		expect(isFictional()).toBe(true);
+		expect(directory.jurisdiction).toBe('mcity');
+		expect(jurisdictionName()).toBe('M市');
+		expect(directoryVersion()).toBe('mcity-2026-04-01');
+	});
+
+	it('架空データに外部 URL が含まれない', () => {
+		// リンク先から実在の自治体が判明するため、架空版には URL を残さない。
+		// 実在の固有名詞そのものの検出は、対応表を持つ生成スクリプト
+		// （scripts/build-fictional-city.mjs）が担当する。このリポジトリに
+		// 実名を書かないため、ここでは構造だけを見る。
+		expect(JSON.stringify(directory)).not.toMatch(/https?:\/\//);
 	});
 
 	it('取得日と有効日を持つ', () => {
@@ -28,13 +39,20 @@ describe('city-directory.json の健全性', () => {
 		expect(directory.effectiveFrom).toMatch(/^\d{4}-\d{2}-\d{2}$/);
 	});
 
-	it('出典 URL が許可ホストに限られる', () => {
-		// ユーザー入力由来の URL をリンクにしない（docs/ARCHITECTURE.md §8）。
+	it('架空データの出典は URL を持たない', () => {
+		// リンク先から実在の自治体が判明するため、架空版では URL を落とす。
 		for (const source of directory.sourceIndex) {
-			const url = new URL(source.url);
-			expect(url.protocol, source.sourceId).toBe('https:');
-			expect(ALLOWED_HOSTS, source.sourceId).toContain(url.hostname);
+			expect(source.url, source.sourceId).toBeNull();
 		}
+	});
+
+	it('URL を持つ場合は https に限る', () => {
+		// 手元で実データを使うときの防波堤（docs/ARCHITECTURE.md §8）。
+		// 架空データでは URL が無いため、対象ゼロでも成立するよう件数で示す。
+		const withUrl = directory.sourceIndex.filter((source) => source.url !== null);
+		expect(withUrl.every((source) => new URL(source.url as string).protocol === 'https:')).toBe(
+			true
+		);
 	});
 
 	it('すべての organization の sourceRefs が sourceIndex に存在する', () => {
@@ -181,9 +199,9 @@ describe('resolveUnit', () => {
 describe('sourcesFor', () => {
 	it('候補に組織ページと事務組織規則の両方を付ける', () => {
 		const sources = sourcesFor('crisis_management');
-		expect(sources.map((s) => s.sourceId).sort()).toEqual(
-			['akitakata-organization-page-2026-06-01', 'akitakata-business-rules-2026-04-01'].sort()
-		);
+		expect(sources).toHaveLength(2);
+		expect(sources.some((source) => source.sourceId.includes('organization-page'))).toBe(true);
+		expect(sources.some((source) => source.sourceId.includes('business-rules'))).toBe(true);
 	});
 
 	it('出典に取得日と根拠箇所が入る', () => {

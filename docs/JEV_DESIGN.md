@@ -200,7 +200,7 @@ Noulは `romantic_frame` と意図的に重複させない。「別れ」「未�
 {
   "mode": "city",
   "text": "家の前の防犯灯が切れてます",
-  "jurisdiction": "安芸高田市"
+  "jurisdiction": "M市"
 }
 ```
 
@@ -219,7 +219,7 @@ Noulは `romantic_frame` と意図的に重複させない。「別れ」「未�
 | `urgency` | Score | 緊急度 | 0: 通常、1: 近日確認、2: 当日確認が望ましい、3: 人身・重大な安全への即時リスクを含む可能性。サービスのSLAではない。 |
 | `onsite_visit_likely` | Noul | 現地確認要否 | true: 現地の状態・位置・設備を確認する必要がありそう、false: 文面だけで一次案内できそう。 |
 | `human_review_likely` | Noul | 人による確認要否 | true: 事実、資格、個人情報、例外、権限などの確認が必要そう、false: それらを含まない。 |
-| `cross_department_likely` | Noul | 他課連携要否 | true: 複数課、支所、警察、県、広島県水道広域連合企業団などへの連携がありそう、false: 単一候補で閉じそう。 |
+| `cross_department_likely` | Noul | 他課連携要否 | true: 複数課、支所、警察、県、H県水道広域連合企業団などへの連携がありそう、false: 単一候補で閉じそう。 |
 | `location_information_missing` | Noul | 位置情報不足 | true: 担当判断に町名、施設名、番地などが必要だが文面にない、false: 位置情報が十分、または位置不要。 |
 | `emergency_signal` | Noul | 緊急性の明示 | true: 火災、事故、人身危険、犯罪進行中等の即時性を明示、false: そうした明示なし。アプリは通報を実行しない。 |
 

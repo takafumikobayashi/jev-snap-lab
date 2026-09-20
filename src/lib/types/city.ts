@@ -8,7 +8,8 @@
 export type CitySourceRecord = {
 	sourceId: string;
 	title: string;
-	url: string;
+	/** 架空データでは null。 */
+	url: string | null;
 	sourceType: 'organization_page' | 'ordinance' | 'rule' | 'council_material';
 	locator: string;
 	publishedOrUpdatedAt: string | null;
@@ -54,6 +55,13 @@ export type CityCategory = {
 
 export type CityDirectory = {
 	schemaVersion: '1';
+	/**
+	 * 架空の自治体データか。
+	 *
+	 * 公開用のデータセットは実在の自治体の公開情報をもとに生成した架空
+	 * データで、条文も実物ではない。UI はこれを明示する（docs/CITY_DATA.md §10）。
+	 */
+	fictional?: boolean;
 	jurisdiction: string;
 	displayName: string;
 	effectiveFrom: string;

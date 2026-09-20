@@ -28,7 +28,7 @@
 - Vercelの契約プランにおける関数 `maxDuration` の既定値と上限を確認する（設定先は `vite.config.ts` のアダプタ設定とルートの `export const config`。`vercel.json` の `functions` グロブは adapter-vercel では効かない）
 - `jev-latest`と`jev-1.13.0`の応答shapeを確認
 - 日本語のLOVE / SOCIAL / CITY入力で質問群を試行
-- 安芸高田市の公式組織ページと令和8年4月1日施行の事務組織規則の差分を再確認
+- M市の公式組織ページと令和8年4月1日施行の事務組織規則の差分を再確認
 - CITY初期データの係・分掌を完全にJSON化
 
 完了条件:

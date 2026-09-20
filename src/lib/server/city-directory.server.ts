@@ -5,11 +5,47 @@
  * 回答と根拠データのバージョンを再現できるようにするため（docs/CITY_DATA.md §7）。
  */
 
-import directoryJson from '../../../data/city/akitakata-2026-04-01.json';
+import { env } from '$env/dynamic/private';
 import type { CityDirectory, CityOrganizationUnit, CityResponsibility } from '$lib/types/city';
 import type { CitySource } from '$lib/types/judge';
 
-const directory = directoryJson as CityDirectory;
+/**
+ * 公開用の既定データセット。架空の自治体で、出典 URL を持たない。
+ *
+ * 既定値を架空版にしてあるのは fail-safe のため。`CITY_DIRECTORY` の
+ * 設定漏れで実在の自治体データが公開されることがない。
+ */
+const DEFAULT_DIRECTORY = 'fictional-m-city';
+
+/**
+ * `data/city/` 配下の JSON を全て取り込み、名前で選ぶ。
+ *
+ * 実在の自治体データ（`local-*.json`）はリポジトリに含めないため、
+ * 手元にファイルが無い環境でもビルドが通るよう glob で解決する。
+ */
+const files = import.meta.glob('../../../data/city/*.json', { eager: true }) as Record<
+	string,
+	{ default: CityDirectory }
+>;
+
+function loadDirectory(): CityDirectory {
+	const name = env.CITY_DIRECTORY?.trim() || DEFAULT_DIRECTORY;
+	const entry = Object.entries(files).find(([path]) => path.endsWith(`/${name}.json`));
+	if (!entry) {
+		const available = Object.keys(files)
+			.map((path) => path.split('/').pop()?.replace('.json', ''))
+			.join(', ');
+		throw new Error(`CITY_DIRECTORY "${name}" が見つからない。利用可能: ${available}`);
+	}
+	return entry[1].default;
+}
+
+const directory = loadDirectory();
+
+/** 架空データを使っているか。UI の注意表示に使う。 */
+export function isFictional(): boolean {
+	return directory.fictional === true;
+}
 
 /** 候補を絞り込めない場合のキー。route_to に必ず含める。 */
 export const OTHER_OR_UNCLEAR = 'other_or_unclear';

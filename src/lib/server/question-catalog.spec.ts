@@ -239,6 +239,6 @@ describe('CITY データの出所', () => {
 	});
 
 	it('バージョンに管轄と施行日が入る', () => {
-		expect(CITY_DIRECTORY_VERSION).toBe('akitakata-2026-04-01');
+		expect(CITY_DIRECTORY_VERSION).toBe('mcity-2026-04-01');
 	});
 });
