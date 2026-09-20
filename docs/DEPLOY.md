@@ -113,4 +113,11 @@ Productionのデプロイ後も `pnpm check:deployment` を回す。`PUBLIC_SITE
 
 - 月次: Jevのmodel、料金、rate limit、SDK changelogを確認（[IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) の §7）
 - 四半期: CITYの組織ページと例規集の施行日を確認（[CITY_DATA.md](CITY_DATA.md) の §7）
-- データを更新したら `pnpm city:build` で架空版を再生成し、`pnpm city:check-leak` を回してから push する
+- データを更新したら架空版を再生成し、`pnpm city:check-leak` を回してから push する
+
+  ```bash
+  pnpm city:build data/city/local-<自治体>-<施行日>.json
+  pnpm city:check-leak
+  ```
+
+  対応表（`scripts/city-name-map.local.json`）と出力先（`data/city/fictional-m-city.json`）は既定値を使う。元データのパスだけ渡す。ファイル名に自治体名と施行日が入るため、`package.json` へ既定値として書くとそれ自体が漏えいになる。

@@ -71,6 +71,24 @@ function run(extra = '') {
 }
 
 describe('build-fictional-city', () => {
+	it('元データのパスが無ければ usage を出して終了する', () => {
+		// 既定値を持たせない。ファイル名に自治体名と施行日が入るため、
+		// package.json へ書くとそれ自体がコミット対象への漏えいになる。
+		let status = 0;
+		let stderr = '';
+		try {
+			execFileSync('node', [SCRIPT], { stdio: 'pipe' });
+		} catch (error) {
+			status = error.status;
+			stderr = String(error.stderr);
+		}
+		expect(status).toBe(1);
+		expect(stderr).toContain('usage:');
+		// 対応表と出力先は既定値を案内する。
+		expect(stderr).toContain('scripts/city-name-map.local.json');
+		expect(stderr).toContain('data/city/fictional-m-city.json');
+	});
+
 	it('検査を通れば出力する', () => {
 		const { status, outPath } = run();
 		expect(status).toBe(0);

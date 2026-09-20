@@ -5,16 +5,30 @@
  * .gitignore で除外しており、精度の検証は手元でのみ行う
  * （docs/CITY_DATA.md §10）。
  *
- *   node scripts/build-fictional-city.mjs \
- *     data/city/local-<source>.json scripts/city-name-map.local.json \
- *     data/city/fictional-m-city.json
+ *   pnpm city:build data/city/local-<自治体>-<施行日>.json
+ *
+ * 対応表と出力先は既定値を使う。元データのパスだけ渡す。
  */
 
 import { readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 
-const [, , sourcePath, mapPath, outPath] = process.argv;
-if (!sourcePath || !mapPath || !outPath) {
-	console.error('usage: build-fictional-city.mjs <source.json> <map.json> <out.json>');
+/**
+ * 対応表と出力先は既定値を持つ。どちらも自治体を特定しない固定のパスで、
+ * データ更新でも変わらない。
+ *
+ * 一方、元データのパスに既定値は置かない。ファイル名に自治体名と施行日が
+ * 入るため、ここへ書くと package.json 経由で実在の自治体名がコミット対象へ
+ * 載る（check-no-leak がそれを検出する）。更新のたびに名前も変わる。
+ */
+const DEFAULT_MAP = 'scripts/city-name-map.local.json';
+const DEFAULT_OUT = 'data/city/fictional-m-city.json';
+
+const [, , sourcePath, mapPath = DEFAULT_MAP, outPath = DEFAULT_OUT] = process.argv;
+if (!sourcePath) {
+	console.error('usage: build-fictional-city.mjs <source.json> [map.json] [out.json]');
+	console.error(`  map の既定: ${DEFAULT_MAP}`);
+	console.error(`  out の既定: ${DEFAULT_OUT}`);
+	console.error('  元データは手元専用のため既定値を持たない（data/city/local-*.json）。');
 	process.exit(1);
 }
 

@@ -1,5 +1,6 @@
 {
 	"schemaVersion": "1",
+	"fictional": true,
 	"jurisdiction": "mcity",
 	"displayName": "M市",
 	"effectiveFrom": "2026-04-01",
@@ -6803,6 +6804,5 @@
 			"id": "other",
 			"label": "その他・判定不能"
 		}
-	],
-	"fictional": true
+	]
 }
