@@ -27,3 +27,8 @@ vite.config.ts.timestamp-*
 # 詳細は docs/CITY_DATA.md の §10。
 /data/city/local-*.json
 /scripts/*.local.json
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/

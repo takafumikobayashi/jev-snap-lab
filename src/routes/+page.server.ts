@@ -1,4 +1,5 @@
 import type { PageServerLoad } from './$types';
+import { env } from '$env/dynamic/public';
 import { isFictional } from '$lib/server/city-directory.server';
 
 /**
@@ -8,5 +9,8 @@ import { isFictional } from '$lib/server/city-directory.server';
  * 逆方向の誤解（架空データを実在の自治体と思わせる）と同じくらい良くない。
  */
 export const load: PageServerLoad = () => {
-	return { cityFictional: isFictional() };
+	return {
+		cityFictional: isFictional(),
+		siteUrl: env.PUBLIC_SITE_URL?.trim().replace(/\/$/, '') ?? ''
+	};
 };

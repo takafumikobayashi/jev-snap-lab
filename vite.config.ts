@@ -31,9 +31,13 @@ export default defineConfig({
 					'object-src': ['none'],
 					'base-uri': ['self'],
 					'form-action': ['self'],
-					'frame-ancestors': ['none']
-					// style-src は指定しない。Svelte の transition はインライン
-					// <style> を生成するため、締めると動かなくなる。
+					'frame-ancestors': ['none'],
+					// **明示的に指定する。** 未指定にすると dev では SvelteKit が
+					// 'unsafe-inline' を補うが、本番ビルドでは style-src 自体が
+					// 出力されず default-src へフォールバックし、インライン style が
+					// ブロックされる。結果カードのバーは幅と色を style 属性で
+					// 与えているため、本番だけ描画が壊れていた（E2E で検出）。
+					'style-src': ['self', 'unsafe-inline']
 				}
 			}
 		})

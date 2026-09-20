@@ -109,6 +109,8 @@ question catalog / labels ─────────┴─ server only
 │       ├── fictional-m-city.json   # 公開用。コミットする
 │       └── local-*.json             # 実データ。gitignore（§9 of CITY_DATA）
 ├── static/
+│   ├── og-image.png
+│   └── robots.txt
 ├── tests/
 │   ├── unit/
 │   ├── contract/
@@ -137,6 +139,7 @@ question catalog / labels ─────────┴─ server only
 | `APP_RATE_LIMIT_PER_MINUTE` | No | アプリ側のbest-effort上限 | No |
 | `CITY_DIRECTORY` | No | CITYのデータセット名。既定は架空データ `fictional-m-city`（[CITY_DATA.md](CITY_DATA.md) の §9） | No |
 | `CITY_SOURCE_HOSTS` | No | 出典URLに許可するホスト（カンマ区切り）。未設定ならURLを持つ出典を許さない | No |
+| `PUBLIC_SITE_URL` | No | OGP画像の絶対URL生成用。未設定時は相対URL | Yes |
 | `PUBLIC_APP_LABEL` | No | CITYのデモ注意文など公開可能な表示設定 | Yes可 |
 
 `.env`はコミットしない。VercelではPreview / Productionごとに分離する。`PUBLIC_` prefix以外の秘密はSvelteのpublic env importへ渡さない。
@@ -335,18 +338,25 @@ sveltekit({
 
 実装時に注意する点が3つある。
 
-1. **Svelte transition は `style-src` に影響する。** 多くのtransitionはインライン `<style>` を生成するため、UIでtransitionを使う場合は `style-src` を未指定にするか `unsafe-inline` を許可する必要がある。本プロジェクトは `style-src` を指定せず、他のディレクティブを締める方針を採る。
+1. **`style-src` は明示的に指定する。** 未指定にすると、dev では SvelteKit が `'unsafe-inline'` を補うが、**本番ビルドでは補われず `default-src` へフォールバックし、インライン `style` 属性がブロックされる**。結果カードのバーは幅と色を `style` 属性で与えているため、本番だけ描画が壊れる。実際にこの状態でPhase 3を終えており、Phase 5のE2Eで検出した。
 
-   **未指定にすると SvelteKit が `style-src 'self' 'unsafe-inline'` を補う。** 実際のレスポンスヘッダーで確認した値は次のとおりで、「`style-src` が出力されない」わけではない。
+   ```ts
+   'style-src': ['self', 'unsafe-inline']
+   ```
+
+   `'unsafe-inline'` を含めると、SvelteKit はスタイルにhash/nonceを付ける必要がないと判断する（`style_needs_csp` が false になる）。Svelte の transition もインライン `<style>` を生成するため、いずれにせよ許可が要る。
+
+   実際のレスポンスヘッダーで確認した値は次のとおり。
 
    ```text
    content-security-policy: default-src 'self'; connect-src 'self'; font-src 'self';
      img-src 'self' data:; object-src 'none';
-     script-src 'self' 'nonce-…'; base-uri 'self'; form-action 'self';
-     frame-ancestors 'none'; style-src 'self' 'unsafe-inline'
+     script-src 'self' 'nonce-…'; style-src 'self' 'unsafe-inline';
+     base-uri 'self'; form-action 'self'; frame-ancestors 'none'
    ```
 
-   `style-src` がゆるい分、`script-src` を nonce で締めることと `object-src 'none'` / `base-uri 'self'` / `form-action 'self'` を効かせることで XSS の実害を抑える。インラインスタイルを締めたい場合は transition の利用をやめる必要があり、MVPでは割に合わない。
+   `style-src` がゆるい分、`script-src` を nonce で締めることと `object-src 'none'` / `base-uri 'self'` / `form-action 'self'` を効かせることで XSS の実害を抑える。
+
 2. **prerenderされたページではCSPが `<meta http-equiv>` で入る。** この場合 `frame-ancestors`、`report-uri`、`sandbox` は無視される。
 3. **`connect-src` は `self` で足りる。** ブラウザはTypeSafe APIを直接呼ばず、`/api/judge` だけを叩くため。
 
