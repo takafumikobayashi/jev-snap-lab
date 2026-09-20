@@ -19,6 +19,13 @@ import type { QuestionCatalog } from './question-catalog.server';
  */
 const PROBABILITY_SUM_TOLERANCE = 1e-3;
 
+/** トークン数は 0 以上の有限な整数で返る。 */
+function assertTokenCount(value: unknown, where: string): void {
+	if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+		throw contractError(`${where} が 0 以上の数値でない`);
+	}
+}
+
 /** 上流の応答が契約に反した場合。再試行可能な上流障害として扱う。 */
 function contractError(detail: string): JudgeError {
 	return new JudgeError('UPSTREAM_UNAVAILABLE', `Jev レスポンスの契約違反: ${detail}`);
@@ -29,6 +36,32 @@ function assertProbability(value: unknown, where: string): number {
 		throw contractError(`${where} の確率が 0..1 の数値でない`);
 	}
 	return value;
+}
+
+/**
+ * オブジェクトのキー集合が期待と完全に一致するか。
+ *
+ * 必要なキーの存在だけを見ると、余分なキーや想定外のキーを見逃す。
+ * 上流が別の尺度で答えている可能性があるため、過不足の両方を見る。
+ */
+function assertExactKeys(
+	value: unknown,
+	expected: string[],
+	where: string
+): Record<string, unknown> {
+	if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+		throw contractError(`${where} がオブジェクトでない`);
+	}
+	const record = value as Record<string, unknown>;
+	const actual = Object.keys(record);
+	const missing = expected.filter((key) => !actual.includes(key));
+	const unexpected = actual.filter((key) => !expected.includes(key));
+	if (missing.length > 0 || unexpected.length > 0) {
+		throw contractError(
+			`${where} のキーが一致しない (欠落: ${missing.join(',') || 'なし'} / 余分: ${unexpected.join(',') || 'なし'})`
+		);
+	}
+	return record;
 }
 
 function assertProbabilitySum(probabilities: number[], where: string): void {
@@ -45,20 +78,7 @@ function normalizeChoice(
 	catalog: QuestionCatalog
 ): ChoiceCard {
 	const criteriaKeys = Object.keys(question.criteria);
-	const probabilities = answer.probabilities;
-
-	if (probabilities === null || typeof probabilities !== 'object') {
-		throw contractError(`${id} の probabilities がオブジェクトでない`);
-	}
-
-	const returnedKeys = Object.keys(probabilities as Record<string, unknown>);
-	const missing = criteriaKeys.filter((key) => !returnedKeys.includes(key));
-	const unexpected = returnedKeys.filter((key) => !criteriaKeys.includes(key));
-	if (missing.length > 0 || unexpected.length > 0) {
-		throw contractError(
-			`${id} の候補が一致しない (欠落: ${missing.join(',') || 'なし'} / 余分: ${unexpected.join(',') || 'なし'})`
-		);
-	}
+	const record = assertExactKeys(answer.probabilities, criteriaKeys, `${id} の候補`);
 
 	const selected = answer.choice;
 	if (typeof selected !== 'string' || !criteriaKeys.includes(selected)) {
@@ -67,7 +87,6 @@ function normalizeChoice(
 	}
 
 	const labels = catalog.optionLabels[id] ?? {};
-	const record = probabilities as Record<string, unknown>;
 	const options = criteriaKeys.map((key) => ({
 		key,
 		label: labels[key] ?? key,
@@ -109,23 +128,14 @@ function normalizeScore(
 		);
 	}
 
-	const legend = answer.legend;
-	if (legend === null || typeof legend !== 'object') {
-		throw contractError(`${id} の legend がオブジェクトでない`);
-	}
-	if (Object.keys(legend as Record<string, unknown>).length !== levelCount) {
-		throw contractError(`${id} の legend の段数が送った criteria と一致しない`);
-	}
+	// レベル番号は 0 始まりの連番。余分なキーや飛びを許さない。
+	const levels = Array.from({ length: levelCount }, (_, level) => String(level));
+	assertExactKeys(answer.legend, levels, `${id}.legend`);
+	const record = assertExactKeys(answer.probabilities, levels, `${id}.probabilities`);
 
-	const probabilities = answer.probabilities;
-	if (probabilities === null || typeof probabilities !== 'object') {
-		throw contractError(`${id} の probabilities がオブジェクトでない`);
-	}
-
-	const record = probabilities as Record<string, unknown>;
 	const byLevel: Record<string, number> = {};
-	for (let level = 0; level < levelCount; level += 1) {
-		byLevel[String(level)] = assertProbability(record[String(level)], `${id}.${level}`);
+	for (const level of levels) {
+		byLevel[level] = assertProbability(record[level], `${id}.${level}`);
 	}
 	assertProbabilitySum(Object.values(byLevel), id);
 
@@ -198,7 +208,20 @@ export function normalizeAnswers(
 	catalog: QuestionCatalog,
 	result: SystemOneResult<Questions>
 ): ResultCard[] {
-	const answers = result.answers as Record<string, unknown>;
+	// 上流の応答の骨格から確認する。null や配列が来た場合に内部例外へ
+	// 流さず、契約違反として扱う。
+	if (typeof result.model !== 'string' || result.model.length === 0) {
+		throw contractError('model が空でない文字列でない');
+	}
+	assertTokenCount(result.usage?.input_tokens, 'usage.input_tokens');
+	assertTokenCount(result.usage?.output_tokens, 'usage.output_tokens');
+
+	const source = result.answers as unknown;
+	if (source === null || typeof source !== 'object' || Array.isArray(source)) {
+		throw contractError('answers がオブジェクトでない');
+	}
+
+	const answers = source as Record<string, unknown>;
 	const cards: ResultCard[] = [];
 
 	for (const [id, question] of Object.entries(catalog.questions)) {

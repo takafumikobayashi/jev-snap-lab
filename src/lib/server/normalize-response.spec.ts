@@ -92,13 +92,13 @@ describe('normalizeAnswers', () => {
 		it('候補が欠けていたら拒否する', () => {
 			const answers = goodAnswers();
 			answers.frame.probabilities = { a: 0.3, b: 0.7 };
-			expectFailure(answers, '候補が一致しない');
+			expectFailure(answers, 'キーが一致しない');
 		});
 
 		it('余分な候補が返ったら拒否する', () => {
 			const answers = goodAnswers();
 			answers.frame.probabilities = { a: 0.1, b: 0.6, c: 0.2, d: 0.1 };
-			expectFailure(answers, '候補が一致しない');
+			expectFailure(answers, 'キーが一致しない');
 		});
 
 		it('確率の合計が 1 から離れていたら拒否する', () => {
@@ -120,6 +120,49 @@ describe('normalizeAnswers', () => {
 		});
 	});
 
+	describe('レスポンスの骨格', () => {
+		const expectShapeFailure = (mutate: (r: Record<string, unknown>) => void, fragment: string) => {
+			const raw = result(goodAnswers()) as unknown as Record<string, unknown>;
+			mutate(raw);
+			expect(() => normalizeAnswers(catalog(), raw as never)).toThrow(fragment);
+		};
+
+		it('answers が配列なら拒否する', () => {
+			// 無条件に Record として扱うと内部例外へ流れてしまう。
+			expectShapeFailure((r) => (r.answers = []), 'answers');
+		});
+
+		it('answers が null なら拒否する', () => {
+			expectShapeFailure((r) => (r.answers = null), 'answers');
+		});
+
+		it('model が空文字なら拒否する', () => {
+			expectShapeFailure((r) => (r.model = ''), 'model');
+		});
+
+		it('model が文字列でなければ拒否する', () => {
+			expectShapeFailure((r) => (r.model = 42), 'model');
+		});
+
+		it('usage が欠けていたら拒否する', () => {
+			expectShapeFailure((r) => delete r.usage, 'usage');
+		});
+
+		it('input_tokens が数値でなければ拒否する', () => {
+			expectShapeFailure(
+				(r) => (r.usage = { input_tokens: 'x', output_tokens: 1 }),
+				'input_tokens'
+			);
+		});
+
+		it('output_tokens が負なら拒否する', () => {
+			expectShapeFailure(
+				(r) => (r.usage = { input_tokens: 1, output_tokens: -1 }),
+				'output_tokens'
+			);
+		});
+	});
+
 	describe('Score', () => {
 		it('小数の score をそのまま保持する', () => {
 			const [, card] = normalizeAnswers(catalog(), result(goodAnswers()));
@@ -135,10 +178,29 @@ describe('normalizeAnswers', () => {
 			expect(JSON.stringify(card.legend)).not.toContain('Middle');
 		});
 
-		it('legend の段数が違ったら拒否する', () => {
+		it('legend のキーが欠けていたら拒否する', () => {
 			const answers = goodAnswers();
 			answers.level.legend = { 0: 'Low.', 1: 'High.' };
-			expectFailure(answers, 'legend の段数');
+			expectFailure(answers, 'legend');
+		});
+
+		it('legend に余分なキーがあったら拒否する', () => {
+			// 段数が合っていても、別の尺度で答えている可能性がある。
+			const answers = goodAnswers();
+			answers.level.legend = { 0: 'Low.', 1: 'Middle.', 3: 'Other.' };
+			expectFailure(answers, '余分');
+		});
+
+		it('probabilities に余分なレベルがあったら拒否する', () => {
+			const answers = goodAnswers();
+			answers.level.probabilities = { 0: 0.0, 1: 0.95, 2: 0.05, 3: 0 };
+			expectFailure(answers, '余分');
+		});
+
+		it('probabilities のレベルが飛んでいたら拒否する', () => {
+			const answers = goodAnswers();
+			answers.level.probabilities = { 0: 0.0, 1: 0.95, 5: 0.05 };
+			expectFailure(answers, 'キーが一致しない');
 		});
 
 		it('score がレベル範囲外なら拒否する', () => {

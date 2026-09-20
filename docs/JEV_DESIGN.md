@@ -409,8 +409,9 @@ estimatedCostUsd = input_tokens / 1_000_000 * 0.042
 - リクエストボディのサイズ上限を、JSONへ変換する**前**に適用する。文字数の検証だけでは、巨大なボディを読み込んだ後にしか弾けない。
 - stateにユーザー入力と固定モード文字列以外の任意オブジェクトを受け付けない。
 - **送信前**に、組み立てた質問の `criteria` が type ごとの形（Choice=map、Score=array、Noul={true,false}）に一致することを検証する。Scoreは2〜10要素、Choiceは255候補以下。ここで弾けば422を事前に防げる。
-- レスポンスの `answers` のtype、probability範囲、Scoreのlegend、必須質問キーをサーバー側で検証する。
-- Scoreの `legend` のキー数が送信した `criteria` の要素数と一致することを検証する。
+- レスポンスの骨格から検証する。`model` が空でない文字列、`usage.input_tokens` と `output_tokens` が0以上の数値、`answers` がオブジェクト（null や配列でない）であること。ここを飛ばすと、壊れた応答が内部例外として現れて原因が追えない。
+- `answers` のtype、probability範囲、必須質問キーを検証する。
+- **キー集合は完全一致で見る。** Choiceの `probabilities` は送った候補と、Scoreの `legend` と `probabilities` は0始まりの連番と、それぞれ過不足なく一致すること。必要なキーの存在だけを見ると、余分なキーや飛びを見逃す。上流が別の尺度で答えている可能性がある。
 - probabilityの合計は浮動小数誤差を許容した範囲で検証し、異常なら結果を表示せず再試行可能なエラーにする。
 - `choice`がcriteriaに存在しない場合はデータ/SDKの契約違反としてエラーにする。
 
