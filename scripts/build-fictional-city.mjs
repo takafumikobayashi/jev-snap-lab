@@ -108,11 +108,35 @@ function extractCandidates(value, into = new Set()) {
 
 const allowGeneric = new Set(map.allowGeneric ?? []);
 const froms = replacements.map(([from]) => from);
-const tos = replacements.map(([, to]) => to);
+/** 長い語から順に落とす。短い語が先に当たって残りを取りこぼすのを防ぐ。 */
+const tos = replacements.map(([, to]) => to).sort((a, b) => b.length - a.length);
 
-// 1. 元データの候補がすべて分類済みか。
-const unclassified = [...extractCandidates(source)]
-	.filter((candidate) => !froms.some((from) => candidate.includes(from)))
+/**
+ * 既知の語を空白へ落とす。
+ *
+ * 候補の判定に `candidate.includes(known)` を使ってはいけない。候補の正規表現は
+ * 貪欲なので、1つのマッチが複数の固有名詞をまたぐ。`青空市から未分類市` は
+ * 丸ごと1件のマッチになり、既知の `青空市` を含むという理由で分類済みと
+ * 見なされて `未分類市` が素通りしていた（実際に再現した）。
+ *
+ * 既知の語を先に消し、**残りかす**から候補を拾い直す。空白は候補パターンの
+ * 文字クラスから除外されているため、語の区切りとして働く。
+ */
+function blank(value, terms) {
+	if (typeof value === 'string') {
+		let out = value;
+		for (const term of terms) out = out.split(term).join(' ');
+		return out;
+	}
+	if (Array.isArray(value)) return value.map((item) => blank(item, terms));
+	if (value && typeof value === 'object') {
+		return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, blank(v, terms)]));
+	}
+	return value;
+}
+
+// 1. 元データの候補がすべて分類済みか。置換対象を落とした残りを見る。
+const unclassified = [...extractCandidates(blank(source, froms))]
 	.filter((candidate) => !allowGeneric.has(candidate))
 	.sort();
 
@@ -123,9 +147,9 @@ const leaked = [...new Set([...froms, ...(map.forbiddenTerms ?? [])])].filter((t
 );
 
 // 3. 出力側の候補も分類済みか（置換で生じた新しい名称を拾う）。
-const outputUnknown = [...extractCandidates(directory)]
+//    置換後の名前を落とした残りを見る。ここも includes では素通りする。
+const outputUnknown = [...extractCandidates(blank(directory, tos))]
 	.filter((candidate) => !allowGeneric.has(candidate))
-	.filter((candidate) => !tos.some((to) => candidate.includes(to)))
 	.sort();
 
 console.log(`organizations: ${directory.organizations.length}`);

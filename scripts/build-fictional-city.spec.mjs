@@ -55,12 +55,12 @@ const map = {
 	forbiddenTerms: []
 };
 
-function run(extra = '') {
+function run(extra = '', overrides = {}) {
 	const sourcePath = join(dir, 'source.json');
 	const mapPath = join(dir, 'map.json');
 	const outPath = join(dir, 'out.json');
 	writeFileSync(sourcePath, JSON.stringify(source(extra)));
-	writeFileSync(mapPath, JSON.stringify(map));
+	writeFileSync(mapPath, JSON.stringify({ ...map, ...overrides }));
 	let status = 0;
 	try {
 		execFileSync('node', [SCRIPT, sourcePath, mapPath, outPath], { stdio: 'pipe' });
@@ -93,6 +93,36 @@ describe('build-fictional-city', () => {
 		const { status, outPath } = run();
 		expect(status).toBe(0);
 		expect(JSON.parse(readFileSync(outPath, 'utf8')).fictional).toBe(true);
+	});
+
+	it('既知の名前と並んだ未分類の名前を見逃さない', () => {
+		// 候補の正規表現は貪欲なので「甲市から未分類市」が丸ごと1件の
+		// マッチになる。`candidate.includes('甲市')` で分類済みと見なすと
+		// 未分類市 が素通りする（実際に再現した）。
+		const { status, outPath } = run('甲市から未分類市との連絡調整に関すること。');
+		expect(status).toBe(1);
+		expect(existsSync(outPath)).toBe(false);
+	});
+
+	it('並んだ名前が両方とも分類済みなら通す', () => {
+		// 厳しくしすぎて、正しく登録済みの組み合わせまで落とさないこと。
+		const { status, outPath } = run('甲市から乙市との連絡調整に関すること。', {
+			replacements: [
+				['甲市', 'M市'],
+				['乙市', 'N市']
+			]
+		});
+		expect(status).toBe(0);
+		expect(JSON.parse(readFileSync(outPath, 'utf8')).organizations[0].publicSummary).toContain(
+			'M市からN市'
+		);
+	});
+
+	it('置換後の名前に隠れた未分類の名前も見逃さない', () => {
+		// 出力側の検査も includes では素通りする。置換後の名前を落とした
+		// 残りかすを見る必要がある。
+		const { status } = run('甲市と未分類町の連絡調整に関すること。');
+		expect(status).toBe(1);
 	});
 
 	it('未分類の固有名詞があれば出力先を書き換えない', () => {
