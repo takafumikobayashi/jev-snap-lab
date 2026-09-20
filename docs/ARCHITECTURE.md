@@ -47,7 +47,7 @@ MVPは **SvelteKit + TypeScript + Tailwind CSS + Vercel + TypeSafe公式JavaScri
 └───────────────────────────────┘
 
 Repository static data:
-city-directory.json ──────────────┐
+data/city/*.json ─────────────────┐
 question catalog / labels ─────────┴─ server only
 ```
 
@@ -56,7 +56,7 @@ question catalog / labels ─────────┴─ server only
 1. ブラウザは入力文とモードだけを `POST /api/judge` へ送る。
 2. server routeが `Content-Type: application/json`、mode enum、280 code points、空白のみを検証する。
 3. `questionCatalog` がモードの質問を返す。
-4. CITYでは `city-directory.json` の activeな組織単位から `route_to.criteria`を生成する。
+4. CITYでは読み込んだデータセットの activeな組織単位から `route_to.criteria`を生成する。
 5. Jev公式SDKをserver-only moduleで呼び出す。
 6. SDKの応答を、TypeSafe生型の検証後に `JudgeResponse`へ正規化する。
 7. CITYでは `route_to`の候補IDを静的データへjoinし、根拠情報を付加する。
@@ -106,7 +106,8 @@ question catalog / labels ─────────┴─ server only
 │   └── app.html
 ├── data/
 │   └── city/
-│       └── mcity-2026-04-01.json
+│       ├── fictional-m-city.json   # 公開用。コミットする
+│       └── local-*.json             # 実データ。gitignore（§9 of CITY_DATA）
 ├── static/
 ├── tests/
 │   ├── unit/
@@ -356,7 +357,7 @@ sveltekit({
 MVPでは外部DBなしで過剰な設計をしない。ただし次の二層を用意する。
 
 1. クライアント: 送信中の二重送信を禁止し、連打にクールダウンを置く。**Phase 3**。
-2. サーバー: IP単位のbest-effort in-memory token bucketを実装し、例えば10 requests/minuteを既定値とする。serverlessのインスタンスを跨いで完全な制限にはならないことを明記する。**Phase 5**（`src/lib/server/rate-limit.server.ts`）。
+2. サーバー: IP単位のbest-effort in-memory token bucketを実装し、例えば10 requests/minuteを既定値とする。serverlessのインスタンスを跨いで完全な制限にはならないことを明記する。**Phase 5**（`src/lib/server/rate-limit.server.ts` として実装予定。現時点では未作成）。
 
 判定APIは上流に課金が発生するため、公開前に必ず入れる。ただしUIが無い段階では踏みようがないため、画面と一緒に検証できるPhase 5に置く。
 

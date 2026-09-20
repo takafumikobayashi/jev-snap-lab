@@ -113,7 +113,7 @@
 - CITYの静的データを`data/city/`へ追加
 - CITYの`route_to` criteriaを **`routingCandidateId`（課レベル）** でグルーピングして生成
 - Jev candidate IDを公式出典データへjoin。係はローカルのkeyword / responsibilityマッチで解決し、決まらなければ課までの表示に留める
-- `request_category` の候補を `city-directory.json` の `categories` から生成（二重定義しない）
+- `request_category` の候補をデータセットの `categories` から生成（二重定義しない）
 - CITYの根拠URL、locator、取得日、有効日を表示
 - CITYのデモ・非公式案内注意文を表示
 
@@ -243,7 +243,7 @@ Phase 2とPhase 3はAPI契約を先に固定すれば並行できる。Phase 4 C
 - [ ] LOVE、SOCIAL、CITYの質問IDと表示ラベルが設計と一致する
 - [ ] CITYの候補に公式根拠データがjoinされる
 - [ ] `route_to` が課レベルで、係はローカルjoinで解決される
-- [ ] カテゴリ一覧が `city-directory.json` のみに定義されている
+- [ ] カテゴリ一覧がデータセットのみに定義されている
 
 ### Jev
 

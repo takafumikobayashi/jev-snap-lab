@@ -215,7 +215,7 @@ Noulは `romantic_frame` と意図的に重複させない。「別れ」「未�
 | ID | Type | 判定 | Criteria / 定義 |
 |---|---|---|---|
 | `route_to` | Choice | 最初の担当候補 | **課・外部事業体レベル**の候補から一つ（係では分割しない。理由は後述）。`other_or_unclear`を必ず含める。 |
-| `request_category` | Choice | 安定カテゴリ | `city-directory.json` の `categories` から生成する。候補一覧は [CITY_DATA.md](CITY_DATA.md) を single source of truth とし、本文書に列挙しない。 |
+| `request_category` | Choice | 安定カテゴリ | データセットの `categories` から生成する。候補一覧は [CITY_DATA.md](CITY_DATA.md) を single source of truth とし、本文書に列挙しない。 |
 | `urgency` | Score | 緊急度 | 0: 通常、1: 近日確認、2: 当日確認が望ましい、3: 人身・重大な安全への即時リスクを含む可能性。サービスのSLAではない。 |
 | `onsite_visit_likely` | Noul | 現地確認要否 | true: 現地の状態・位置・設備を確認する必要がありそう、false: 文面だけで一次案内できそう。 |
 | `human_review_likely` | Noul | 人による確認要否 | true: 事実、資格、個人情報、例外、権限などの確認が必要そう、false: それらを含まない。 |

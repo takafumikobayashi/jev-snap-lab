@@ -77,7 +77,7 @@ jurisdiction
 
 ## 4. CITYデータの型
 
-`categories` はカテゴリの **single source of truth** である。`request_category` Choiceの候補、`CityOrganizationUnit.routingCategories` の値、画面のカテゴリ表示ラベルは、すべてこの配列から生成する。[JEV_DESIGN.md](JEV_DESIGN.md) を含め、他のドキュメントやコードにカテゴリ一覧を二重定義しない。
+データセットの `categories` はカテゴリの **single source of truth** である。`request_category` Choiceの候補、`CityOrganizationUnit.routingCategories` の値、画面のカテゴリ表示ラベルは、すべてこの配列から生成する。[JEV_DESIGN.md](JEV_DESIGN.md) を含め、他のドキュメントやコードにカテゴリ一覧を二重定義しない。
 
 ### TypeScript相当
 
@@ -242,7 +242,7 @@ type CitySource = {
 
 ### 推奨案: 課・外部事業体をChoice候補、根拠はローカルjoin
 
-1. `city-directory.json`から `active: true` かつMVP対象の組織単位を読む。
+1. 読み込んだデータセットから `active: true` かつMVP対象の組織単位を読む。
 2. `routingCandidateId`（課レベル）でグルーピングする。同じ課に属する複数の係は1候補へまとめる。
 3. 各候補について、課名、`publicSummary`、**配下の代表的な分掌事務**をcriteria valueへまとめる。**係名は候補の説明に含めてよいが、候補そのものを係で割らない。**
 
@@ -301,7 +301,7 @@ type CitySource = {
 ### 更新手順
 
 1. 公式組織ページと例規集の現行表示を確認する。
-2. 変更前の `city-directory.json` をコピーして、`effectiveTo`を設定する。
+2. 変更前のデータセットをコピーして、`effectiveTo`を設定する。
 3. 新しい課・係・分掌レコードに新しい `effectiveFrom`、`retrievedAt`、`sourceRefs`を付ける。
 4. 既存の `organizationUnitId`を変更する場合は、名称変更と担当変更を区別するため、原則として新IDを発行する。
 5. 受入テストの期待候補、Jev criteria生成、画面の出典表示を更新する。
@@ -316,7 +316,7 @@ type CitySource = {
 
 ## 7.5 データ整備の実績（Phase 4）
 
-`data/city/mcity-2026-04-01.json` を次の手順で生成した。
+実データのデータセット（`data/city/local-*.json`）を次の手順で生成した。公開用の `fictional-m-city.json` はこれを元に §9 の手順で作る。
 
 1. 組織ページ（2026年6月1日更新）から課ごとの市民向け説明を抽出し、`publicSummary` にした。
 2. 事務組織規則（令和8年4月1日施行）の第7条の2、第8条〜第13条、第15条、第17条を機械的にパースし、課→係→番号付き分掌事務を `responsibilities` にした。`officialText` は条文のまま保持し、要約や言い換えをしていない。
