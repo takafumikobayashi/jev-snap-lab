@@ -4,7 +4,7 @@
 	let { value, onchange }: { value: Mode; onchange: (mode: Mode) => void } = $props();
 
 	const DESCRIPTIONS: Record<Mode, string> = {
-		love: '恋愛ソングの歌詞を分析',
+		love: '恋愛ソングや詩など、文中の含意',
 		social: 'SNS投稿としての読み',
 		city: '行政問い合わせの担当候補'
 	};

@@ -143,8 +143,8 @@
 			<p
 				class="mt-4 rounded-md border border-neutral-300 px-3 py-2 text-xs text-neutral-600 dark:border-neutral-700 dark:text-neutral-400"
 			>
-				歌詞など著作物の一部を入力できますが、<strong>入力は保存・収集・提供しません</strong
-				>。判定のためにその場で送信するだけです。著作物の取り扱いは入力する方の責任でご判断ください。
+				判定するのは<strong>文面がどう読めるか</strong
+				>であり、作品の分析や評価ではありません。著作物を入力する場合は、その取り扱いにご注意ください。
 			</p>
 		{/if}
 
@@ -282,6 +282,9 @@
 	<footer
 		class="mt-12 border-t border-neutral-200 pt-4 text-xs text-neutral-400 dark:border-neutral-800"
 	>
-		<p>結果は確率的な判断であり、事実・公式判断・診断ではありません。入力は保存されません。</p>
+		<p>
+			結果は確率的な判断であり、事実・公式判断・診断ではありません。入力は判定のため TypeSafe AI の
+			Jev へ送信します。このアプリは入力を保存・収集しません。
+		</p>
 	</footer>
 </main>

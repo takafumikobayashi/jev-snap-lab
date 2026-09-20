@@ -228,17 +228,20 @@ test.describe('モード切替と競合', () => {
 
 	test('モードごとの注意文が出し分けられる', async ({ page }) => {
 		await page.goto('/');
-		// LOVE は歌詞の入力を想定するので著作権の注意を常時出す。
-		await expect(page.getByText('入力は保存・収集・提供しません')).toBeVisible();
-		await expect(page.getByText('技術検証・デモ')).toBeHidden();
+		// LOVE は著作物の入力がありうるので注意を常時出す。
+		const loveNotice = page.getByText('作品の分析や評価ではありません');
+		const cityNotice = page.getByText('技術検証・デモ');
+
+		await expect(loveNotice).toBeVisible();
+		await expect(cityNotice).toBeHidden();
 
 		await page.getByRole('tab', { name: 'city' }).click();
-		await expect(page.getByText('技術検証・デモ')).toBeVisible();
-		await expect(page.getByText('入力は保存・収集・提供しません')).toBeHidden();
+		await expect(cityNotice).toBeVisible();
+		await expect(loveNotice).toBeHidden();
 
 		await page.getByRole('tab', { name: 'social' }).click();
-		await expect(page.getByText('入力は保存・収集・提供しません')).toBeHidden();
-		await expect(page.getByText('技術検証・デモ')).toBeHidden();
+		await expect(loveNotice).toBeHidden();
+		await expect(cityNotice).toBeHidden();
 	});
 
 	test('キーボードでモードを移動できる', async ({ page }) => {
@@ -385,6 +388,18 @@ test.describe('アクセシビリティとレスポンシブ', () => {
 		const first = await cards.nth(0).boundingBox();
 		const second = await cards.nth(1).boundingBox();
 		expect(second!.x).toBeGreaterThan(first!.x);
+	});
+});
+
+test.describe('開示', () => {
+	test('全モードで外部送信と非保存を明示する', async ({ page }) => {
+		// 保存しないことと、外部へ送らないことは別。入力は Jev へ送られる。
+		await page.goto('/');
+		for (const mode of ['love', 'social', 'city']) {
+			await page.getByRole('tab', { name: mode }).click();
+			await expect(page.getByText('Jev へ送信します')).toBeVisible();
+			await expect(page.getByText('保存・収集しません')).toBeVisible();
+		}
 	});
 });
 
