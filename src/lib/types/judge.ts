@@ -96,7 +96,16 @@ export type JudgeResponse = {
 	};
 	results: ResultCard[];
 	city?: {
+		/** 候補生成に使った組織データのバージョン。観測ログと根拠表示に使う。 */
 		directoryVersion: string;
+		/**
+		 * 候補に公式データが紐付いていない状態。
+		 *
+		 * `true` の間、候補は出典・施行日・取得日を持たない。UI は
+		 * 「根拠データ未登録」を明示し、公式の担当決定として見せてはならない
+		 * （docs/PRODUCT_SPEC.md §8）。Phase 4 で公式データへ差し替える。
+		 */
+		provisional: boolean;
 		sources: CitySource[];
 	};
 };
