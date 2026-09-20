@@ -109,8 +109,9 @@ question catalog / labels ─────────┴─ server only
 │       ├── fictional-m-city.json   # 公開用。コミットする
 │       └── local-*.json             # 実データ。gitignore（§9 of CITY_DATA）
 ├── static/
-│   ├── favicon.png
-│   ├── og-image.png
+│   ├── favicon.svg             # 優先
+│   ├── favicon.png             # SVG 非対応環境のフォールバック
+│   ├── og-image.jpg
 │   └── robots.txt
 ├── tests/
 │   ├── unit/

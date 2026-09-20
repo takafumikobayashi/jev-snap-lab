@@ -226,6 +226,21 @@ test.describe('モード切替と競合', () => {
 		await expect(page.getByText('恋愛的な読み')).toBeHidden();
 	});
 
+	test('モードごとの注意文が出し分けられる', async ({ page }) => {
+		await page.goto('/');
+		// LOVE は歌詞の入力を想定するので著作権の注意を常時出す。
+		await expect(page.getByText('入力は保存・収集・提供しません')).toBeVisible();
+		await expect(page.getByText('技術検証・デモ')).toBeHidden();
+
+		await page.getByRole('tab', { name: 'city' }).click();
+		await expect(page.getByText('技術検証・デモ')).toBeVisible();
+		await expect(page.getByText('入力は保存・収集・提供しません')).toBeHidden();
+
+		await page.getByRole('tab', { name: 'social' }).click();
+		await expect(page.getByText('入力は保存・収集・提供しません')).toBeHidden();
+		await expect(page.getByText('技術検証・デモ')).toBeHidden();
+	});
+
 	test('キーボードでモードを移動できる', async ({ page }) => {
 		await page.goto('/');
 		await page.getByRole('tab', { name: 'love' }).focus();
@@ -336,10 +351,25 @@ test.describe('メタ情報', () => {
 		expect(String(size.height)).toBe(height);
 	});
 
-	test('favicon が配信される', async ({ request }) => {
-		const response = await request.get('/favicon.png');
-		expect(response.status()).toBe(200);
-		expect(response.headers()['content-type']).toContain('image/png');
+	test('favicon が宣言どおり配信される', async ({ page, request }) => {
+		// 宣言した href がすべて実在すること。SVG 非対応環境のために
+		// PNG をフォールバックとして残している。
+		await page.goto('/');
+		const icons = await page.locator('link[rel~="icon"]').evaluateAll((links) =>
+			links.map((link) => ({
+				href: (link as HTMLLinkElement).getAttribute('href'),
+				type: (link as HTMLLinkElement).getAttribute('type')
+			}))
+		);
+		expect(icons.length).toBeGreaterThanOrEqual(1);
+
+		for (const icon of icons) {
+			const response = await request.get(icon.href as string);
+			expect(response.status(), icon.href as string).toBe(200);
+			expect(response.headers()['content-type'], icon.href as string).toContain(
+				(icon.type as string).replace('image/svg+xml', 'image/svg')
+			);
+		}
 	});
 
 	test('robots.txt は検索を拒否しつつ SNS を通す', async ({ request }) => {

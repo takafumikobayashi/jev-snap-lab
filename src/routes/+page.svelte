@@ -135,6 +135,19 @@
 			<JudgeForm bind:text busy={status === 'judging'} onsubmit={judge} />
 		</div>
 
+		{#if mode === 'love'}
+			<!--
+				LOVE は歌詞の入力を想定する。著作権の注意を常時表示し、アプリが
+				歌詞を保存・収集・提供しないことを示す（docs/PRODUCT_SPEC.md §6）。
+			-->
+			<p
+				class="mt-4 rounded-md border border-neutral-300 px-3 py-2 text-xs text-neutral-600 dark:border-neutral-700 dark:text-neutral-400"
+			>
+				歌詞など著作物の一部を入力できますが、<strong>入力は保存・収集・提供しません</strong
+				>。判定のためにその場で送信するだけです。著作物の取り扱いは入力する方の責任でご判断ください。
+			</p>
+		{/if}
+
 		{#if mode === 'city'}
 			<!-- CITY は常時表示。公式サービスと誤認させない（docs/PRODUCT_SPEC.md §8）。 -->
 			<p
