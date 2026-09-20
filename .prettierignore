@@ -11,3 +11,7 @@ bun.lockb
 # 設計ドキュメント（手で整形した日本語散文。Prettier の再整形で
 # 表の桁ずれと不要な差分が出るため対象外にする）
 /docs/
+
+# CITY のデータセット。scripts/build-fictional-city.mjs が生成し、整形も
+# そちらが担う。Prettier を通すと生成のたびに差分が揺れる。
+/data/city/
