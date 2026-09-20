@@ -12,7 +12,10 @@ export default defineConfig({
 				runes: ({ filename }) =>
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
-			adapter: adapter()
+			// maxDuration はアダプタが Build Output API v3 の .vc-config.json へ
+			// 書き出す。vercel.json の functions グロブは SvelteKit の生成関数名
+			// (catchall.func) と一致しないため効かない。
+			adapter: adapter({ maxDuration: 20 })
 		})
 	],
 	test: {

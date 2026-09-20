@@ -48,7 +48,7 @@
 - `.env.example`を追加
 - `src/lib/types`と共通エラー形式を追加
 - `Cache-Control: no-store`などのセキュリティヘッダーを設定
-- `vercel.json` に `/api/judge` の `maxDuration` を設定（`JEV_TOTAL_TIMEOUT_MS` より大きい値）
+- `vite.config.ts` のアダプタ既定値へ `maxDuration` を設定（`JEV_TOTAL_TIMEOUT_MS` より大きい値）。`vercel.json` の `functions` グロブは adapter-vercel では効かない
 
 完了条件:
 
@@ -70,6 +70,7 @@
 - Choice / Score / Noulを`ResultCard`へ正規化。Scoreは `probabilities` 最大レベルから表示ラベルを決める（[JEV_DESIGN.md](JEV_DESIGN.md) §8）
 - usage、model、latencyを応答へ含める
 - 401 / 422 / 429 / 529 / timeout / network errorをapp errorへ変換
+- `+server.ts` に `export const config: Config = { maxDuration: 20 }` を追加し、判定エンドポイントを専用関数へ分割する
 
 完了条件:
 
@@ -246,7 +247,7 @@ Phase 2とPhase 3はAPI契約を先に固定すれば並行できる。Phase 4 C
 - [ ] `probabilities`、`confidence`、`noul`を混同しない
 - [ ] 401 / 422 / 429 / 529 / timeout / network failureを処理する
 - [ ] retryに上限とtotal timeoutがあり、**1試行timeout×試行回数+backoffが総予算に収まる**
-- [ ] Vercelの `maxDuration` が総予算より大きく設定されている
+- [ ] Vercelの `maxDuration` が総予算より大きく設定され、`.vercel/output/**/.vc-config.json` に反映されている
 - [ ] type別の `criteria` の形を守り、送信前に検証している
 - [ ] Scoreの表示ラベルを `Math.round(score)` で引いていない
 

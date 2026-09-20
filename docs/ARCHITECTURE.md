@@ -114,7 +114,6 @@ question catalog / labels ─────────┴─ server only
 │   └── e2e/
 ├── docs/
 ├── .env.example
-├── vercel.json          # /api/judge の maxDuration
 ├── package.json
 ├── pnpm-lock.yaml
 └── vite.config.ts       # SvelteKit + Tailwind + adapter-vercel + Vitest
@@ -145,12 +144,27 @@ Vercelは関数に既定の最大実行時間を設定しており、超える�
 
 `JEV_TOTAL_TIMEOUT_MS` が既定値を超えていると、アプリのtimeout処理（504 / `UPSTREAM_TIMEOUT`）へ到達する前に関数が殺され、ユーザーにはプラットフォームのエラーが出る。**総予算より確実に大きい `maxDuration` を明示設定する。**
 
-```json
-// vercel.json
-{ "functions": { "src/routes/api/judge/+server.ts": { "maxDuration": 20 } } }
+**`vercel.json` の `functions` グロブは使えない。** adapter-vercelはBuild Output API v3を使い、`.vercel/output/functions/**/.vc-config.json` をアダプタ自身が書き出す。生成される関数名は `catchall.func` などであり、`src/routes/api/judge/+server.ts` のようなソースパスとは一致しないため、`vercel.json` に書いても適用されない。
+
+設定方法は次の2つで、いずれも実測で `.vc-config.json` への反映を確認済み。
+
+```ts
+// 1. 全ルート共通の既定値: vite.config.ts
+adapter({ maxDuration: 20 })
 ```
 
-20秒は `JEV_TOTAL_TIMEOUT_MS` 12,000ms に検証・正規化・ログ出力の余裕を加えた値である。実装開始時に、契約プランで設定可能な上限と既定値をVercelのダッシュボードで確認する。[Configuring Maximum Duration](https://vercel.com/docs/functions/configuring-functions/duration)
+```ts
+// 2. ルート単位: src/routes/api/judge/+server.ts
+import type { Config } from '@sveltejs/adapter-vercel';
+
+export const config: Config = { maxDuration: 20 };
+```
+
+ルート単位の `config` を持つルートは、アダプタによって**専用の関数へ自動分割される**（`split` を明示しなくてよい）。判定エンドポイントをページSSRから隔離できるため、`/api/judge` 実装時はこちらを第一候補とする。
+
+現状はアダプタ既定値として20秒を設定している。`maxDuration` は上限であって予約ではなく、Vercelの課金はactive CPU基準なので、ページ側に広めの上限が付いてもコストには影響しない。Phase 2で `/api/judge` にルート単位の設定を入れた後、アダプタ既定値を絞るかを判断する。
+
+20秒は `JEV_TOTAL_TIMEOUT_MS` 12,000ms に検証・正規化・ログ出力の余裕を加えた値である。実装開始時に、契約プランで設定可能な上限と既定値をVercelのダッシュボードで確認する。[Configuring Maximum Duration](https://vercel.com/docs/functions/configuring-functions/duration) / [adapter-vercel](https://svelte.dev/docs/kit/adapter-vercel)
 
 ## 6. Jev client境界
 
@@ -296,7 +310,7 @@ upstreamから429 / 529が返ったときは、公式SDKのbackoffと`retry-afte
 
 - Vercel projectへ接続し、framework presetをSvelteKitにする。
 - PreviewとProductionの環境変数を分離する。
-- `vercel.json` の `maxDuration` を `JEV_TOTAL_TIMEOUT_MS` より大きい値に設定し、Previewで実際にtimeoutを踏んで504が返ることを確認する。
+- `maxDuration` が `JEV_TOTAL_TIMEOUT_MS` より大きいことを `.vercel/output/**/.vc-config.json` で確認し、Previewで実際にtimeoutを踏んで504が返ることを確認する。
 - Node.js runtimeはTypeSafe JavaScript SDKの要件であるNode.js 20以上に合わせる。[JavaScript SDK](https://docs.typesafe.ai/sdk/javascript)
 - 最初のProduction deploy前に、Previewで以下を確認する。
   - APIキーがクライアントbundleに存在しない
