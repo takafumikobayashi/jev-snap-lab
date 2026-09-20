@@ -6,6 +6,13 @@
  * アプリは 503 を返す）。
  */
 
+import {
+	APIConnectionError,
+	APIError,
+	APITimeoutError,
+	APIUserAbortError,
+	TypeSafeError
+} from '@typesafe-ai/sdk';
 import type { ErrorCode, JudgeErrorBody } from '$lib/types/error';
 
 type ErrorSpec = {
@@ -101,5 +108,29 @@ export function mapUpstreamStatus(status: number): ErrorCode {
 	// 上流 504 も時間切れとして扱う。529 Overloaded を含むその他の 5xx は障害。
 	if (status === 504) return 'UPSTREAM_TIMEOUT';
 	if (status >= 500) return 'UPSTREAM_UNAVAILABLE';
+	return 'INTERNAL_ERROR';
+}
+
+/**
+ * SDK の例外をアプリのエラーコードへ写す。
+ *
+ * SDK は retry を使い切ってから投げるため、ここへ来た時点で「retry しても
+ * 回復しなかった」ことが確定している。アプリ側で再送はしない。
+ * 例外クラスの一覧は `@typesafe-ai/sdk` の型定義を参照。
+ */
+export function mapSdkError(error: unknown): ErrorCode {
+	// APIUserAbortError: total budget の AbortController が発火した。
+	if (error instanceof APIUserAbortError) return 'UPSTREAM_TIMEOUT';
+
+	// APITimeoutError は APIConnectionError のサブクラスなので先に見る。
+	if (error instanceof APITimeoutError) return 'UPSTREAM_TIMEOUT';
+	if (error instanceof APIConnectionError) return 'UPSTREAM_UNAVAILABLE';
+
+	if (error instanceof APIError) return mapUpstreamStatus(error.status);
+
+	// 設定不備、質問が空、score criteria が 2 件未満などは SDK が
+	// リクエスト前に TypeSafeError を投げる。アプリ側のバグである。
+	if (error instanceof TypeSafeError) return 'QUESTION_DEFINITION_ERROR';
+
 	return 'INTERNAL_ERROR';
 }
