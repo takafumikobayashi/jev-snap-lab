@@ -260,6 +260,53 @@ describe('POST /api/judge', () => {
 		});
 	});
 
+	describe('観測ログ', () => {
+		const logged = async (run: () => Promise<unknown>) => {
+			const info = vi.spyOn(console, 'info').mockImplementation(() => {});
+			// beforeEach で張ったスパイと同一オブジェクトなので、呼び出し履歴が
+			// 前のテストから持ち越される。単独実行では通るが全体実行で壊れる。
+			info.mockClear();
+			await run();
+			return info.mock.calls.map((call) => JSON.parse(String(call[0])) as Record<string, unknown>);
+		};
+
+		it('成功時に p50 / p95 を出せる項目が揃う', async () => {
+			// docs/ARCHITECTURE.md §12 の監視項目。
+			mockSuccess('love');
+			const [entry] = await logged(() => post({ mode: 'love', text: 'x' }));
+			expect(entry.route).toBe('api/judge');
+			expect(entry.requestId).toMatch(/^req_/);
+			expect(entry.mode).toBe('love');
+			expect(entry.status).toBe(200);
+			expect(entry.model).toBe('jev-1.13.0');
+			expect(typeof entry.latencyMs).toBe('number');
+			expect(typeof entry.upstreamLatencyMs).toBe('number');
+			expect(entry.inputTokens).toBe(392);
+		});
+
+		it('上流エラーを種別で数えられる', async () => {
+			evaluate.mockRejectedValue(new JudgeError('RATE_LIMITED', '上流 429'));
+			const [entry] = await logged(() => post({ mode: 'love', text: 'x' }));
+			expect(entry.status).toBe(429);
+			expect(entry.code).toBe('RATE_LIMITED');
+			expect(typeof entry.latencyMs).toBe('number');
+		});
+
+		it('入力不正も種別で数えられる', async () => {
+			const [entry] = await logged(() => post({ mode: 'bad', text: 'x' }));
+			expect(entry.status).toBe(400);
+			expect(entry.code).toBe('INVALID_INPUT');
+			expect(entry.detail).toBe('INVALID_MODE');
+		});
+
+		it('ログ行が1リクエスト1行の JSON である', async () => {
+			// 集計しやすさのため、複数行に分けない。
+			mockSuccess('city');
+			const entries = await logged(() => post({ mode: 'city', text: 'x' }));
+			expect(entries).toHaveLength(1);
+		});
+	});
+
 	it('ログに入力本文を出さない', async () => {
 		const info = vi.spyOn(console, 'info').mockImplementation(() => {});
 		mockSuccess('love');

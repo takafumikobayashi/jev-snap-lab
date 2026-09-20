@@ -109,6 +109,7 @@ question catalog / labels ─────────┴─ server only
 │       ├── fictional-m-city.json   # 公開用。コミットする
 │       └── local-*.json             # 実データ。gitignore（§9 of CITY_DATA）
 ├── static/
+│   ├── favicon.png
 │   ├── og-image.png
 │   └── robots.txt
 ├── tests/
@@ -421,3 +422,22 @@ upstreamから429 / 529が返ったときは、公式SDKのbackoffと`retry-afte
 - CITY `other_or_unclear`率、low-confidence率
 
 MVPで外部Observabilityを増やしすぎず、Vercelのログと構造化server logで始める。コストや失敗の傾向が見えたら追加する。
+
+### ログの形
+
+1リクエスト1行のJSONで出す。複数行に分けると集計しづらい。入力本文、APIキー、上流のレスポンス本文は含めない。
+
+```json
+{"route":"api/judge","requestId":"req_…","mode":"love","status":200,
+ "model":"jev-1.13.0","upstreamLatencyMs":640,"latencyMs":642,
+ "inputTokens":944,"questionCount":7}
+```
+
+```json
+{"route":"api/judge","requestId":"req_…","mode":"love","status":429,
+ "code":"RATE_LIMITED","latencyMs":1,"detail":"…"}
+```
+
+`latencyMs` から p50 / p95 を、`status` と `code` から失敗の種別ごとの件数を、`model` からモデル分布を、`inputTokens` からコストを算出できる。項目が揃っていることはテストで固定している。
+
+`upstreamLatencyMs` はJevの往復、`latencyMs` は入力検証後から正規化完了までのサーバー処理時間で、別物として記録する。

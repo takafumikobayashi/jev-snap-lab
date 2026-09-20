@@ -17,7 +17,9 @@
 		"city:build": "node scripts/build-fictional-city.mjs",
 		"city:check-leak": "node scripts/check-no-leak.mjs scripts/city-name-map.local.json",
 		"test:e2e": "playwright test",
-		"test:all": "pnpm run test && pnpm run test:e2e"
+		"test:all": "pnpm run test && pnpm run test:e2e",
+		"check:docs": "node scripts/check-docs.mjs",
+		"check:secrets": "node scripts/check-secrets.mjs"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
