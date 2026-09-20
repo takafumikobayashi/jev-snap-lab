@@ -13,6 +13,14 @@ export type Mode = (typeof MODES)[number];
 export const MAX_INPUT_CODE_POINTS = 280;
 
 /**
+ * Choice の候補を初期表示する件数。
+ *
+ * UI の折り畳みとサーバーが根拠を返す件数を同じ値にする。ずれると、
+ * 画面に出ている候補の根拠が欠ける（あるいは出ない候補の根拠を送る）。
+ */
+export const DISPLAYED_CHOICE_OPTIONS = 3;
+
+/**
  * Unicode code points で文字数を数える。
  *
  * `String.prototype.length` は UTF-16 の code unit 数なので、絵文字や
@@ -102,26 +110,43 @@ export type JudgeResponse = {
 		/**
 		 * 架空のデータセットを使っているか。
 		 *
-		 * `true` のとき、`sources` は実在の出典ではなく、条文も実物ではない。
-		 * 公開用のデータセットは常にこちらである。UI は根拠表示でこれを明示し、
-		 * 公式の担当決定として見せてはならない（docs/CITY_DATA.md §9）。
+		 * `true` のとき、`candidates[].sources` は実在の出典ではなく、条文も
+		 * 実物ではない。公開用のデータセットは常にこちらである。UI は根拠表示
+		 * でこれを明示し、公式の担当決定として見せてはならない
+		 * （docs/CITY_DATA.md §9）。
 		 *
 		 * データセットの性質から導く。固定値にすると、架空データを公式根拠と
 		 * して扱う契約になってしまう。
 		 */
 		fictional: boolean;
-		sources: CitySource[];
 		/**
-		 * ローカルの join で解決した組織単位。
+		 * 画面に出す上位候補ごとの根拠。確率の降順で、先頭が選ばれた候補。
 		 *
-		 * `matchedResponsibilities` が空なら、課までしか絞れていないことを
-		 * 意味する。係を推測して名指ししない（docs/CITY_DATA.md §5）。
+		 * 選ばれた1件だけに根拠を付けると、候補が割れた入力ほど比較材料が
+		 * 無くなる。2位・3位の課名も分掌も出典も分からないまま確率だけが並ぶ。
+		 * 「上位候補ごとに `sourceRefs` をjoinする」（docs/JEV_DESIGN.md §9）
+		 * 「各候補に出典を付ける」（docs/PRODUCT_SPEC.md §8）がこの形。
 		 */
-		resolvedUnit?: {
-			officialName: string;
-			section: string;
-			unit: string | null;
-			matchedResponsibilities: Array<{ officialText: string; responsibilityId: string }>;
-		};
+		candidates: CityCandidateEvidence[];
 	};
+};
+
+/**
+ * 担当課候補1件ぶんの根拠。
+ *
+ * `matchedResponsibilities` が空なら、課までしか絞れていないことを意味する。
+ * 係を推測して名指ししない（docs/CITY_DATA.md §5）。
+ */
+export type CityCandidateEvidence = {
+	/** Choice の候補キー。`results` の option と突き合わせる。 */
+	candidateId: string;
+	probability: number;
+	/** Jev が選んだ候補か。分布の先頭とは限らないため確率とは別に持つ。 */
+	selected: boolean;
+	/** 係まで絞れた場合だけ係を含む名称になる。絞れなければ課まで。 */
+	officialName: string;
+	section: string;
+	unit: string | null;
+	matchedResponsibilities: Array<{ officialText: string; responsibilityId: string }>;
+	sources: CitySource[];
 };

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { requestJudge } from '$lib/client/api';
 	import { shouldApplyResult, type Submission } from '$lib/client/submission';
-	import { formatCostUsd } from '$lib/display';
+	import { formatCostUsd, toPercent } from '$lib/display';
 	import JudgeForm from '$lib/components/JudgeForm.svelte';
 	import ModeTabs from '$lib/components/ModeTabs.svelte';
 	import ResultCard from '$lib/components/ResultCard.svelte';
@@ -211,61 +211,92 @@
 							<p class="font-semibold">根拠データ</p>
 						{/if}
 
-						{#if city.resolvedUnit}
-							<p class="mt-1">
-								{city.resolvedUnit.officialName}
-								{#if city.resolvedUnit.unit === null}
-									<!-- 係まで絞れていないことを名称の隣で示す。 -->
-									<span class="text-neutral-500">（課まで）</span>
-								{/if}
-							</p>
-							{#if city.resolvedUnit.matchedResponsibilities.length > 0}
-								<ul class="mt-1 list-disc pl-4 text-neutral-600 dark:text-neutral-400">
-									{#each city.resolvedUnit.matchedResponsibilities as responsibility (responsibility.responsibilityId)}
-										<li>{responsibility.officialText}</li>
-									{/each}
-								</ul>
-							{:else}
-								<!-- 係を推測して名指ししない（docs/CITY_DATA.md §5）。 -->
-								<p class="mt-1 text-neutral-500">
-									文面からは係を特定できませんでした。課までの候補として扱ってください。
-								</p>
-							{/if}
-						{/if}
+						{#if city.candidates.length > 0}
+							<!--
+								画面に出ている上位候補すべてに根拠を付ける。候補が割れた
+								入力ほど、2位・3位と比べる材料が要る
+								（docs/JEV_DESIGN.md §9 / docs/PRODUCT_SPEC.md §8）。
+							-->
+							<ul class="mt-2 space-y-3">
+								{#each city.candidates as candidate (candidate.candidateId)}
+									<li
+										class="border-l-2 pl-3"
+										style="border-color: {candidate.selected
+											? 'var(--viz-choice)'
+											: 'var(--viz-choice-soft)'}"
+									>
+										<p>
+											<span class:font-semibold={candidate.selected}>
+												{candidate.officialName}
+											</span>
+											{#if candidate.unit === null}
+												<!-- 係まで絞れていないことを名称の隣で示す。 -->
+												<span class="text-neutral-500">（課まで）</span>
+											{/if}
+											<!-- 色だけに頼らず数値を併記する（docs/PRODUCT_SPEC.md §10）。 -->
+											<span class="text-neutral-500 tabular-nums">
+												{toPercent(candidate.probability)}%
+											</span>
+										</p>
 
-						{#if city.sources.length > 0}
-							<ul class="mt-2 space-y-1">
-								{#each city.sources as source (source.sourceId)}
-									<li>
-										{#if source.url}
-											<!--
-													外部の公式サイトへの固定リンク。URL は静的データ由来で、
-													許可ホストに限られることを contract test で固定している。
-													架空データでは URL を持たないためリンクにしない。
-												-->
-											<a
-												href={source.url}
-												target="_blank"
-												rel="noopener noreferrer"
-												class="underline underline-offset-2"
-											>
-												{source.title}
-											</a>
+										{#if candidate.matchedResponsibilities.length > 0}
+											<ul class="mt-1 list-disc pl-4 text-neutral-600 dark:text-neutral-400">
+												{#each candidate.matchedResponsibilities as responsibility (responsibility.responsibilityId)}
+													<li>{responsibility.officialText}</li>
+												{/each}
+											</ul>
 										{:else}
-											<span>{source.title}</span>
+											<!-- 係を推測して名指ししない（docs/CITY_DATA.md §5）。 -->
+											<p class="mt-1 text-neutral-500">
+												文面からは係を特定できませんでした。課までの候補として扱ってください。
+											</p>
 										{/if}
-										<span class="text-neutral-500">
-											（{source.locator} / 取得日 {source.retrievedAt}{source.effectiveFrom
-												? ` / 有効日 ${source.effectiveFrom}`
-												: ''}）
-										</span>
+
+										{#if candidate.sources.length > 0}
+											<ul class="mt-1 space-y-1">
+												{#each candidate.sources as source (source.sourceId)}
+													<li>
+														{#if source.url}
+															<!--
+																外部の公式サイトへの固定リンク。URL は静的データ由来で、
+																許可ホストに限られることを contract test で固定している。
+																架空データでは URL を持たないためリンクにしない。
+															-->
+															<a
+																href={source.url}
+																target="_blank"
+																rel="noopener noreferrer"
+																class="underline underline-offset-2"
+															>
+																{source.title}
+															</a>
+														{:else}
+															<span>{source.title}</span>
+														{/if}
+														<span class="text-neutral-500">
+															（{source.locator} / 取得日 {source.retrievedAt}{source.effectiveFrom
+																? ` / 有効日 ${source.effectiveFrom}`
+																: ''}）
+														</span>
+													</li>
+												{/each}
+											</ul>
+										{:else}
+											<p class="mt-1 text-amber-700 dark:text-amber-400">出典データ未登録</p>
+										{/if}
 									</li>
 								{/each}
 							</ul>
 						{:else}
-							<p class="mt-1 text-amber-700 dark:text-amber-400">出典データ未登録</p>
+							<p class="mt-1 text-amber-700 dark:text-amber-400">根拠データ未登録</p>
 						{/if}
-						<p class="mt-2 text-neutral-400">データバージョン: {city.directoryVersion}</p>
+						<!--
+							根拠は画面に出ている上位候補ぶんだけ。候補を展開すると
+							根拠の無い候補が並ぶため、何件ぶんかを明示する。
+						-->
+						<p class="mt-2 text-neutral-400">
+							上位 {city.candidates.length} 件の根拠 / データバージョン: {city.directoryVersion}
+						</p>
 					</div>
 				{/if}
 

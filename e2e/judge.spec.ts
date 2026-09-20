@@ -401,22 +401,27 @@ test.describe('開示', () => {
 				city: {
 					directoryVersion: 'mcity-2026-04-01',
 					fictional: true,
-					sources: [
+					candidates: [
 						{
-							sourceId: 's1',
-							title: 'M市組織一覧（架空）',
-							url: null,
-							locator: '架空の規程',
-							retrievedAt: '2026-09-20',
-							effectiveFrom: '2026-04-01'
+							candidateId: 'c1',
+							probability: 0.7,
+							selected: true,
+							officialName: 'M市 A部 B課',
+							section: 'B課',
+							unit: null,
+							matchedResponsibilities: [],
+							sources: [
+								{
+									sourceId: 's1',
+									title: 'M市組織一覧（架空）',
+									url: null,
+									locator: '架空の規程',
+									retrievedAt: '2026-09-20',
+									effectiveFrom: '2026-04-01'
+								}
+							]
 						}
-					],
-					resolvedUnit: {
-						officialName: 'M市 A部 B課',
-						section: 'B課',
-						unit: null,
-						matchedResponsibilities: []
-					}
+					]
 				}
 			})
 		}));
@@ -437,13 +442,18 @@ test.describe('開示', () => {
 				city: {
 					directoryVersion: 'real-2026-04-01',
 					fictional: false,
-					sources: [],
-					resolvedUnit: {
-						officialName: 'X市 A部 B課',
-						section: 'B課',
-						unit: null,
-						matchedResponsibilities: []
-					}
+					candidates: [
+						{
+							candidateId: 'c1',
+							probability: 0.7,
+							selected: true,
+							officialName: 'X市 A部 B課',
+							section: 'B課',
+							unit: null,
+							matchedResponsibilities: [],
+							sources: []
+						}
+					]
 				}
 			})
 		}));
@@ -454,6 +464,56 @@ test.describe('開示', () => {
 
 		await expect(page.getByText('根拠データ', { exact: true })).toBeVisible();
 		await expect(page.getByText('根拠データ（架空）')).toBeHidden();
+	});
+
+	test('表示している上位候補すべてに根拠が出る', async ({ page }) => {
+		// 選ばれた1件だけに根拠を付けると、候補が割れた入力ほど
+		// 2位・3位と比べる材料が無くなる。
+		const candidate = (n: number, probability: number, selected: boolean) => ({
+			candidateId: `c${n}`,
+			probability,
+			selected,
+			officialName: `M市 A部 B${n}課`,
+			section: `B${n}課`,
+			unit: null,
+			matchedResponsibilities: [],
+			sources: [
+				{
+					sourceId: `s${n}`,
+					title: `出典${n}（架空）`,
+					url: null,
+					locator: '架空の規程',
+					retrievedAt: '2026-09-20',
+					effectiveFrom: '2026-04-01'
+				}
+			]
+		});
+
+		await stubJudge(page, () => ({
+			status: 200,
+			body: judgeResponse({
+				mode: 'city',
+				city: {
+					directoryVersion: 'mcity-2026-04-01',
+					fictional: true,
+					candidates: [candidate(1, 0.5, true), candidate(2, 0.3, false), candidate(3, 0.2, false)]
+				}
+			})
+		}));
+		await page.goto('/');
+		await page.getByRole('tab', { name: 'city' }).click();
+		await textarea(page).fill('防犯灯が切れてます');
+		await judge(page).click();
+
+		for (const [n, percent] of [
+			[1, '50'],
+			[2, '30'],
+			[3, '20']
+		] as const) {
+			await expect(page.getByText(`M市 A部 B${n}課`)).toBeVisible();
+			await expect(page.getByText(`出典${n}（架空）`)).toBeVisible();
+			await expect(page.getByText(`${percent}%`).first()).toBeVisible();
+		}
 	});
 
 	test('全モードで外部送信と非保存を明示する', async ({ page }) => {

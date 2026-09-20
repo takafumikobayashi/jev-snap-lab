@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { JudgeResponse } from '$lib/types/judge';
 import type { JudgeErrorBody } from '$lib/types/error';
-import { MODES } from '$lib/types/judge';
+import { DISPLAYED_CHOICE_OPTIONS, MODES } from '$lib/types/judge';
 import { JudgeError } from '$lib/server/errors.server';
 import { buildCatalog, type QuestionCatalog } from '$lib/server/question-catalog.server';
 
@@ -128,11 +128,14 @@ describe('POST /api/judge', () => {
 			// 架空データを公式根拠として扱わない。固定値ではなくデータセットから導く。
 			expect(body.city?.fictional).toBe(true);
 			expect(body.city?.directoryVersion).toBe('mcity-2026-04-01');
-			expect(body.city?.sources.length).toBeGreaterThan(0);
-			for (const source of body.city?.sources ?? []) {
-				// 架空データの出典は URL を持たない。
-				expect(source.url).toBeNull();
-				expect(source.retrievedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+			expect(body.city?.candidates.length).toBeGreaterThan(0);
+			for (const candidate of body.city?.candidates ?? []) {
+				expect(candidate.sources.length).toBeGreaterThan(0);
+				for (const source of candidate.sources) {
+					// 架空データの出典は URL を持たない。
+					expect(source.url).toBeNull();
+					expect(source.retrievedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+				}
 			}
 		});
 
@@ -143,8 +146,52 @@ describe('POST /api/judge', () => {
 			const body = (await (
 				await post({ mode: 'city', text: '家の前の防犯灯が切れてます' })
 			).json()) as JudgeResponse;
-			expect(body.city?.resolvedUnit).toBeDefined();
-			expect(body.city?.resolvedUnit?.officialName).toContain('M市');
+			const [top] = body.city?.candidates ?? [];
+			expect(top).toBeDefined();
+			expect(top.officialName).toContain('M市');
+		});
+
+		it('画面に出る上位候補すべてに根拠を付ける', async () => {
+			// 選ばれた1件だけに根拠を付けると、候補が割れた入力ほど
+			// 2位・3位と比べる材料が無くなる。
+			mockSuccess('city');
+			const body = (await (
+				await post({ mode: 'city', text: '家の前の防犯灯が切れてます' })
+			).json()) as JudgeResponse;
+
+			const routeTo = body.results.find((card) => card.id === 'route_to');
+			expect(routeTo?.kind).toBe('choice');
+			const displayed =
+				routeTo?.kind === 'choice' ? routeTo.options.slice(0, DISPLAYED_CHOICE_OPTIONS) : [];
+
+			expect(body.city?.candidates.map((candidate) => candidate.candidateId)).toEqual(
+				displayed.map((option) => option.key)
+			);
+			for (const candidate of body.city?.candidates ?? []) {
+				expect(candidate.officialName).not.toBe('');
+				expect(candidate.sources.length).toBeGreaterThan(0);
+			}
+		});
+
+		it('選ばれた候補に印を付け、確率はカードと一致させる', async () => {
+			mockSuccess('city');
+			const body = (await (
+				await post({ mode: 'city', text: '家の前の防犯灯が切れてます' })
+			).json()) as JudgeResponse;
+
+			const routeTo = body.results.find((card) => card.id === 'route_to');
+			const selected = routeTo?.kind === 'choice' ? routeTo.selected : null;
+			const marked = body.city?.candidates.filter((candidate) => candidate.selected) ?? [];
+			expect(marked).toHaveLength(1);
+			expect(marked[0].candidateId).toBe(selected);
+
+			for (const candidate of body.city?.candidates ?? []) {
+				const option =
+					routeTo?.kind === 'choice'
+						? routeTo.options.find((o) => o.key === candidate.candidateId)
+						: undefined;
+				expect(candidate.probability).toBe(option?.probability);
+			}
 		});
 
 		it('LOVE / SOCIAL には city ブロックを付けない', async () => {

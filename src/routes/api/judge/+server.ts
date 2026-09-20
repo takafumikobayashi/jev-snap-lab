@@ -16,12 +16,7 @@ import { evaluate } from '$lib/server/jev-client.server';
 import { estimateCostUsd } from '$lib/server/jev-config.server';
 import { normalizeAnswers } from '$lib/server/normalize-response.server';
 import { buildCatalog, buildState } from '$lib/server/question-catalog.server';
-import {
-	directoryVersion,
-	isFictional,
-	resolveUnit,
-	sourcesFor
-} from '$lib/server/city-directory.server';
+import { buildCityBlock } from '$lib/server/city-evidence.server';
 import { createRateLimiter, parseRateLimit } from '$lib/server/rate-limit.server';
 import { describeFailure, validateJudgeInput } from '$lib/validation/judge-input';
 import { readJsonBody } from '$lib/server/request-body.server';
@@ -104,41 +99,6 @@ function describeUnhandled(error: unknown): string {
 
 function log(fields: Record<string, unknown>): void {
 	console.info(JSON.stringify({ route: 'api/judge', ...fields }));
-}
-
-/**
- * CITY の根拠ブロック。
- *
- * Jev が選んだ課の ID で静的データへ join する。係はローカルの
- * キーワード一致で解決し、決められない場合は課までに留める
- * （docs/CITY_DATA.md §5）。Jev に係を判定させない。
- */
-function buildCityBlock(results: JudgeResponse['results'], text: string): JudgeResponse['city'] {
-	const routeTo = results.find((card) => card.id === 'route_to');
-	const candidateId = routeTo?.kind === 'choice' ? routeTo.selected : null;
-
-	const resolved = candidateId ? resolveUnit(candidateId, text) : null;
-
-	return {
-		directoryVersion: directoryVersion(),
-		fictional: isFictional(),
-		sources: candidateId ? sourcesFor(candidateId) : [],
-		...(resolved
-			? {
-					resolvedUnit: {
-						// 係まで絞れた場合だけ係を含む名称になる。絞れなければ課まで。
-						officialName: resolved.unit?.officialName ?? resolved.sectionOfficialName,
-						section: resolved.section,
-						unit: resolved.unit?.name ?? null,
-						// 一致した分掌事務。空なら課までしか絞れていない。
-						matchedResponsibilities: resolved.matched.map((responsibility) => ({
-							officialText: responsibility.officialText,
-							responsibilityId: responsibility.responsibilityId
-						}))
-					}
-				}
-			: {})
-	};
 }
 
 export const POST: RequestHandler = async ({ request, getClientAddress }) => {

@@ -1,13 +1,14 @@
 <script lang="ts">
-	import type { ChoiceCard } from '$lib/types/judge';
+	import { DISPLAYED_CHOICE_OPTIONS, type ChoiceCard } from '$lib/types/judge';
 	import { toPercent } from '$lib/display';
 	import CardHeader from './CardHeader.svelte';
 	import ConfidenceRow from './ConfidenceRow.svelte';
 
 	let { card }: { card: ChoiceCard } = $props();
 
-	/** 初期表示は上位3件。実機の分布は尖るため、残りは畳んでおく。 */
-	const INITIAL = 3;
+	// 初期表示の件数。実機の分布は尖るため、残りは畳んでおく。
+	// サーバーが根拠を返す件数と同じ定数を使う（ずれると根拠の無い候補が出る）。
+	const INITIAL = DISPLAYED_CHOICE_OPTIONS;
 	let expanded = $state(false);
 
 	const visible = $derived(expanded ? card.options : card.options.slice(0, INITIAL));
