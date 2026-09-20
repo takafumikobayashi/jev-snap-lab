@@ -23,6 +23,14 @@ const DOC_FILES = [
 /** 未実装だと分かる書き方をしてあるパスは、存在しなくてよい。 */
 const PLANNED = /実装予定|未作成|Phase \d/;
 
+/**
+ * 手元専用として gitignore してあるファイルの命名規約。
+ *
+ * クリーンチェックアウトには存在しない。存在を要求すると CI が落ちるが、
+ * 置き場所のディレクトリが消えた取りこぼしは検出したい。
+ */
+const LOCAL_ONLY = /(^|\/)local-|\.local\./;
+
 const problems = [];
 
 for (const file of DOC_FILES) {
@@ -52,6 +60,16 @@ for (const file of DOC_FILES) {
 			/`((?:src|data|scripts|static|e2e|docs)\/[A-Za-z0-9_./*-]+)`/g
 		)) {
 			const path = match[1];
+
+			// 手元専用のファイルは実在を要求せず、置き場所だけ確認する。
+			if (LOCAL_ONLY.test(path)) {
+				const parent = dirname(path);
+				if (!existsSync(parent)) {
+					problems.push(`${file}:${index + 1}: 置き場所が無い ${parent}（${path}）`);
+				}
+				continue;
+			}
+
 			const found = path.includes('*') ? globSync(path).length > 0 : existsSync(path);
 			if (found) continue;
 			if (PLANNED.test(line)) continue;
