@@ -15,12 +15,13 @@ import { errorBody, errorStatus, JudgeError } from '$lib/server/errors.server';
 import { evaluate } from '$lib/server/jev-client.server';
 import { estimateCostUsd } from '$lib/server/jev-config.server';
 import { normalizeAnswers } from '$lib/server/normalize-response.server';
+import { buildCatalog, buildState } from '$lib/server/question-catalog.server';
 import {
-	buildCatalog,
-	buildState,
-	CITY_DIRECTORY_VERSION
-} from '$lib/server/question-catalog.server';
-import { isFictional, resolveUnit, sourcesFor } from '$lib/server/city-directory.server';
+	directoryVersion,
+	isFictional,
+	resolveUnit,
+	sourcesFor
+} from '$lib/server/city-directory.server';
 import { createRateLimiter, DEFAULT_OPTIONS } from '$lib/server/rate-limit.server';
 import { describeFailure, validateJudgeInput } from '$lib/validation/judge-input';
 import { readJsonBody } from '$lib/server/request-body.server';
@@ -79,6 +80,19 @@ const rateLimiter = createRateLimiter({
  * 入力本文、API キー、上流のレスポンス本文は決して含めない
  * （docs/ARCHITECTURE.md §8）。
  */
+/**
+ * JudgeError 以外の例外をログ1行に収める。
+ *
+ * 捕まえずに投げると SvelteKit がスタックを出すが、そのぶん応答は HTML の
+ * 500 になる。捕まえて JSON で返す以上、原因の手掛かりはここに残す。
+ * 上流のレスポンス本文と入力本文は jev-client 側で JudgeError に包んである
+ * ため、ここへ来るのは設定ミスや実装バグで、入力文字列は含まない。
+ */
+function describeUnhandled(error: unknown): string {
+	if (!(error instanceof Error)) return 'unknown error';
+	return `${error.name}: ${error.message}`.slice(0, 200);
+}
+
 function log(fields: Record<string, unknown>): void {
 	console.info(JSON.stringify({ route: 'api/judge', ...fields }));
 }
@@ -97,7 +111,7 @@ function buildCityBlock(results: JudgeResponse['results'], text: string): JudgeR
 	const resolved = candidateId ? resolveUnit(candidateId, text) : null;
 
 	return {
-		directoryVersion: CITY_DIRECTORY_VERSION,
+		directoryVersion: directoryVersion(),
 		fictional: isFictional(),
 		sources: candidateId ? sourcesFor(candidateId) : [],
 		...(resolved
@@ -159,9 +173,12 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 	}
 
 	const { mode, text } = validated.value;
-	const catalog = buildCatalog(mode);
 
+	// catalog の生成は try の中で行う。CITY は候補データを読むため、
+	// データセットの設定ミスがここで例外になる。外に出すと未捕捉になり、
+	// クライアントが待っている JSON ではなく HTML の 500 が返る。
 	try {
+		const catalog = buildCatalog(mode);
 		const {
 			result,
 			latencyMs,
@@ -207,7 +224,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 			status: errorStatus(code),
 			code,
 			latencyMs: Math.round(performance.now() - startedAt),
-			detail: error instanceof JudgeError ? error.logDetail : 'unhandled'
+			detail: error instanceof JudgeError ? error.logDetail : describeUnhandled(error)
 		});
 		return failure(code, requestId);
 	}

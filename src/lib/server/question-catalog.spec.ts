@@ -1,11 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MODES } from '$lib/types/judge';
-import {
-	buildCatalog,
-	buildState,
-	CITY_DIRECTORY_VERSION,
-	CITY_JURISDICTION
-} from './question-catalog.server';
+import { buildCatalog, buildState } from './question-catalog.server';
+import { directoryVersion, jurisdictionName } from './city-directory.server';
 import {
 	findQuestionDefects,
 	MAX_CHOICE_OPTIONS,
@@ -216,7 +212,7 @@ describe('buildState', () => {
 		expect(buildState('city', '防犯灯が切れてます')).toEqual({
 			mode: 'city',
 			text: '防犯灯が切れてます',
-			jurisdiction: CITY_JURISDICTION
+			jurisdiction: jurisdictionName()
 		});
 	});
 
@@ -232,10 +228,10 @@ describe('buildState', () => {
 
 describe('CITY データの出所', () => {
 	it('バージョンが暫定を示す値でない', () => {
-		expect(CITY_DIRECTORY_VERSION).not.toContain('provisional');
+		expect(directoryVersion()).not.toContain('provisional');
 	});
 
 	it('バージョンに管轄と施行日が入る', () => {
-		expect(CITY_DIRECTORY_VERSION).toBe('mcity-2026-04-01');
+		expect(directoryVersion()).toBe('mcity-2026-04-01');
 	});
 });

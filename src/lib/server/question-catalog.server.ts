@@ -13,7 +13,6 @@ import type { Mode } from '$lib/types/judge';
 import {
 	categoryCriteria,
 	categoryLabels,
-	directoryVersion,
 	jurisdictionName,
 	routeCriteria,
 	routeLabels
@@ -54,13 +53,12 @@ export type JudgeState = {
 	jurisdiction?: string;
 };
 
-/** CITY のモデルケース。静的データの `displayName` から取る。 */
-export const CITY_JURISDICTION = jurisdictionName();
-
-/** CITY 候補データのバージョン。レスポンスと観測ログに記録する。 */
-export const CITY_DIRECTORY_VERSION = directoryVersion();
-
-// 架空データかどうかは `isFictional()` から取る。固定値を持たせない。
+// CITY の管轄名・データバージョン・架空フラグは定数にしない。
+// モジュール初期化時に評価するとデータセットの読み込みが import 時に起き、
+// 設定ミスがルートの import 失敗になる。SvelteKit はその場合 JSON の
+// エラー封筒ではなく HTML の 500 を返し、CITY と無関係な LOVE / SOCIAL まで
+// 巻き添えで落ちる。`jurisdictionName()` / `directoryVersion()` /
+// `isFictional()` をリクエスト処理の中から呼ぶ。
 
 // ---------------------------------------------------------------------------
 // LOVE
@@ -324,6 +322,6 @@ export function buildCatalog(mode: Mode): QuestionCatalog {
 }
 
 export function buildState(mode: Mode, text: string): JudgeState {
-	if (mode === 'city') return { mode, text, jurisdiction: CITY_JURISDICTION };
+	if (mode === 'city') return { mode, text, jurisdiction: jurisdictionName() };
 	return { mode, text };
 }
