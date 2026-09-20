@@ -134,6 +134,7 @@ question catalog / labels ─────────┴─ server only
 | `JEV_TOTAL_TIMEOUT_MS` | No | retryを含む総予算。推奨12000 | No |
 | `JEV_INPUT_PRICE_PER_MILLION_TOKENS` | No | コスト推計。既定0.042 | No |
 | `APP_RATE_LIMIT_PER_MINUTE` | No | アプリ側のbest-effort上限 | No |
+| `CITY_DIRECTORY` | No | CITYのデータセット名。既定は架空データ `fictional-m-city`（[CITY_DATA.md](CITY_DATA.md) の §9） | No |
 | `PUBLIC_APP_LABEL` | No | CITYのデモ注意文など公開可能な表示設定 | Yes可 |
 
 `.env`はコミットしない。VercelではPreview / Productionごとに分離する。`PUBLIC_` prefix以外の秘密はSvelteのpublic env importへ渡さない。

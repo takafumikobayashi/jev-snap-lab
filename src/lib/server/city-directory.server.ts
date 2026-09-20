@@ -28,7 +28,18 @@ const files = import.meta.glob('../../../data/city/*.json', { eager: true }) as 
 	{ default: CityDirectory }
 >;
 
+let cached: CityDirectory | null = null;
+
+/**
+ * データセットを読み込む。
+ *
+ * `$env/dynamic/private` はリクエスト処理が始まってから値が入るため、
+ * モジュール読み込み時に評価すると常に既定値になる。最初の利用時まで
+ * 遅延させ、以後はキャッシュする。
+ */
 function loadDirectory(): CityDirectory {
+	if (cached) return cached;
+
 	const name = env.CITY_DIRECTORY?.trim() || DEFAULT_DIRECTORY;
 	const entry = Object.entries(files).find(([path]) => path.endsWith(`/${name}.json`));
 	if (!entry) {
@@ -37,34 +48,40 @@ function loadDirectory(): CityDirectory {
 			.join(', ');
 		throw new Error(`CITY_DIRECTORY "${name}" が見つからない。利用可能: ${available}`);
 	}
-	return entry[1].default;
+
+	cached = entry[1].default;
+	return cached;
 }
 
-const directory = loadDirectory();
+/** テスト用。読み込み済みのデータセットを捨てる。 */
+export function resetDirectoryCache(): void {
+	cached = null;
+}
 
 /** 架空データを使っているか。UI の注意表示に使う。 */
 export function isFictional(): boolean {
-	return directory.fictional === true;
+	return loadDirectory().fictional === true;
 }
 
 /** 候補を絞り込めない場合のキー。route_to に必ず含める。 */
 export const OTHER_OR_UNCLEAR = 'other_or_unclear';
 
 export function getDirectory(): CityDirectory {
-	return directory;
+	return loadDirectory();
 }
 
 /** データのバージョン。`effectiveFrom` と `retrievedAt` を組にする。 */
 export function directoryVersion(): string {
+	const directory = loadDirectory();
 	return `${directory.jurisdiction}-${directory.effectiveFrom}`;
 }
 
 export function jurisdictionName(): string {
-	return directory.displayName;
+	return loadDirectory().displayName;
 }
 
 function activeUnits(): CityOrganizationUnit[] {
-	return directory.organizations.filter((unit) => unit.active);
+	return loadDirectory().organizations.filter((unit) => unit.active);
 }
 
 export type RouteCandidate = {
@@ -125,11 +142,11 @@ export function routeLabels(): Record<string, string> {
 }
 
 export function categoryCriteria(): Record<string, string> {
-	return Object.fromEntries(directory.categories.map((c) => [c.id, c.label]));
+	return Object.fromEntries(loadDirectory().categories.map((c) => [c.id, c.label]));
 }
 
 export function categoryLabels(): Record<string, string> {
-	return Object.fromEntries(directory.categories.map((c) => [c.id, c.label]));
+	return Object.fromEntries(loadDirectory().categories.map((c) => [c.id, c.label]));
 }
 
 export type ResolvedUnit = {
@@ -170,8 +187,8 @@ export function resolveUnit(candidateId: string, text: string): ResolvedUnit | n
 export function sourcesFor(candidateId: string): CitySource[] {
 	const units = activeUnits().filter((unit) => unit.routingCandidateId === candidateId);
 	const ids = new Set(units.flatMap((unit) => unit.sourceRefs));
-	return directory.sourceIndex
-		.filter((source) => ids.has(source.sourceId))
+	return loadDirectory()
+		.sourceIndex.filter((source) => ids.has(source.sourceId))
 		.map((source) => ({
 			sourceId: source.sourceId,
 			title: source.title,
