@@ -5,6 +5,8 @@
  * 回答と根拠データのバージョンを再現できるようにするため（docs/CITY_DATA.md §7）。
  */
 
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { env } from '$env/dynamic/private';
 import type { CityDirectory, CityOrganizationUnit, CityResponsibility } from '$lib/types/city';
 import type { CitySource } from '$lib/types/judge';
@@ -18,15 +20,17 @@ import type { CitySource } from '$lib/types/judge';
 const DEFAULT_DIRECTORY = 'fictional-m-city';
 
 /**
- * `data/city/` 配下の JSON を全て取り込み、名前で選ぶ。
+ * 公開用データセットだけをバンドルへ取り込む。
  *
- * 実在の自治体データ（`local-*.json`）はリポジトリに含めないため、
- * 手元にファイルが無い環境でもビルドが通るよう glob で解決する。
+ * **`local-*.json` を glob から除外するのが要点。** 含めると、実データを
+ * 手元に置いた状態でビルドしたとき、実在の自治体データがサーバー用の
+ * チャンクへそのまま埋め込まれる。リポジトリから除外していても、成果物
+ * 経由で公開されてしまう。
  */
-const files = import.meta.glob('../../../data/city/*.json', { eager: true }) as Record<
-	string,
-	{ default: CityDirectory }
->;
+const bundled = import.meta.glob(
+	['../../../data/city/*.json', '!../../../data/city/local-*.json'],
+	{ eager: true }
+) as Record<string, { default: CityDirectory }>;
 
 let cached: CityDirectory | null = null;
 
@@ -41,15 +45,25 @@ function loadDirectory(): CityDirectory {
 	if (cached) return cached;
 
 	const name = env.CITY_DIRECTORY?.trim() || DEFAULT_DIRECTORY;
-	const entry = Object.entries(files).find(([path]) => path.endsWith(`/${name}.json`));
-	if (!entry) {
-		const available = Object.keys(files)
-			.map((path) => path.split('/').pop()?.replace('.json', ''))
-			.join(', ');
-		throw new Error(`CITY_DIRECTORY "${name}" が見つからない。利用可能: ${available}`);
+
+	const entry = Object.entries(bundled).find(([path]) => path.endsWith(`/${name}.json`));
+	if (entry) {
+		cached = entry[1].default;
+		return cached;
 	}
 
-	cached = entry[1].default;
+	// バンドルに無いものは手元の実データ。ビルド成果物へ含めないため、
+	// 実行時にファイルから読む。デプロイ先にファイルは存在しないので、
+	// 誤って本番で指定しても読み込みに失敗して気付ける。
+	const path = join(process.cwd(), 'data', 'city', `${name}.json`);
+	if (!existsSync(path)) {
+		const available = Object.keys(bundled)
+			.map((file) => file.split('/').pop()?.replace('.json', ''))
+			.join(', ');
+		throw new Error(`CITY_DIRECTORY "${name}" が見つからない。バンドル済み: ${available}`);
+	}
+
+	cached = JSON.parse(readFileSync(path, 'utf8')) as CityDirectory;
 	return cached;
 }
 
@@ -150,9 +164,9 @@ const GENERIC_DUTY =
  * 候補説明に載せる代表的な分掌事務。
  *
  * 組織ページの `publicSummary` だけでは、条文に明記された事務が Jev へ
- * 届かない。例えば政策企画課の市民向け説明には「サンフレッチェ広島応援
- * 事業」が現れず、実際にこの入力で政策企画課が上位に来なかった。
- * 保持している分掌事務を候補の手がかりとして渡す。
+ * 届かない。ある課の市民向け説明には、条文には明記されている特定の応援
+ * 事業が現れず、実際にその入力でその課が上位に来なかった。保持している
+ * 分掌事務を候補の手がかりとして渡す。
  *
  * 全件は入れない。件数の多い課（最大69件）に引きずられて説明の長さが
  * 偏り、トークンも増えるため。キーワード登録済みのものを優先する。
@@ -171,8 +185,8 @@ function representativeDuties(units: CityOrganizationUnit[]): string[] {
 	}));
 
 	// 上限で切る以上、条文順の先頭から詰めると後ろの具体的な分掌が落ちる。
-	// 実際、政策企画課では「サンフレッチェ広島応援事業」が14番目にあり、
-	// 抽象的な計画・調整の分掌に押し出されて説明へ入らなかった。
+	// 実際、ある課では固有名詞を含む分掌が14番目にあり、抽象的な計画・
+	// 調整の分掌に押し出されて説明へ入らなかった。
 	// 住民の言葉と結び付けたもの、次に具体性のあるものを優先する。
 	const rank = (duty: { text: string; hasKeyword: boolean }) => {
 		if (duty.hasKeyword) return 0;
