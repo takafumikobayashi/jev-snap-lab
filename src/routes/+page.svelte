@@ -17,7 +17,7 @@
 	 * 壊れた相対 URL を出すくらいなら出さない方がよい。クローラーはどちらも
 	 * 無視するが、出さなければ「設定漏れ」だと分かる。
 	 */
-	const ogImageUrl = $derived(data.siteUrl ? `${data.siteUrl}/og-image.png` : null);
+	const ogImageUrl = $derived(data.siteUrl ? `${data.siteUrl}/og-image.jpg` : null);
 
 	type Status = 'idle' | 'judging' | 'success' | 'error';
 
@@ -109,6 +109,7 @@
 			property="og:image:alt"
 			content="短い入力から3系統の確率的な判断へ分岐するJev Snap Labのビジュアル"
 		/>
+		<meta property="og:image:type" content="image/jpeg" />
 		<meta property="og:image:width" content="1200" />
 		<meta property="og:image:height" content="630" />
 		<meta name="twitter:image" content={ogImageUrl} />

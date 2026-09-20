@@ -8,6 +8,34 @@ import { errorBody, judgeResponse, stubJudge } from './fixtures';
  * API キーもコストも不要で、結果が毎回同じになる。
  */
 
+/**
+ * JPEG の幅と高さを読む。
+ *
+ * SOF マーカー（0xFFC0〜0xFFCF のうち C4 / C8 / CC を除く）の直後に
+ * 高さと幅が 2 バイトずつ並ぶ。PNG と違って固定位置ではないため、
+ * セグメントを辿って探す。
+ */
+function jpegSize(buffer: Buffer): { width: number; height: number } {
+	let offset = 2;
+	while (offset < buffer.length - 9) {
+		if (buffer[offset] !== 0xff) {
+			offset += 1;
+			continue;
+		}
+		const marker = buffer[offset + 1];
+		const isStartOfFrame = marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker);
+		if (isStartOfFrame) {
+			return { height: buffer.readUInt16BE(offset + 5), width: buffer.readUInt16BE(offset + 7) };
+		}
+		if (marker === 0xd8 || marker === 0xd9 || (marker >= 0xd0 && marker <= 0xd7)) {
+			offset += 2;
+			continue;
+		}
+		offset += 2 + buffer.readUInt16BE(offset + 2);
+	}
+	throw new Error('JPEG の SOF マーカーが見つからない');
+}
+
 const judge = (page: Page) => page.getByRole('button', { name: 'JUDGE' });
 const textarea = (page: Page) => page.getByRole('textbox');
 
@@ -273,7 +301,7 @@ test.describe('メタ情報', () => {
 		await page.goto('/');
 		const ogImage = await page.locator('meta[property="og:image"]').getAttribute('content');
 		expect(ogImage).toMatch(/^https?:\/\//);
-		expect(ogImage).toContain('/og-image.png');
+		expect(ogImage).toContain('/og-image.jpg');
 
 		const twitterImage = await page.locator('meta[name="twitter:image"]').getAttribute('content');
 		expect(twitterImage).toBe(ogImage);
@@ -290,18 +318,22 @@ test.describe('メタ情報', () => {
 		);
 	});
 
-	test('og:image の宣言サイズが実画像と一致する', async ({ page, request }) => {
+	test('og:image の宣言サイズと形式が実画像と一致する', async ({ page, request }) => {
 		// 宣言と実物がずれるとカードの描画が崩れる。
 		await page.goto('/');
 		const width = await page.locator('meta[property="og:image:width"]').getAttribute('content');
 		const height = await page.locator('meta[property="og:image:height"]').getAttribute('content');
+		const declaredType = await page
+			.locator('meta[property="og:image:type"]')
+			.getAttribute('content');
 
-		const response = await request.get('/og-image.png');
+		const response = await request.get('/og-image.jpg');
 		expect(response.status()).toBe(200);
-		const buffer = await response.body();
-		// PNG の IHDR は 16 バイト目から幅・高さが 4 バイトずつ並ぶ。
-		expect(String(buffer.readUInt32BE(16))).toBe(width);
-		expect(String(buffer.readUInt32BE(20))).toBe(height);
+		expect(response.headers()['content-type']).toBe(declaredType);
+
+		const size = jpegSize(await response.body());
+		expect(String(size.width)).toBe(width);
+		expect(String(size.height)).toBe(height);
 	});
 
 	test('favicon が配信される', async ({ request }) => {
