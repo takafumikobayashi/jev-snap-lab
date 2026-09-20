@@ -49,6 +49,9 @@ function mockSuccess(mode: 'love' | 'social' | 'city') {
 	});
 }
 
+/** テストごとに別アドレスにして、レート制限の枠を共有しないようにする。 */
+let clientAddress = '127.0.0.1';
+
 function post(body: unknown, contentType: string | null = 'application/json'): Promise<Response> {
 	const headers = new Headers();
 	if (contentType !== null) headers.set('content-type', contentType);
@@ -57,14 +60,21 @@ function post(body: unknown, contentType: string | null = 'application/json'): P
 		headers,
 		body: typeof body === 'string' ? body : JSON.stringify(body)
 	});
-	// ハンドラは request しか使わない。RequestEvent の全体を組み立てず、
-	// 必要な部分だけを渡す。
-	return POST({ request } as Parameters<typeof POST>[0]) as Promise<Response>;
+	// ハンドラが使うのは request と getClientAddress だけ。RequestEvent の
+	// 全体を組み立てず、必要な部分だけを渡す。
+	return POST({
+		request,
+		getClientAddress: () => clientAddress
+	} as Parameters<typeof POST>[0]) as Promise<Response>;
 }
+
+let addressCounter = 0;
 
 beforeEach(() => {
 	evaluate.mockReset();
 	vi.spyOn(console, 'info').mockImplementation(() => {});
+	addressCounter += 1;
+	clientAddress = `10.0.0.${addressCounter}`;
 });
 
 describe('POST /api/judge', () => {
@@ -215,6 +225,38 @@ describe('POST /api/judge', () => {
 			expect(raw).not.toContain('TYPESAFE_API_KEY');
 			expect(raw).not.toContain('秘密の入力文');
 			expect(raw).not.toContain('stack');
+		});
+	});
+
+	describe('レート制限', () => {
+		it('既定の上限を超えると 429 と Retry-After を返す', async () => {
+			mockSuccess('love');
+			// 既定は 10 requests / 分。
+			for (let i = 0; i < 10; i += 1) {
+				mockSuccess('love');
+				expect((await post({ mode: 'love', text: 'x' })).status, `${i + 1}回目`).toBe(200);
+			}
+			const limited = await post({ mode: 'love', text: 'x' });
+			expect(limited.status).toBe(429);
+			expect(Number(limited.headers.get('Retry-After'))).toBeGreaterThanOrEqual(1);
+			expect(((await limited.json()) as JudgeErrorBody).error.code).toBe('RATE_LIMITED');
+		});
+
+		it('入力が壊れていても枠を消費する', async () => {
+			// 壊れたリクエストの連打でサーバーを回させない。
+			for (let i = 0; i < 10; i += 1) {
+				expect((await post({ mode: 'bad', text: 'x' })).status).toBe(400);
+			}
+			expect((await post({ mode: 'love', text: 'x' })).status).toBe(429);
+			expect(evaluate).not.toHaveBeenCalled();
+		});
+
+		it('送信元が違えば独立して数える', async () => {
+			for (let i = 0; i < 10; i += 1) await post({ mode: 'bad', text: 'x' });
+			expect((await post({ mode: 'bad', text: 'x' })).status).toBe(429);
+
+			clientAddress = '10.9.9.9';
+			expect((await post({ mode: 'bad', text: 'x' })).status).toBe(400);
 		});
 	});
 

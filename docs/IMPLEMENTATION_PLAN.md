@@ -137,7 +137,7 @@
 - e2e: 入力→送信→結果、エラー→再試行、モード切替
 - e2e: モックAPIでCSP違反がコンソールに出ないことを自動検証する（Phase 3 では手動確認にとどめた）
 - e2e: 判定中のモード切替と入力編集で、古い結果が表示されないことを確認する
-- `rate-limit.server.ts` を実装する（IP単位のbest-effort in-memory token bucket、既定 10 requests/minute。[ARCHITECTURE.md](ARCHITECTURE.md) の §9）
+- [x] `rate-limit.server.ts` を実装する（送信元単位のbest-effort in-memory token bucket、既定 10 requests/minute。[ARCHITECTURE.md](ARCHITECTURE.md) の §9）
 - secret scanとclient bundle確認
 - CSPヘッダーが実際に付与され、違反なくページが動作することを確認
 - request本文がログに出ないことを確認

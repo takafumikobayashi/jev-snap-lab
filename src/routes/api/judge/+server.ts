@@ -22,7 +22,9 @@ import {
 	CITY_DIRECTORY_VERSION
 } from '$lib/server/question-catalog.server';
 import { resolveUnit, sourcesFor } from '$lib/server/city-directory.server';
+import { createRateLimiter, DEFAULT_OPTIONS } from '$lib/server/rate-limit.server';
 import { describeFailure, validateJudgeInput } from '$lib/validation/judge-input';
+import { env } from '$env/dynamic/private';
 
 /**
  * 判定は上流の retry を含めて最長 12 秒かかる。プラットフォーム側に
@@ -40,13 +42,36 @@ const JSON_HEADERS = {
 	'Content-Type': 'application/json; charset=utf-8'
 };
 
-function jsonResponse(body: unknown, status: number): Response {
-	return new Response(JSON.stringify(body), { status, headers: JSON_HEADERS });
+function jsonResponse(
+	body: unknown,
+	status: number,
+	extraHeaders?: Record<string, string>
+): Response {
+	return new Response(JSON.stringify(body), {
+		status,
+		headers: { ...JSON_HEADERS, ...extraHeaders }
+	});
 }
 
-function failure(code: ErrorCode, requestId: string): Response {
-	return jsonResponse(errorBody(code, requestId), errorStatus(code));
+function failure(
+	code: ErrorCode,
+	requestId: string,
+	extraHeaders?: Record<string, string>
+): Response {
+	return jsonResponse(errorBody(code, requestId), errorStatus(code), extraHeaders);
 }
+
+/**
+ * 送信元ごとのレート制限。
+ *
+ * モジュールスコープに置くので、同じインスタンスが再利用される間だけ
+ * 有効な best-effort である。serverless ではインスタンスを跨がない
+ * （docs/ARCHITECTURE.md §9）。
+ */
+const perMinute = Number(env.APP_RATE_LIMIT_PER_MINUTE);
+const rateLimiter = createRateLimiter({
+	limit: Number.isFinite(perMinute) && perMinute > 0 ? perMinute : DEFAULT_OPTIONS.limit
+});
 
 /**
  * 構造化されたサーバーログ。
@@ -93,10 +118,20 @@ function buildCityBlock(results: JudgeResponse['results'], text: string): JudgeR
 	};
 }
 
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 	// requestId は入力本文から生成しない（docs/ARCHITECTURE.md §3）。
 	const requestId = `req_${crypto.randomUUID()}`;
 	const startedAt = performance.now();
+
+	// 入力検証より先に見る。上流を呼ばないリクエストでも枠を消費させ、
+	// 壊れたリクエストの連打でサーバーを回させない。
+	const decision = rateLimiter.check(getClientAddress(), Date.now());
+	if (!decision.allowed) {
+		log({ requestId, status: 429, code: 'RATE_LIMITED', retryAfter: decision.retryAfterSeconds });
+		return failure('RATE_LIMITED', requestId, {
+			'Retry-After': String(decision.retryAfterSeconds)
+		});
+	}
 
 	const contentType = request.headers.get('content-type') ?? '';
 	if (!contentType.toLowerCase().includes('application/json')) {
