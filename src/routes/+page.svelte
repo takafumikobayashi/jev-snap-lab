@@ -197,68 +197,73 @@
 					<div
 						class="mt-4 rounded-md border border-neutral-300 p-3 text-xs dark:border-neutral-700"
 					>
-						{#if city.provisional}
-							<p class="font-semibold text-amber-700 dark:text-amber-400">根拠データ未登録</p>
+						<!--
+							架空データのときは「根拠」と言い切らない。出典も条文も実在
+							しないため、公式の担当決定として見せてはならない
+							（docs/CITY_DATA.md §9）。
+						-->
+						{#if city.fictional}
+							<p class="font-semibold text-amber-700 dark:text-amber-400">根拠データ（架空）</p>
 							<p class="mt-1 text-neutral-600 dark:text-neutral-400">
-								この候補には公式の組織・事務分掌データがまだ紐付いていません。担当課の確定として扱わないでください。
+								以下は架空の組織・分掌です。実在の自治体の出典ではありません。
 							</p>
 						{:else}
 							<p class="font-semibold">根拠データ</p>
+						{/if}
 
-							{#if city.resolvedUnit}
-								<p class="mt-1">
-									{city.resolvedUnit.officialName}
-									{#if city.resolvedUnit.unit === null}
-										<!-- 係まで絞れていないことを名称の隣で示す。 -->
-										<span class="text-neutral-500">（課まで）</span>
-									{/if}
-								</p>
-								{#if city.resolvedUnit.matchedResponsibilities.length > 0}
-									<ul class="mt-1 list-disc pl-4 text-neutral-600 dark:text-neutral-400">
-										{#each city.resolvedUnit.matchedResponsibilities as responsibility (responsibility.responsibilityId)}
-											<li>{responsibility.officialText}</li>
-										{/each}
-									</ul>
-								{:else}
-									<!-- 係を推測して名指ししない（docs/CITY_DATA.md §5）。 -->
-									<p class="mt-1 text-neutral-500">
-										文面からは係を特定できませんでした。課までの候補として扱ってください。
-									</p>
+						{#if city.resolvedUnit}
+							<p class="mt-1">
+								{city.resolvedUnit.officialName}
+								{#if city.resolvedUnit.unit === null}
+									<!-- 係まで絞れていないことを名称の隣で示す。 -->
+									<span class="text-neutral-500">（課まで）</span>
 								{/if}
+							</p>
+							{#if city.resolvedUnit.matchedResponsibilities.length > 0}
+								<ul class="mt-1 list-disc pl-4 text-neutral-600 dark:text-neutral-400">
+									{#each city.resolvedUnit.matchedResponsibilities as responsibility (responsibility.responsibilityId)}
+										<li>{responsibility.officialText}</li>
+									{/each}
+								</ul>
+							{:else}
+								<!-- 係を推測して名指ししない（docs/CITY_DATA.md §5）。 -->
+								<p class="mt-1 text-neutral-500">
+									文面からは係を特定できませんでした。課までの候補として扱ってください。
+								</p>
 							{/if}
+						{/if}
 
-							{#if city.sources.length > 0}
-								<ul class="mt-2 space-y-1">
-									{#each city.sources as source (source.sourceId)}
-										<li>
-											{#if source.url}
-												<!--
+						{#if city.sources.length > 0}
+							<ul class="mt-2 space-y-1">
+								{#each city.sources as source (source.sourceId)}
+									<li>
+										{#if source.url}
+											<!--
 													外部の公式サイトへの固定リンク。URL は静的データ由来で、
 													許可ホストに限られることを contract test で固定している。
 													架空データでは URL を持たないためリンクにしない。
 												-->
-												<a
-													href={source.url}
-													target="_blank"
-													rel="noopener noreferrer"
-													class="underline underline-offset-2"
-												>
-													{source.title}
-												</a>
-											{:else}
-												<span>{source.title}</span>
-											{/if}
-											<span class="text-neutral-500">
-												（{source.locator} / 取得日 {source.retrievedAt}{source.effectiveFrom
-													? ` / 有効日 ${source.effectiveFrom}`
-													: ''}）
-											</span>
-										</li>
-									{/each}
-								</ul>
-							{:else}
-								<p class="mt-1 text-amber-700 dark:text-amber-400">出典データ未登録</p>
-							{/if}
+											<a
+												href={source.url}
+												target="_blank"
+												rel="noopener noreferrer"
+												class="underline underline-offset-2"
+											>
+												{source.title}
+											</a>
+										{:else}
+											<span>{source.title}</span>
+										{/if}
+										<span class="text-neutral-500">
+											（{source.locator} / 取得日 {source.retrievedAt}{source.effectiveFrom
+												? ` / 有効日 ${source.effectiveFrom}`
+												: ''}）
+										</span>
+									</li>
+								{/each}
+							</ul>
+						{:else}
+							<p class="mt-1 text-amber-700 dark:text-amber-400">出典データ未登録</p>
 						{/if}
 						<p class="mt-2 text-neutral-400">データバージョン: {city.directoryVersion}</p>
 					</div>

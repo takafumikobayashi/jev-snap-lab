@@ -3,7 +3,6 @@ import { MODES } from '$lib/types/judge';
 import {
 	buildCatalog,
 	buildState,
-	CITY_DIRECTORY_IS_PROVISIONAL,
 	CITY_DIRECTORY_VERSION,
 	CITY_JURISDICTION
 } from './question-catalog.server';
@@ -232,9 +231,7 @@ describe('buildState', () => {
 });
 
 describe('CITY データの出所', () => {
-	it('公式データを使っており、暫定フラグが立っていない', () => {
-		// Phase 4 で city-directory.json へ差し替えた。出典が候補へ紐付く。
-		expect(CITY_DIRECTORY_IS_PROVISIONAL).toBe(false);
+	it('バージョンが暫定を示す値でない', () => {
 		expect(CITY_DIRECTORY_VERSION).not.toContain('provisional');
 	});
 

@@ -18,10 +18,9 @@ import { normalizeAnswers } from '$lib/server/normalize-response.server';
 import {
 	buildCatalog,
 	buildState,
-	CITY_DIRECTORY_IS_PROVISIONAL,
 	CITY_DIRECTORY_VERSION
 } from '$lib/server/question-catalog.server';
-import { resolveUnit, sourcesFor } from '$lib/server/city-directory.server';
+import { isFictional, resolveUnit, sourcesFor } from '$lib/server/city-directory.server';
 import { createRateLimiter, DEFAULT_OPTIONS } from '$lib/server/rate-limit.server';
 import { describeFailure, validateJudgeInput } from '$lib/validation/judge-input';
 import { env } from '$env/dynamic/private';
@@ -98,7 +97,7 @@ function buildCityBlock(results: JudgeResponse['results'], text: string): JudgeR
 
 	return {
 		directoryVersion: CITY_DIRECTORY_VERSION,
-		provisional: CITY_DIRECTORY_IS_PROVISIONAL,
+		fictional: isFictional(),
 		sources: candidateId ? sourcesFor(candidateId) : [],
 		...(resolved
 			? {

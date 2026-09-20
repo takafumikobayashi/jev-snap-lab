@@ -125,7 +125,8 @@ describe('POST /api/judge', () => {
 			const body = (await (
 				await post({ mode: 'city', text: '家の前の防犯灯が切れてます' })
 			).json()) as JudgeResponse;
-			expect(body.city?.provisional).toBe(false);
+			// 架空データを公式根拠として扱わない。固定値ではなくデータセットから導く。
+			expect(body.city?.fictional).toBe(true);
 			expect(body.city?.directoryVersion).toBe('mcity-2026-04-01');
 			expect(body.city?.sources.length).toBeGreaterThan(0);
 			for (const source of body.city?.sources ?? []) {

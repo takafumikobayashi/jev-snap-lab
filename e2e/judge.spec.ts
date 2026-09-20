@@ -392,6 +392,70 @@ test.describe('アクセシビリティとレスポンシブ', () => {
 });
 
 test.describe('開示', () => {
+	test('CITY の根拠表示が架空であることを明示する', async ({ page }) => {
+		// 公開用データセットは架空。公式の根拠として見せてはならない。
+		await stubJudge(page, () => ({
+			status: 200,
+			body: judgeResponse({
+				mode: 'city',
+				city: {
+					directoryVersion: 'mcity-2026-04-01',
+					fictional: true,
+					sources: [
+						{
+							sourceId: 's1',
+							title: 'M市組織一覧（架空）',
+							url: null,
+							locator: '架空の規程',
+							retrievedAt: '2026-09-20',
+							effectiveFrom: '2026-04-01'
+						}
+					],
+					resolvedUnit: {
+						officialName: 'M市 A部 B課',
+						section: 'B課',
+						unit: null,
+						matchedResponsibilities: []
+					}
+				}
+			})
+		}));
+		await page.goto('/');
+		await page.getByRole('tab', { name: 'city' }).click();
+		await textarea(page).fill('防犯灯が切れてます');
+		await judge(page).click();
+
+		await expect(page.getByText('根拠データ（架空）')).toBeVisible();
+		await expect(page.getByText('実在の自治体の出典ではありません')).toBeVisible();
+	});
+
+	test('実データのときは架空の注記を出さない', async ({ page }) => {
+		await stubJudge(page, () => ({
+			status: 200,
+			body: judgeResponse({
+				mode: 'city',
+				city: {
+					directoryVersion: 'real-2026-04-01',
+					fictional: false,
+					sources: [],
+					resolvedUnit: {
+						officialName: 'X市 A部 B課',
+						section: 'B課',
+						unit: null,
+						matchedResponsibilities: []
+					}
+				}
+			})
+		}));
+		await page.goto('/');
+		await page.getByRole('tab', { name: 'city' }).click();
+		await textarea(page).fill('防犯灯が切れてます');
+		await judge(page).click();
+
+		await expect(page.getByText('根拠データ', { exact: true })).toBeVisible();
+		await expect(page.getByText('根拠データ（架空）')).toBeHidden();
+	});
+
 	test('全モードで外部送信と非保存を明示する', async ({ page }) => {
 		// 保存しないことと、外部へ送らないことは別。入力は Jev へ送られる。
 		await page.goto('/');

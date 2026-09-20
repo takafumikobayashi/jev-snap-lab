@@ -60,13 +60,7 @@ export const CITY_JURISDICTION = jurisdictionName();
 /** CITY 候補データのバージョン。レスポンスと観測ログに記録する。 */
 export const CITY_DIRECTORY_VERSION = directoryVersion();
 
-/**
- * 暫定データを使っているか。
- *
- * 公式の組織ページと事務組織規則から生成したデータに差し替えたため false。
- * 出典・施行日・取得日が候補へ紐付いている。
- */
-export const CITY_DIRECTORY_IS_PROVISIONAL = false;
+// 架空データかどうかは `isFictional()` から取る。固定値を持たせない。
 
 // ---------------------------------------------------------------------------
 // LOVE
