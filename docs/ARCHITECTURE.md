@@ -47,16 +47,20 @@ MVPは **SvelteKit + TypeScript + Tailwind CSS + Vercel + TypeSafe公式JavaScri
 └───────────────────────────────┘
 
 Repository static data:
-city-directory.json ──────────────┐
+data/city/*.json ─────────────────┐
 question catalog / labels ─────────┴─ server only
 ```
 
 ## 3. データフロー
 
 1. ブラウザは入力文とモードだけを `POST /api/judge` へ送る。
-2. server routeが `Content-Type: application/json`、mode enum、280 code points、空白のみを検証する。
+2. server routeが `Content-Type: application/json`、**ボディのサイズ上限**、mode enum、280 code points、空白のみを検証する。
+
+   **ボディは上限つきで読む。** `request.json()` は本文全体をメモリへ展開してから返すため、文字数を検証する前に巨大なボディを読み込んでしまう。上限（8KB）を超えた時点でストリームの読み取りを打ち切る。`Content-Length` は詐称できるので、宣言値で早期に弾いたうえで、実際に読んだバイト数でも見る。
+
+   8KBという値は、280 code pointsの日本語がUTF-8で840バイト程度、絵文字だけでも1,120バイト程度であることから決めた。JSONのエスケープとキー名を足しても数KBに収まるため、正当な入力を拒まない。
 3. `questionCatalog` がモードの質問を返す。
-4. CITYでは `city-directory.json` の activeな組織単位から `route_to.criteria`を生成する。
+4. CITYでは読み込んだデータセットの activeな組織単位から `route_to.criteria`を生成する。
 5. Jev公式SDKをserver-only moduleで呼び出す。
 6. SDKの応答を、TypeSafe生型の検証後に `JudgeResponse`へ正規化する。
 7. CITYでは `route_to`の候補IDを静的データへjoinし、根拠情報を付加する。
@@ -75,6 +79,7 @@ question catalog / labels ─────────┴─ server only
 ```text
 .
 ├── src/
+│   ├── hooks.server.ts
 │   ├── routes/
 │   │   ├── +page.svelte
 │   │   └── api/
@@ -94,6 +99,7 @@ question catalog / labels ─────────┴─ server only
 │   │   │   ├── jev-client.server.ts
 │   │   │   ├── question-catalog.server.ts
 │   │   │   ├── city-directory.server.ts
+│   │   │   ├── city-evidence.server.ts
 │   │   │   ├── normalize-response.server.ts
 │   │   │   ├── errors.server.ts
 │   │   │   └── rate-limit.server.ts
@@ -105,8 +111,13 @@ question catalog / labels ─────────┴─ server only
 │   └── app.html
 ├── data/
 │   └── city/
-│       └── akitakata-2026-04-01.json
+│       ├── fictional-m-city.json   # 公開用。コミットする
+│       └── local-*.json             # 実データ。gitignore（§9 of CITY_DATA）
 ├── static/
+│   ├── favicon.svg             # 優先
+│   ├── favicon.png             # SVG 非対応環境のフォールバック
+│   ├── og-image.jpg
+│   └── robots.txt
 ├── tests/
 │   ├── unit/
 │   ├── contract/
@@ -114,8 +125,11 @@ question catalog / labels ─────────┴─ server only
 ├── docs/
 ├── .env.example
 ├── package.json
-└── svelte.config.js
+├── pnpm-lock.yaml
+└── vite.config.ts       # SvelteKit + Tailwind + adapter-vercel + Vitest
 ```
+
+本プロジェクトでは設定を `vite.config.ts` へ集約し、`svelte.config.js` を置かない。SvelteKit 2.62 以降は `sveltekit()` プラグインが `KitConfig` を直接受け取れるようになっており、その場合 `svelte.config.js` は無視される。`svelte.config.js` を使う方式も引き続きサポートされているため、必要になれば移せる。adapter、CSP、runes モード（Svelte 5）の強制はいずれも `vite.config.ts` に置く。
 
 `*.server.ts`はブラウザへバンドルされないserver-only境界を意図する。Jevキーを持つモジュールは `src/lib/server/` からしかimportしない。
 
@@ -130,6 +144,10 @@ question catalog / labels ─────────┴─ server only
 | `JEV_TOTAL_TIMEOUT_MS` | No | retryを含む総予算。推奨12000 | No |
 | `JEV_INPUT_PRICE_PER_MILLION_TOKENS` | No | コスト推計。既定0.042 | No |
 | `APP_RATE_LIMIT_PER_MINUTE` | No | アプリ側のbest-effort上限 | No |
+| `CITY_DIRECTORY` | No | CITYのデータセット名。既定は架空データ `fictional-m-city`（[CITY_DATA.md](CITY_DATA.md) の §9） | No |
+| `CITY_SOURCE_HOSTS` | No | 出典URLに許可するホスト（カンマ区切り）。未設定ならURLを持つ出典を許さない | No |
+| `PUBLIC_SITE_URL` | No | サイトの起点URL。OGPの絶対URL生成に使う。未設定なら画像系のmetaを出さない | Yes |
+| `PUBLIC_SITE_URL` | No | OGP画像の絶対URL生成用。未設定時は相対URL | Yes |
 | `PUBLIC_APP_LABEL` | No | CITYのデモ注意文など公開可能な表示設定 | Yes可 |
 
 `.env`はコミットしない。VercelではPreview / Productionごとに分離する。`PUBLIC_` prefix以外の秘密はSvelteのpublic env importへ渡さない。
@@ -140,12 +158,42 @@ Vercelは関数に既定の最大実行時間を設定しており、超える�
 
 `JEV_TOTAL_TIMEOUT_MS` が既定値を超えていると、アプリのtimeout処理（504 / `UPSTREAM_TIMEOUT`）へ到達する前に関数が殺され、ユーザーにはプラットフォームのエラーが出る。**総予算より確実に大きい `maxDuration` を明示設定する。**
 
-```json
-// vercel.json
-{ "functions": { "src/routes/api/judge/+server.ts": { "maxDuration": 20 } } }
+**`vercel.json` の `functions` グロブは使えない。** adapter-vercelはBuild Output API v3を使い、`.vercel/output/functions/**/.vc-config.json` をアダプタ自身が書き出す。生成される関数名は `catchall.func` などであり、`src/routes/api/judge/+server.ts` のようなソースパスとは一致しないため、`vercel.json` に書いても適用されない。
+
+設定方法は次の2つで、いずれも実測で `.vc-config.json` への反映を確認済み。
+
+```ts
+// 1. 全ルート共通の既定値: vite.config.ts
+adapter({ maxDuration: 20 })
 ```
 
-20秒は `JEV_TOTAL_TIMEOUT_MS` 12,000ms に検証・正規化・ログ出力の余裕を加えた値である。実装開始時に、契約プランで設定可能な上限と既定値をVercelのダッシュボードで確認する。[Configuring Maximum Duration](https://vercel.com/docs/functions/configuring-functions/duration)
+```ts
+// 2. ルート単位: src/routes/api/judge/+server.ts
+import type { Config } from '@sveltejs/adapter-vercel';
+
+export const config: Config = { maxDuration: 20, split: true };
+```
+
+**専用の関数にしたい場合は `split: true` が必要である。** アダプタはルートをconfigのハッシュでグルーピングし、同じconfigを持つルートは1つの関数を共有する。`split: true` はそのグループIDを強制的にユニークにする。
+
+```js
+// adapter-vercel の該当箇所
+const id = config.split ? `${hash}-${groups.size}` : hash;
+```
+
+ビルド出力で確認した挙動は次のとおり。`maxDuration` だけを指定した2ルートは同じ関数を指すシンボリックリンクになり、`split: true` を付けたルートだけが別の実体を持つ。
+
+```text
+__pa.func -> ../![-]/1.func   maxDuration 33
+__pb.func -> ../![-]/1.func   maxDuration 33（__pa と共有）
+__pc.func -> ../![-]/2.func   maxDuration 33 + split: true（専用）
+```
+
+現時点では `/api/judge` 以外に固有configを持つルートが無いため `split` なしでも結果的に単独の関数になるが、それは偶然の産物であり保証ではない。将来ルートが増えたときに同居してしまうのを防ぐため、判定エンドポイントには `split: true` を明示する。
+
+現状はアダプタ既定値として20秒を設定している。`maxDuration` は上限であって予約ではなく、Vercelの課金はactive CPU基準なので、ページ側に広めの上限が付いてもコストには影響しない。Phase 2で `/api/judge` にルート単位の設定を入れた後、アダプタ既定値を絞るかを判断する。
+
+20秒は `JEV_TOTAL_TIMEOUT_MS` 12,000ms に検証・正規化・ログ出力の余裕を加えた値である。実装開始時に、契約プランで設定可能な上限と既定値をVercelのダッシュボードで確認する。[Configuring Maximum Duration](https://vercel.com/docs/functions/configuring-functions/duration) / [adapter-vercel](https://svelte.dev/docs/kit/adapter-vercel)
 
 ## 6. Jev client境界
 
@@ -178,6 +226,8 @@ SDKのtimeoutは1試行単位で、公式記載のデフォルトは10,000ms。�
 1試行3,500msはJevの実測レイテンシ（公式例で百ms台）に対して十分な余裕がある。実機計測後に調整する場合は、上式の等号関係を保ったまま両方の値を動かす。
 
 SDKは `apiTimeoutError` と `apiConnectionError` も既定でretryするため、アプリ側で再送を重ねない。詳細な既定値は [JEV_DESIGN.md](JEV_DESIGN.md) の §9 を参照。
+
+**上の等式は通常時の計算であり、3試行の完了を保証しない。** SDKに総retry予算は無く（`RequestOptions.timeout` は1試行あたり）、`Retry-After` は最大60秒まで尊重される。上流が長い待機を指示すれば試行1の後で予算を使い切る。`JEV_TOTAL_TIMEOUT_MS` はあくまでAbortSignalによるハード上限であり、SDKへ渡した `signal` は送信中のリクエストに加えて**待機中のretryも中断する**。予算超過時は待機ごと打ち切り、504 / `UPSTREAM_TIMEOUT` を返す。
 
 ## 7. API route契約
 
@@ -228,12 +278,12 @@ Client-visible error shape:
 
 | App status | code | 例 |
 |---:|---|---|
-| 400 | `INVALID_INPUT` | JSON不正、mode不正、空白のみ、281文字以上 |
+| 400 | `INVALID_INPUT` | ボディが8KB超、JSON不正、mode不正、空白のみ、281文字以上 |
 | 401/500 | `CONFIGURATION_ERROR` | Jevキー未設定・無効。ユーザーには一般エラー |
 | 422 | `QUESTION_DEFINITION_ERROR` | 固定質問またはCITYデータから生成した質問が不正 |
 | 429 | `RATE_LIMITED` | upstreamまたはアプリ側のレート制限 |
 | 502/503 | `UPSTREAM_UNAVAILABLE` | Jev障害・過負荷。上流の529をそのまま返さない（529はIANA未登録でCDN・プロキシの扱いが不定なため、アプリは503を返す） |
-| 504 | `UPSTREAM_TIMEOUT` | timeout / total budget超過 |
+| 504 | `UPSTREAM_TIMEOUT` | total budget超過、SDK timeout、上流の408 / 504。いずれも再試行可能として表示する |
 
 ## 8. セキュリティ
 
@@ -249,7 +299,7 @@ Client-visible error shape:
 - Svelteの通常のテキストバインディングで表示し、`{@html}`を使わない。
 - 入力はJevへ渡すだけで、Markdown / HTMLとして解釈しない。
 - 結果ラベルとCITYのURLは静的なカタログからのみ出す。
-- `source.url`は許可した`https://www.akitakata.jp/`または公式例規集ホストだけに制限し、ユーザー入力URLをリンクにしない。
+- `source.url`は`CITY_SOURCE_HOSTS`で許可したホストのhttpsだけに制限する。**許可ホストの一覧はリポジトリに書かない**（自治体が特定されるため）。未設定ならURLを持つ出典を一切許さず、架空データはURLを持たないので公開時はこれで足りる。ユーザー入力URLをリンクにしない。
 - レスポンス本文をそのままDOMへ挿入しない。
 
 ### ログ・保存
@@ -259,20 +309,106 @@ Client-visible error shape:
 - TypeSafe SDKのdebug loggingを本番で有効にしない。公式SDKはdebugでbodyもログし得るため、ログレベルはwarnまたはerrorにする。
 - Vercelのアクセスログや上流事業者の保持方針は、実装・公開前に各利用規約とDPAを確認する。
 
+### 検索エンジンとSNSクローラーの扱い
+
+`static/robots.txt` で**検索エンジンは拒否し、SNSのリンク展開だけ通す**。
+
+全拒否にすると、SNSのクローラーも `robots.txt` を尊重するためOGPカードが表示されない。一方で検索流入は塞ぎたい（[CITY_DATA.md](CITY_DATA.md) の §9）。リンクを踏んだ人だけが到達する経路は残す、という切り分けである。
+
+`robots.txt` はUser-agentごとに最も具体的なgroupだけが適用されるため、個別のクローラーに `Allow: /` を書いた上で、最後に `User-agent: *` を `Disallow: /` にする。
+
+### OGP
+
+`og:image` は**絶対URL**でなければクローラーが解決できない。`PUBLIC_SITE_URL` から組み立て、**未設定なら画像系のmetaを出さない**。壊れた相対URLを出すくらいなら出さない方がよい。クローラーはどちらも無視するが、出さなければ設定漏れだと分かる。サーバー起動時にも警告を残す。
+
+設定漏れはローカルでは踏めないため、E2Eで次を検証する。
+
+- `og:image` が絶対URLであること
+- `og:type` / `og:title` / `og:description` / `og:url` が揃うこと
+- `og:image:width` / `height` の宣言が実画像のPNGヘッダーと一致すること
+- `robots.txt` が検索を拒否しつつSNSを通すこと
+
 ### 応答ヘッダー
 
-- `Cache-Control: no-store`
-- 可能なら `Content-Type: application/json; charset=utf-8`
-- Content Security Policyを実装フレームワークの方式で設定
-- `X-Content-Type-Options: nosniff`
-- `Referrer-Policy: strict-origin-when-cross-origin`
+| ヘッダー | 導入フェーズ | 実装場所 |
+|---|---|---|
+| `X-Content-Type-Options: nosniff` | Phase 1（実装済み） | `src/hooks.server.ts` |
+| `Referrer-Policy: strict-origin-when-cross-origin` | Phase 1（実装済み） | `src/hooks.server.ts` |
+| `Cache-Control: no-store`（`/api/*`） | Phase 1（実装済み） | `src/hooks.server.ts` |
+| `Content-Type: application/json; charset=utf-8` | Phase 2 | `/api/judge` の `+server.ts` |
+| **Content Security Policy** | **Phase 3** | `vite.config.ts` の `csp` |
+
+### Content Security Policy の実装方式
+
+**`hooks.server.ts` で手書きしない。** SvelteKitはハイドレーション用のインラインスクリプトを自前で生成するため、素の `Content-Security-Policy` ヘッダーを後付けするとページが動かなくなる。SvelteKitの `csp` 設定を使えば、生成した各インライン要素へnonceまたはhashが自動付与される。
+
+設定は `sveltekit()` プラグインへ渡す（`KitConfig` を直接受けるため、`adapter` と同階層）。
+
+```ts
+// vite.config.ts
+sveltekit({
+	adapter: adapter({ maxDuration: 20 }),
+	csp: {
+		mode: 'auto',
+		directives: {
+			'default-src': ['self'],
+			'script-src': ['self'],
+			'connect-src': ['self'],
+			'img-src': ['self', 'data:'],
+			'frame-ancestors': ['none'],
+			'base-uri': ['self'],
+			'form-action': ['self']
+		}
+	}
+})
+```
+
+実装時に注意する点が3つある。
+
+1. **`style-src` は明示的に指定する。** 未指定にすると、dev では SvelteKit が `'unsafe-inline'` を補うが、**本番ビルドでは補われず `default-src` へフォールバックし、インライン `style` 属性がブロックされる**。結果カードのバーは幅と色を `style` 属性で与えているため、本番だけ描画が壊れる。実際にこの状態でPhase 3を終えており、Phase 5のE2Eで検出した。
+
+   ```ts
+   'style-src': ['self', 'unsafe-inline']
+   ```
+
+   `'unsafe-inline'` を含めると、SvelteKit はスタイルにhash/nonceを付ける必要がないと判断する（`style_needs_csp` が false になる）。Svelte の transition もインライン `<style>` を生成するため、いずれにせよ許可が要る。
+
+   実際のレスポンスヘッダーで確認した値は次のとおり。
+
+   ```text
+   content-security-policy: default-src 'self'; connect-src 'self'; font-src 'self';
+     img-src 'self' data:; object-src 'none';
+     script-src 'self' 'nonce-…'; style-src 'self' 'unsafe-inline';
+     base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+   ```
+
+   `style-src` がゆるい分、`script-src` を nonce で締めることと `object-src 'none'` / `base-uri 'self'` / `form-action 'self'` を効かせることで XSS の実害を抑える。
+
+2. **prerenderされたページではCSPが `<meta http-equiv>` で入る。** この場合 `frame-ancestors`、`report-uri`、`sandbox` は無視される。
+3. **`connect-src` は `self` で足りる。** ブラウザはTypeSafe APIを直接呼ばず、`/api/judge` だけを叩くため。
+
+**Phase 3に置く理由。** 空のページへ先にCSPを入れても、違反が起きないため通って当然であり、UIが増えた時点で壊れる。結果カード、favicon、Tailwindの生成CSSが出揃うPhase 3で入れ、以後の実装で違反が出たらその場で気付ける状態にする。Production直前（Phase 6）に後付けすると、最も直したくないタイミングで壊れる。
 
 ## 9. Rate limit / abuse対策
 
 MVPでは外部DBなしで過剰な設計をしない。ただし次の二層を用意する。
 
-1. クライアント: 送信中の二重送信を禁止し、連打にクールダウンを置く。
-2. サーバー: IP単位のbest-effort in-memory token bucketを実装し、例えば10 requests/minuteを既定値とする。serverlessのインスタンスを跨いで完全な制限にはならないことを明記する。
+1. クライアント: 送信中の二重送信を禁止し、連打にクールダウンを置く。**Phase 3**。
+2. サーバー: 送信元アドレス単位のbest-effort in-memory token bucket。既定は10 requests/minuteで、`APP_RATE_LIMIT_PER_MINUTE`（正の整数）で変更できる。読めない値を黙って既定値へ戻すと、絞ったつもりのまま10 requests/minuteで走り続ける。設定してあるのに読めない場合は `RATE_LIMIT_INVALID` を警告として残す。**Phase 5で実装済み**（`src/lib/server/rate-limit.server.ts`）。
+
+### 実装上の判断
+
+**固定窓ではなくトークンバケットにした。** 固定窓は窓の境界で `limit × 2` を許してしまう。経過時間に比例して補充する方式なら境界が無い。テストで「窓末尾に上限まで使い、次の窓頭で同数は通らない」ことを固定している。
+
+**入力検証より先に判定する。** 上流を呼ばないリクエストでも枠を消費させる。そうしないと、壊れたリクエストの連打でサーバーを回させられる。
+
+**追跡するキー数に上限を設ける（既定10,000）。** 送信元アドレスは詐称できるため、無制限に覚えるとメモリ枯渇の経路になる。上限に達したら挿入順が最も古いものから捨てる。使い続けているキーは参照のたびに順序が更新されるので押し出されにくい。
+
+**拒否時は `Retry-After` を返す。** 次の1トークンが貯まるまでの秒数で、1秒以上に切り上げる。
+
+serverlessではインスタンスを跨いで状態を共有しないため、**完全な制限にはならない**。踏み台からの大量アクセスを止める手段ではなく、素朴な連打と事故を抑えるためのものである。公開範囲が広がる場合はVercel Edgeのレート制限機能か外部KVを検討する。
+
+判定APIは上流に課金が発生するため、公開前に必ず入れる。ただしUIが無い段階では踏みようがないため、画面と一緒に検証できるPhase 5に置く。
 
 upstreamから429 / 529が返ったときは、公式SDKのbackoffと`retry-after`処理を利用する。アプリ側の追加retryは行わず、最終的に429ならユーザーへ待機を促す。
 
@@ -291,7 +427,7 @@ upstreamから429 / 529が返ったときは、公式SDKのbackoffと`retry-afte
 
 - Vercel projectへ接続し、framework presetをSvelteKitにする。
 - PreviewとProductionの環境変数を分離する。
-- `vercel.json` の `maxDuration` を `JEV_TOTAL_TIMEOUT_MS` より大きい値に設定し、Previewで実際にtimeoutを踏んで504が返ることを確認する。
+- `maxDuration` が `JEV_TOTAL_TIMEOUT_MS` より大きいことを `.vercel/output/**/.vc-config.json` で確認し、Previewで実際にtimeoutを踏んで504が返ることを確認する。
 - Node.js runtimeはTypeSafe JavaScript SDKの要件であるNode.js 20以上に合わせる。[JavaScript SDK](https://docs.typesafe.ai/sdk/javascript)
 - 最初のProduction deploy前に、Previewで以下を確認する。
   - APIキーがクライアントbundleに存在しない
@@ -299,6 +435,7 @@ upstreamから429 / 529が返ったときは、公式SDKのbackoffと`retry-afte
   - timeout / 429 / 422を画面が処理する
   - CITYの出典リンクが許可ドメインだけを開く
   - 画面に入力本文が保存されない
+  - CSPヘッダーが付与され、コンソールにCSP違反が出ない
 
 ## 12. 監視の最小項目
 
@@ -311,3 +448,22 @@ upstreamから429 / 529が返ったときは、公式SDKのbackoffと`retry-afte
 - CITY `other_or_unclear`率、low-confidence率
 
 MVPで外部Observabilityを増やしすぎず、Vercelのログと構造化server logで始める。コストや失敗の傾向が見えたら追加する。
+
+### ログの形
+
+1リクエスト1行のJSONで出す。複数行に分けると集計しづらい。入力本文、APIキー、上流のレスポンス本文は含めない。
+
+```json
+{"route":"api/judge","requestId":"req_…","mode":"love","status":200,
+ "model":"jev-1.13.0","upstreamLatencyMs":640,"latencyMs":642,
+ "inputTokens":944,"questionCount":7}
+```
+
+```json
+{"route":"api/judge","requestId":"req_…","mode":"love","status":429,
+ "code":"RATE_LIMITED","latencyMs":1,"detail":"…"}
+```
+
+`latencyMs` から p50 / p95 を、`status` と `code` から失敗の種別ごとの件数を、`model` からモデル分布を、`inputTokens` からコストを算出できる。項目が揃っていることはテストで固定している。
+
+`upstreamLatencyMs` はJevの往復、`latencyMs` は入力検証後から正規化完了までのサーバー処理時間で、別物として記録する。

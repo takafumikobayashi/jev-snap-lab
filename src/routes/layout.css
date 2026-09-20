@@ -1,0 +1,60 @@
+@import 'tailwindcss';
+
+/*
+ * dark: バリアントを使う以上、ページ自体の地の色も配色に合わせる必要がある。
+ * 背景を定義しないと、OS がダークモードのとき白地の上にダークモード用の
+ * 配色（明るいバー、明るいチップ）が乗り、コントラストが反転して見える。
+ *
+ * color-scheme はフォーム部品（textarea のキャレットやスクロールバー）を
+ * 配色に追従させるために指定する。
+ */
+:root {
+	color-scheme: light dark;
+	--page-bg: var(--color-white);
+	--page-fg: var(--color-neutral-900);
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		--page-bg: var(--color-neutral-950);
+		--page-fg: var(--color-neutral-100);
+	}
+}
+
+body {
+	background-color: var(--page-bg);
+	color: var(--page-fg);
+}
+
+/*
+ * 判定結果の配色。
+ *
+ * 色は「値の大小」ではなく「判断の種類」を示す。Choice の分布、Score の
+ * 位置、Noul の独立した yes 確率は意味の違う数値であり、すべて同じ灰色で
+ * 描くと混同を招く（docs/PRODUCT_SPEC.md §5）。カード内は1色＋中立色に
+ * 留め、候補ごとに色を変えることはしない（候補は最大28件あり、色相を
+ * 回すと識別が破綻するため）。
+ *
+ * 3色はカテゴリカル配色の先頭3スロット。ライト・ダーク双方で全ペアの
+ * CVD 分離と通常視の閾値を満たすことを検証済み。ライトの aqua のみ
+ * コントラストが 3:1 未満のため、Noul は必ず数値ラベルを併記する。
+ */
+:root {
+	--viz-choice: #2a78d6;
+	--viz-choice-soft: #86b6ef;
+	--viz-score: #eb6834;
+	--viz-noul: #1baf7a;
+	--viz-track: #e1e0d9;
+	--viz-tint: #eaf2fd;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		--viz-choice: #3987e5;
+		--viz-choice-soft: #184f95;
+		--viz-score: #d95926;
+		--viz-noul: #199e70;
+		--viz-track: #2c2c2a;
+		--viz-tint: #12243a;
+	}
+}

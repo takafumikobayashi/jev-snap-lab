@@ -200,11 +200,13 @@ Noulは `romantic_frame` と意図的に重複させない。「別れ」「未�
 {
   "mode": "city",
   "text": "家の前の防犯灯が切れてます",
-  "jurisdiction": "安芸高田市",
-  "directory_effective_date": "2026-04-01",
-  "directory_version": "akitakata-2026-04-01"
+  "jurisdiction": "M市"
 }
 ```
+
+**`directory_version` と `directory_effective_date` は state へ入れない。** モデルにとって意味を持たないIDと日付でトークンを使うだけで、候補の説明は criteria 側に入っているため判定に寄与しない。`jurisdiction` だけは「どの自治体への問い合わせとして読むか」が判定に効くため残す。
+
+データバージョンはレスポンスの `city.directoryVersion` に必ず記録し、画面の根拠表示（§9）と観測ログで使う。
 
 担当候補の `criteria` は、[CITY_DATA.md](CITY_DATA.md) の静的データからサーバー側で生成する。Jevへ渡す候補は `id` と短い業務説明に限定し、採用後の根拠表示は必ず同じ `id` を使ってローカルデータへjoinする。
 
@@ -213,11 +215,11 @@ Noulは `romantic_frame` と意図的に重複させない。「別れ」「未�
 | ID | Type | 判定 | Criteria / 定義 |
 |---|---|---|---|
 | `route_to` | Choice | 最初の担当候補 | **課・外部事業体レベル**の候補から一つ（係では分割しない。理由は後述）。`other_or_unclear`を必ず含める。 |
-| `request_category` | Choice | 安定カテゴリ | `city-directory.json` の `categories` から生成する。候補一覧は [CITY_DATA.md](CITY_DATA.md) を single source of truth とし、本文書に列挙しない。 |
+| `request_category` | Choice | 安定カテゴリ | データセットの `categories` から生成する。候補一覧は [CITY_DATA.md](CITY_DATA.md) を single source of truth とし、本文書に列挙しない。 |
 | `urgency` | Score | 緊急度 | 0: 通常、1: 近日確認、2: 当日確認が望ましい、3: 人身・重大な安全への即時リスクを含む可能性。サービスのSLAではない。 |
 | `onsite_visit_likely` | Noul | 現地確認要否 | true: 現地の状態・位置・設備を確認する必要がありそう、false: 文面だけで一次案内できそう。 |
 | `human_review_likely` | Noul | 人による確認要否 | true: 事実、資格、個人情報、例外、権限などの確認が必要そう、false: それらを含まない。 |
-| `cross_department_likely` | Noul | 他課連携要否 | true: 複数課、支所、警察、県、広島県水道広域連合企業団などへの連携がありそう、false: 単一候補で閉じそう。 |
+| `cross_department_likely` | Noul | 他課連携要否 | true: 複数課、支所、警察、県、H県水道広域連合企業団などへの連携がありそう、false: 単一候補で閉じそう。 |
 | `location_information_missing` | Noul | 位置情報不足 | true: 担当判断に町名、施設名、番地などが必要だが文面にない、false: 位置情報が十分、または位置不要。 |
 | `emergency_signal` | Noul | 緊急性の明示 | true: 火災、事故、人身危険、犯罪進行中等の即時性を明示、false: そうした明示なし。アプリは通報を実行しない。 |
 
@@ -262,9 +264,10 @@ other_or_unclear
 
 1. `route_to.choice` で主候補を取得する。
 2. `route_to.probabilities` の上位3件を表示する。
-3. 上位候補ごとにローカルの `sourceRefs` をjoinし、課、係、分掌、公式URL、取得日、有効日を表示する。
+3. 上位候補ごとにローカルの `sourceRefs` をjoinし、課、係、分掌、公式URL、取得日、有効日を表示する。対象は画面が折り畳まずに見せる候補と同じ集合（`displayedOptions()`）で、確率の上位 `DISPLAYED_CHOICE_OPTIONS` 件に**選ばれた候補を必ず含める**。`choice` はモデルの回答であり分布の最大とは限らないため、上位だけで切ると選択チップに出ている候補がバーにも根拠にも無くなる。選ばれた1件だけに根拠を付けると、逆に候補が割れた入力ほど比較材料が無くなる。
 4. `human_review_likely.noul`、`location_information_missing.noul`、`emergency_signal.noul` を機械的な手続き開始条件にしない。
 5. `confidence`が低い、`other_or_unclear`が上位、または出典がない場合は「候補を絞り切れない」と表示する。
+6. **絞り込み不能と出典未登録を混ぜない。** `other_or_unclear` は組織データに対応する課を持たない正規の候補であり、出典が空なのはデータ欠落ではない。ここで「出典データ未登録」と出すと、利用者に誤った原因を示す。レスポンスでは `kind: 'unroutable'` として型で区別し、候補自体は落とさない（落とすと、画面のChoiceには出ているのに根拠欄から消える）。「出典データ未登録」は実在の課で `sourceRefs` が空の場合だけに使う。
 
 ## 8. レスポンスのアプリ内契約
 
@@ -331,7 +334,12 @@ type ResultCard =
 4. `score` を100点満点や独自のパーセントへ再計算しない。
 5. 最大確率のレベルが複数並んだ場合は、小さいレベル番号を採る。
 
-`legend` はレスポンスから受け取った文言をそのまま表示する。アプリ側の日本語ラベルを使う場合は、質問定義の `criteria` と1対1対応するlabel mapから引き、`legend` とずれていないことをcontract testで検証する。
+**画面には `legend` をそのまま出さない。** `criteria` は英語で書く方針のため（Jevは英語が主な学習言語であり、判定精度を優先する。[Models](https://docs.typesafe.ai/models)）、`legend` には送った英語がそのまま返る。日本語UIに英語が混在するのを避けるため、質問定義と対になる `scoreLabels`（レベル順の日本語配列）を持ち、表示にはそちらを使う。
+
+`scoreLabels` は `criteria` と同じ長さ・同じ順序でなければならない。ずれると別レベルの説明を表示することになるため、次の2箇所で検証する。
+
+1. contract test: 全Score質問について `scoreLabels[id].length === criteria.length`
+2. 正規化時: レスポンスの `legend` のキー数と `scoreLabels` の長さが一致すること。不一致は契約違反としてエラーにする
 
 ### usage とコスト
 
@@ -363,7 +371,7 @@ estimatedCostUsd = input_tokens / 1_000_000 * 0.042
 
 ### MVP設定
 
-1試行timeoutは**3,500ms**、total request budgetは12,000msとする。この組み合わせは最悪ケースがちょうど予算に収まる。
+1試行timeoutは**3,500ms**、total request budgetは12,000msとする。通常時はちょうど3試行が予算に収まる。
 
 ```text
 3500 + 500 + 3500 + 1000 + 3500 = 12,000ms
@@ -372,7 +380,20 @@ estimatedCostUsd = input_tokens / 1_000_000 * 0.042
 
 公式デフォルトの10,000ms、あるいは以前の推奨値だった8,000msを1試行に使うと、3試行分で25,500msとなり12,000msの予算では試行2が途中で打ち切られ試行3が一度も実行されない。retryを設計に含めるなら1試行を短くする必要がある。
 
+#### total budget の性質（実装時の誤解を避けるため）
+
+上の12,000msは**通常時の計算であり、3試行の完了を保証しない**。3点を明確にしておく。
+
+1. **12,000msはAbortSignalによるハード上限である。** SDKのtimeoutは1試行あたりにしか効かず、`RequestOptions.timeout` の説明にも「there is no total retry budget」と明記されている。総予算はSDKの機能ではなくアプリ側で `AbortController` を用意して強制する。
+
+2. **3試行が必ず実行されるとは限らない。** SDKは `respectRetryAfter: true` かつ `maxRetryAfterMs: 60000` なので、上流が `Retry-After` で長い待機を指示した場合、固定backoff（500ms / 1,000ms）ではなくその指示に従う。429が返って `Retry-After: 30` が付けば、試行1の後で予算を使い切る。
+
+3. **Retry-After の待機も総予算で中断する。** `RequestOptions.signal` は「Cancellation signal for the request **and pending retries**」と定義されており、渡したAbortSignalは送信中のリクエストだけでなく待機中のretryも打ち切る。したがって予算超過時は待機ごと中断され、アプリは504 / `UPSTREAM_TIMEOUT` を返す。
+
+[RetryPolicy](https://docs.typesafe.ai/sdk/javascript/api/interfaces/RetryPolicy) / [RequestOptions](https://docs.typesafe.ai/sdk/javascript/api/interfaces/RequestOptions)
+
 - 429 / 529 / 408 / 5xx: SDKの指数backoffと `retry-after` 尊重を利用する。アプリ側で同じretryを二重実装しない。
+- 408 / 504: SDKのretry対象に408が含まれるため、ここへ残るのは「retryしても回復しなかった」場合である。障害ではなく時間切れとして `UPSTREAM_TIMEOUT`（504）へ写し、再試行可能として表示する。
 - timeout / 接続失敗もSDKが既定でretryする。アプリ側の「1回で失敗扱い」は、**SDKがretryを使い切った後**のユーザー向け挙動を指す。
 - 401: 設定エラー。ユーザーには接続失敗、サーバーログにはキー未設定/認証失敗の種別だけを記録し、キー値は記録しない。
 - 422: 質問定義またはリクエスト構築のバグ。ユーザーには再試行を促さず、一般的なエラーを表示し、監視対象にする。
@@ -386,10 +407,12 @@ estimatedCostUsd = input_tokens / 1_000_000 * 0.042
 - クライアントとサーバーの両方で mode enum を検証する。
 - サーバーで Unicode code points 基準の280文字制限を検証する。実装では日本語の合成文字・絵文字の扱いをテストする。
 - 空白だけ、制御文字のみ、JSON bodyでないリクエストは400。
+- リクエストボディのサイズ上限を、JSONへ変換する**前**に適用する。文字数の検証だけでは、巨大なボディを読み込んだ後にしか弾けない。
 - stateにユーザー入力と固定モード文字列以外の任意オブジェクトを受け付けない。
 - **送信前**に、組み立てた質問の `criteria` が type ごとの形（Choice=map、Score=array、Noul={true,false}）に一致することを検証する。Scoreは2〜10要素、Choiceは255候補以下。ここで弾けば422を事前に防げる。
-- レスポンスの `answers` のtype、probability範囲、Scoreのlegend、必須質問キーをサーバー側で検証する。
-- Scoreの `legend` のキー数が送信した `criteria` の要素数と一致することを検証する。
+- レスポンスの骨格から検証する。`model` が空でない文字列、`usage.input_tokens` と `output_tokens` が0以上の数値、`answers` がオブジェクト（null や配列でない）であること。ここを飛ばすと、壊れた応答が内部例外として現れて原因が追えない。
+- `answers` のtype、probability範囲、必須質問キーを検証する。
+- **キー集合は完全一致で見る。** Choiceの `probabilities` は送った候補と、Scoreの `legend` と `probabilities` は0始まりの連番と、それぞれ過不足なく一致すること。必要なキーの存在だけを見ると、余分なキーや飛びを見逃す。上流が別の尺度で答えている可能性がある。
 - probabilityの合計は浮動小数誤差を許容した範囲で検証し、異常なら結果を表示せず再試行可能なエラーにする。
 - `choice`がcriteriaに存在しない場合はデータ/SDKの契約違反としてエラーにする。
 

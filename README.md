@@ -10,7 +10,7 @@
 
 - **LOVE** — 短文の恋愛的な含意を複数軸で判定
 - **SOCIAL** — SNS 投稿らしさ、ユーモア、議論性、反応誘発性などを判定
-- **CITY** — 安芸高田市の現行組織・事務分掌をモデルケースに、行政問い合わせの担当候補などを判定
+- **CITY** — M市の現行組織・事務分掌をモデルケースに、行政問い合わせの担当候補などを判定
 
 CITY は正式な行政案内サービスではなく、Jev と根拠付きルーティングの技術デモです。Jev の出力だけを正解とみなさず、公式の組織・分掌データを併記します。
 
@@ -21,6 +21,7 @@ CITY は正式な行政案内サービスではなく、Jev と根拠付きル�
 - [CITY データ設計](docs/CITY_DATA.md)
 - [アーキテクチャ](docs/ARCHITECTURE.md)
 - [実装計画](docs/IMPLEMENTATION_PLAN.md)
+- [デプロイ手順](docs/DEPLOY.md)
 
 ## 技術構成の推奨案
 
@@ -28,29 +29,44 @@ CITY は正式な行政案内サービスではなく、Jev と根拠付きル�
 
 - SvelteKit + TypeScript
 - Tailwind CSS
-- Node.js 20 以上
+- Node.js 20 以上 / pnpm
 - TypeSafe 公式 JavaScript SDK (`@typesafe-ai/sdk`)
 - Vercel (`@sveltejs/adapter-vercel`)
 - 永続データベースなし。CITY データはバージョン管理する静的 JSON
 
 採用理由と代替案は [アーキテクチャ](docs/ARCHITECTURE.md) に記載しています。
 
-## ローカル実行方法（実装後）
+## ローカル実行方法
 
-現在は設計段階のため、実行可能なアプリケーションコードや `package.json` はまだありません。実装後の標準手順は次の形にします。
+パッケージマネージャは **pnpm** です。Node.js 20 以上が必要です。
+
+pnpm を採用したのは、この構成の依存を npm でインストールできなかったためです。開発環境（macOS / Node 22.19.0 / npm 10.9.3）で `npm install` が arborist の peer 解決中に `Cannot read properties of null (reading 'edgesOut')` で異常終了しました。`--legacy-peer-deps` を付けると解決できたため依存の衝突ではありませんが、他のバージョンや環境での再現性は確認していません。pnpm では問題なくインストールできます。
 
 ```bash
-npm install
+corepack enable          # pnpm が未導入の場合のみ
+pnpm install
 cp .env.example .env
 # .env に TYPESAFE_API_KEY を設定
-npm run dev
+pnpm dev
 ```
 
-想定する環境変数は次のとおりです。
+| コマンド       | 内容                             |
+| -------------- | -------------------------------- |
+| `pnpm dev`     | 開発サーバー                     |
+| `pnpm build`   | 本番ビルド                       |
+| `pnpm preview` | 本番ビルドのプレビュー           |
+| `pnpm check`   | TypeScript / Svelte の型チェック |
+| `pnpm lint`    | Prettier + ESLint                |
+| `pnpm format`  | 整形の適用                       |
+| `pnpm test`    | ユニットテスト                   |
+
+主な環境変数は次のとおりです。全項目は `.env.example` を参照してください。
 
 ```dotenv
 TYPESAFE_API_KEY=your_server_side_key
 TYPESAFE_DEFAULT_MODEL=jev-latest
+JEV_TIMEOUT_MS=3500
+JEV_TOTAL_TIMEOUT_MS=12000
 ```
 
 API キーはブラウザへ渡さず、サーバーの API route からのみ使用します。環境変数名、タイムアウト、レート制限、コスト計算の詳細は [アーキテクチャ](docs/ARCHITECTURE.md) と [Jev 設計](docs/JEV_DESIGN.md) を参照してください。
@@ -65,4 +81,15 @@ API キーはブラウザへ渡さず、サーバーの API route からのみ�
 
 ## ライセンスとデータ出典
 
-アプリ固有のライセンスは実装時に決定します。CITY の組織・分掌データは安芸高田市の公式公開情報を出典とし、取得日・有効日・根拠 URL をレコード単位で保持します。一次情報と更新方法は [CITY データ設計](docs/CITY_DATA.md) にまとめています。
+アプリ固有のライセンスは実装時に決定します。
+
+CITY のデータセットは 2 種類あります。
+
+|            | 公開用                                       | 手元の検証用                 |
+| ---------- | -------------------------------------------- | ---------------------------- |
+| ファイル   | `data/city/fictional-m-city.json`            | `data/city/local-*.json`     |
+| 内容       | **架空の市**。組織名・分掌・条文はすべて架空 | 実在する自治体の公開情報     |
+| 出典 URL   | 持たない                                     | 公式ページと例規集へのリンク |
+| リポジトリ | コミットする                                 | `.gitignore` で除外          |
+
+**公開されるのは架空データだけです。** 実データは精度の検証のために手元でのみ使い、リポジトリにもビルド成果物にも含めません。切り替えと漏えい検査の手順は [CITY データ設計](docs/CITY_DATA.md) の §9 にまとめています。

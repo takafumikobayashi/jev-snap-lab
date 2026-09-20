@@ -1,0 +1,42 @@
+# 検索エンジンにはインデックスさせない。
+#
+# CITY は自治体の担当候補を判定するデモで、公式の行政案内ではない。
+# 「<自治体名> <用件> 担当」のような検索で住民が迷い込み、公式案内と
+# 誤認する経路を塞ぐ（docs/CITY_DATA.md §9）。
+#
+# 一方で SNS のリンク展開（OGP）は通したい。クローラーは robots.txt を
+# 尊重するため、全拒否のままだとカードが表示されない。リンクを踏んだ
+# 人だけが到達する経路は残す、という切り分けである。
+#
+# robots.txt は User-agent ごとに最も具体的な group だけが適用される。
+# 個別に Allow を書いた上で、最後に全体を Disallow する。
+
+User-agent: Twitterbot
+Allow: /
+
+User-agent: facebookexternalhit
+Allow: /
+
+User-agent: Facebot
+Allow: /
+
+User-agent: Slackbot-LinkExpanding
+Allow: /
+
+User-agent: Slackbot
+Allow: /
+
+User-agent: Discordbot
+Allow: /
+
+User-agent: LinkedInBot
+Allow: /
+
+User-agent: TelegramBot
+Allow: /
+
+User-agent: WhatsApp
+Allow: /
+
+User-agent: *
+Disallow: /
