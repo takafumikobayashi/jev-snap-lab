@@ -519,6 +519,69 @@ test.describe('開示', () => {
 		}
 	});
 
+	test('選ばれた候補が上位3件の外でもバーと根拠に出る', async ({ page }) => {
+		// selected はモデルの回答であり、分布の最大とは限らない。
+		await stubJudge(page, () => ({
+			status: 200,
+			body: judgeResponse({
+				mode: 'city',
+				results: [
+					{
+						id: 'route_to',
+						label: '担当課候補',
+						kind: 'choice',
+						selected: 'e',
+						confidence: 0.35,
+						options: [
+							{ key: 'a', label: 'A課', probability: 0.3 },
+							{ key: 'b', label: 'B課', probability: 0.28 },
+							{ key: 'c', label: 'C課', probability: 0.24 },
+							{ key: 'd', label: 'D課', probability: 0.12 },
+							{ key: 'e', label: 'E課', probability: 0.06 }
+						]
+					}
+				],
+				city: {
+					directoryVersion: 'mcity-2026-04-01',
+					fictional: true,
+					candidates: ['a', 'b', 'c', 'e'].map((key) => ({
+						kind: 'unit',
+						candidateId: key,
+						probability: key === 'e' ? 0.06 : 0.3,
+						selected: key === 'e',
+						officialName: `M市 A部 ${key.toUpperCase()}課`,
+						section: `${key.toUpperCase()}課`,
+						unit: null,
+						matchedResponsibilities: [],
+						sources: [
+							{
+								sourceId: `s-${key}`,
+								title: `出典 ${key.toUpperCase()}`,
+								url: null,
+								locator: '第3条',
+								retrievedAt: '2026-09-20',
+								effectiveFrom: '2026-04-01'
+							}
+						]
+					}))
+				}
+			})
+		}));
+		await page.goto('/');
+		await page.getByRole('tab', { name: 'city' }).click();
+		await textarea(page).fill('よく分からない問い合わせ');
+		await judge(page).click();
+
+		// 折り畳んだ状態でも、選ばれた E課 が選択チップとバーの両方に出る。
+		await expect(page.getByText('E課', { exact: true })).toHaveCount(2);
+		// D課（4位・未選択）は畳まれたまま。上位3件＋選択の4件だけを出す。
+		await expect(page.getByText('D課', { exact: true })).toHaveCount(0);
+		await expect(page.getByText('残り 1 件を表示')).toBeVisible();
+		// 根拠にも E課 が出る。
+		await expect(page.getByText('M市 A部 E課')).toBeVisible();
+		await expect(page.getByText('出典 E')).toBeVisible();
+	});
+
 	test('絞り込み不能と出典未登録を区別する', async ({ page }) => {
 		// other_or_unclear は「絞り込めない」を表す正規の候補で、組織データに
 		// 対応する課を持たない。出典が無いのはデータ欠落ではない。

@@ -1,18 +1,19 @@
 <script lang="ts">
-	import { DISPLAYED_CHOICE_OPTIONS, type ChoiceCard } from '$lib/types/judge';
-	import { toPercent } from '$lib/display';
+	import type { ChoiceCard } from '$lib/types/judge';
+	import { displayedOptions, toPercent } from '$lib/display';
 	import CardHeader from './CardHeader.svelte';
 	import ConfidenceRow from './ConfidenceRow.svelte';
 
 	let { card }: { card: ChoiceCard } = $props();
 
-	// 初期表示の件数。実機の分布は尖るため、残りは畳んでおく。
-	// サーバーが根拠を返す件数と同じ定数を使う（ずれると根拠の無い候補が出る）。
-	const INITIAL = DISPLAYED_CHOICE_OPTIONS;
+	// 実機の分布は尖るため、残りは畳んでおく。折り畳まずに見せる候補は
+	// サーバーが根拠を返す集合と同じ関数で決める（ずれると、チップには出て
+	// いるのにバーにも根拠にも無い候補ができる）。
 	let expanded = $state(false);
 
-	const visible = $derived(expanded ? card.options : card.options.slice(0, INITIAL));
-	const hidden = $derived(card.options.length - INITIAL);
+	const initial = $derived(displayedOptions(card.options, card.selected));
+	const visible = $derived(expanded ? card.options : initial);
+	const hidden = $derived(card.options.length - initial.length);
 	const selectedLabel = $derived(
 		card.options.find((option) => option.key === card.selected)?.label ?? card.selected
 	);

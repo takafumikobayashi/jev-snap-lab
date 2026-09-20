@@ -11,8 +11,8 @@
  * （docs/PRODUCT_SPEC.md §1）と噛み合わない。
  */
 
-import { DISPLAYED_CHOICE_OPTIONS, type CityCandidateEvidence } from '$lib/types/judge';
-import type { JudgeResponse } from '$lib/types/judge';
+import type { CityCandidateEvidence, JudgeResponse } from '$lib/types/judge';
+import { displayedOptions } from '$lib/display';
 import {
 	directoryVersion,
 	isFictional,
@@ -34,11 +34,11 @@ export function buildCityBlock(
 		fictional: isFictional(),
 		candidates:
 			routeTo?.kind === 'choice'
-				? // options は正規化時に確率の降順へ並べてある。画面の折り畳みと
-					// 同じ件数だけ根拠を付ける。出ていない候補の根拠は送らない。
-					routeTo.options
-						.slice(0, DISPLAYED_CHOICE_OPTIONS)
-						.map((option) => evidenceFor(option, routeTo.selected, text))
+				? // 画面が折り畳まずに見せる候補と同じ集合に根拠を付ける。出ていない
+					// 候補の根拠は送らない。選ばれた候補は上位に無くても必ず含める。
+					displayedOptions(routeTo.options, routeTo.selected).map((option) =>
+						evidenceFor(option, routeTo.selected, text)
+					)
 				: []
 	};
 }

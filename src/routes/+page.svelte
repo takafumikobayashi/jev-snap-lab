@@ -308,7 +308,7 @@
 							根拠の無い候補が並ぶため、何件ぶんかを明示する。
 						-->
 						<p class="mt-2 text-neutral-400">
-							上位 {city.candidates.length} 件の根拠 / データバージョン: {city.directoryVersion}
+							表示中の {city.candidates.length} 件の根拠 / データバージョン: {city.directoryVersion}
 						</p>
 					</div>
 				{/if}

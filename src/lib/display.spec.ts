@@ -3,6 +3,7 @@ import type { ScoreCard } from './types/judge';
 import {
 	confidenceBand,
 	confidenceNote,
+	displayedOptions,
 	dominantLevel,
 	formatCostUsd,
 	scoreDisplayLabel,
@@ -103,5 +104,39 @@ describe('formatCostUsd', () => {
 
 	it('0 は 0 と表示する', () => {
 		expect(formatCostUsd(0)).toBe('$0');
+	});
+});
+
+describe('displayedOptions', () => {
+	const options = [
+		{ key: 'a', probability: 0.4 },
+		{ key: 'b', probability: 0.3 },
+		{ key: 'c', probability: 0.2 },
+		{ key: 'd', probability: 0.07 },
+		{ key: 'e', probability: 0.03 }
+	];
+
+	it('選ばれた候補が上位にあれば上位だけ返す', () => {
+		expect(displayedOptions(options, 'b').map((o) => o.key)).toEqual(['a', 'b', 'c']);
+	});
+
+	it('選ばれた候補が上位の外なら足す', () => {
+		// selected はモデルの回答であり分布の最大とは限らない。上位だけで
+		// 切ると、選択チップに出ている候補がバーにも根拠にも無くなる。
+		expect(displayedOptions(options, 'e').map((o) => o.key)).toEqual(['a', 'b', 'c', 'e']);
+	});
+
+	it('並びは変えない（確率の降順のまま、足す分は末尾）', () => {
+		const result = displayedOptions(options, 'd');
+		expect(result.map((o) => o.probability)).toEqual([0.4, 0.3, 0.2, 0.07]);
+	});
+
+	it('候補が表示件数以下ならそのまま', () => {
+		const few = options.slice(0, 2);
+		expect(displayedOptions(few, 'b').map((o) => o.key)).toEqual(['a', 'b']);
+	});
+
+	it('選ばれた候補が存在しなければ上位だけ返す', () => {
+		expect(displayedOptions(options, 'zzz').map((o) => o.key)).toEqual(['a', 'b', 'c']);
 	});
 });

@@ -4,7 +4,7 @@
  * 出所は docs/PRODUCT_SPEC.md の §5 表示ルール。
  */
 
-import type { ResultCard, ScoreCard } from './types/judge';
+import { DISPLAYED_CHOICE_OPTIONS, type ResultCard, type ScoreCard } from './types/judge';
 
 /**
  * 確率を整数パーセントにする。内部 JSON は元の小数を保持したままにする。
@@ -90,4 +90,24 @@ export function formatCostUsd(cost: number): string {
 	if (cost === 0) return '$0';
 	if (cost < 0.000001) return '< $0.000001';
 	return `$${cost.toFixed(6)}`;
+}
+
+/**
+ * Choice カードで折り畳まずに見せる候補。
+ *
+ * 確率の上位 `DISPLAYED_CHOICE_OPTIONS` 件に、選ばれた候補を必ず含める。
+ * `selected` はモデルの回答をそのまま使っており、分布の最大とは限らない
+ * （normalize-response.server.ts は criteria に存在することしか保証しない）。
+ * 上位だけで切ると、選択チップには出ているのにバーにも根拠にも無い候補が
+ * できる。UI とサーバーの両方がこの関数を使い、表示と根拠を一致させる。
+ *
+ * `options` は確率の降順である前提。並びは変えない。
+ */
+export function displayedOptions<T extends { key: string }>(options: T[], selected: string): T[] {
+	const top = options.slice(0, DISPLAYED_CHOICE_OPTIONS);
+	if (top.some((option) => option.key === selected)) return top;
+
+	const chosen = options.find((option) => option.key === selected);
+	// 見つからないのは契約違反だが、ここでは落とさず上位だけ返す。
+	return chosen ? [...top, chosen] : top;
 }

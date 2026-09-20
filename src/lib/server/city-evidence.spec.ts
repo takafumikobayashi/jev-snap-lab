@@ -56,6 +56,22 @@ describe('buildCityBlock', () => {
 		expect(city?.candidates[0].selected).toBe(true);
 	});
 
+	it('選ばれた候補が上位3件の外でも根拠を返す', () => {
+		// selected はモデルの回答であり、分布の最大とは限らない。上位だけで
+		// 切ると、Choice の選択チップに出ている候補の課名も出典も無くなる。
+		const keys = candidateIds.slice(0, 6);
+		const card = routeCard(keys);
+		if (card.kind !== 'choice') throw new Error('choice でない');
+		card.selected = keys[4];
+
+		const city = buildCityBlock([card], 'x');
+		const marked = city?.candidates.filter((c) => c.selected) ?? [];
+		expect(marked).toHaveLength(1);
+		expect(marked[0].candidateId).toBe(keys[4]);
+		// 上位3件は落とさず、選ばれた候補を足す。
+		expect(city?.candidates.map((c) => c.candidateId)).toEqual([...keys.slice(0, 3), keys[4]]);
+	});
+
 	it('組織データに紐づかない候補は unroutable にする', () => {
 		// other_or_unclear は「絞り込めない」を表す正規の候補。落とすと、
 		// 画面の Choice には出ているのに根拠欄から消える。unit として返すと
