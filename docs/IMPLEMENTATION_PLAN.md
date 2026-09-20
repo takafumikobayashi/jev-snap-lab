@@ -24,8 +24,8 @@
 
 - TypeSafe ConsoleでAPIキーを取得し、開発用と本番用を分離
 - `@typesafe-ai/sdk`の現行インストールとNode.js 20 runtimeを確認
-- JavaScript SDKのretry既定値の**実測確認**（既定値は [JEV_DESIGN.md](JEV_DESIGN.md) §9 に記載済み。1試行3,500ms×3試行が総予算12,000msに収まるかを実機で確認する）
-- Vercelの契約プランにおける関数 `maxDuration` の既定値と上限を確認し、`vercel.json` に明示設定する
+- JavaScript SDKのretry既定値の**実測確認**（既定値は [JEV_DESIGN.md](JEV_DESIGN.md) §9 に記載済み）。通常時に1試行3,500ms×3試行が12,000msに収まることと、`Retry-After` で待機が伸びた場合にtotal timeoutが待機ごと中断することの両方を確認する
+- Vercelの契約プランにおける関数 `maxDuration` の既定値と上限を確認する（設定先は `vite.config.ts` のアダプタ設定とルートの `export const config`。`vercel.json` の `functions` グロブは adapter-vercel では効かない）
 - `jev-latest`と`jev-1.13.0`の応答shapeを確認
 - 日本語のLOVE / SOCIAL / CITY入力で質問群を試行
 - 安芸高田市の公式組織ページと令和8年4月1日施行の事務組織規則の差分を再確認
@@ -70,7 +70,7 @@
 - Choice / Score / Noulを`ResultCard`へ正規化。Scoreは `probabilities` 最大レベルから表示ラベルを決める（[JEV_DESIGN.md](JEV_DESIGN.md) §8）
 - usage、model、latencyを応答へ含める
 - 401 / 422 / 429 / 529 / timeout / network errorをapp errorへ変換
-- `+server.ts` に `export const config: Config = { maxDuration: 20 }` を追加し、判定エンドポイントを専用関数へ分割する
+- `+server.ts` に `export const config: Config = { maxDuration: 20, split: true }` を追加する。`split` を省くとconfigが同じ他ルートと関数を共有するため、専用関数にするには明示が必要
 
 完了条件:
 
@@ -249,7 +249,7 @@ Phase 2とPhase 3はAPI契約を先に固定すれば並行できる。Phase 4 C
 - [ ] latencyを計測して表示できる
 - [ ] `probabilities`、`confidence`、`noul`を混同しない
 - [ ] 401 / 422 / 429 / 529 / timeout / network failureを処理する
-- [ ] retryに上限とtotal timeoutがあり、**1試行timeout×試行回数+backoffが総予算に収まる**
+- [ ] retryに上限があり、AbortSignalによる総時間上限が効いている（保留中のretry待機も中断される）
 - [ ] Vercelの `maxDuration` が総予算より大きく設定され、`.vercel/output/**/.vc-config.json` に反映されている
 - [ ] type別の `criteria` の形を守り、送信前に検証している
 - [ ] Scoreの表示ラベルを `Math.round(score)` で引いていない

@@ -157,10 +157,25 @@ adapter({ maxDuration: 20 })
 // 2. ルート単位: src/routes/api/judge/+server.ts
 import type { Config } from '@sveltejs/adapter-vercel';
 
-export const config: Config = { maxDuration: 20 };
+export const config: Config = { maxDuration: 20, split: true };
 ```
 
-ルート単位の `config` を持つルートは、アダプタによって**専用の関数へ自動分割される**（`split` を明示しなくてよい）。判定エンドポイントをページSSRから隔離できるため、`/api/judge` 実装時はこちらを第一候補とする。
+**専用の関数にしたい場合は `split: true` が必要である。** アダプタはルートをconfigのハッシュでグルーピングし、同じconfigを持つルートは1つの関数を共有する。`split: true` はそのグループIDを強制的にユニークにする。
+
+```js
+// adapter-vercel の該当箇所
+const id = config.split ? `${hash}-${groups.size}` : hash;
+```
+
+ビルド出力で確認した挙動は次のとおり。`maxDuration` だけを指定した2ルートは同じ関数を指すシンボリックリンクになり、`split: true` を付けたルートだけが別の実体を持つ。
+
+```text
+__pa.func -> ../![-]/1.func   maxDuration 33
+__pb.func -> ../![-]/1.func   maxDuration 33（__pa と共有）
+__pc.func -> ../![-]/2.func   maxDuration 33 + split: true（専用）
+```
+
+現時点では `/api/judge` 以外に固有configを持つルートが無いため `split` なしでも結果的に単独の関数になるが、それは偶然の産物であり保証ではない。将来ルートが増えたときに同居してしまうのを防ぐため、判定エンドポイントには `split: true` を明示する。
 
 現状はアダプタ既定値として20秒を設定している。`maxDuration` は上限であって予約ではなく、Vercelの課金はactive CPU基準なので、ページ側に広めの上限が付いてもコストには影響しない。Phase 2で `/api/judge` にルート単位の設定を入れた後、アダプタ既定値を絞るかを判断する。
 
