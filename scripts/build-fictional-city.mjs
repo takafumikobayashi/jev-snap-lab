@@ -10,7 +10,7 @@
  *     data/city/fictional-m-city.json
  */
 
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 
 const [, , sourcePath, mapPath, outPath] = process.argv;
 if (!sourcePath || !mapPath || !outPath) {
@@ -53,7 +53,8 @@ directory.sourceIndex = directory.sourceIndex.map((entry) => ({
 
 directory.fictional = true;
 
-writeFileSync(outPath, JSON.stringify(directory, null, '\t') + '\n');
+// 書き出しは全ての検査を通ってから行う（ファイル末尾）。ここで書くと、
+// 未分類の固有名詞で異常終了しても追跡対象の公開データが上書きされる。
 
 /**
  * 固有名詞になりうる文字列の候補を列挙する。
@@ -139,5 +140,24 @@ report(
 	'→ 置換後に残った名称。allowGeneric か replacements へ追加すること。'
 );
 
-if (!failed) console.log('固有名詞の検査: すべて分類済み・残存なし');
-process.exit(failed ? 1 : 0);
+if (failed) {
+	// 出力先には触れない。未検証のデータを公開用ファイルへ残さないため。
+	// check-no-leak は対応表に載っている語しか見ないので、未分類語は
+	// 後段では拾えない。ここで止めるのが唯一の砦になる。
+	console.error(`\n${outPath} は更新しなかった。`);
+	process.exit(1);
+}
+
+console.log('固有名詞の検査: すべて分類済み・残存なし');
+
+// 同じディレクトリへ一時ファイルを書いてから rename する。書き込み途中で
+// 落ちても、中途半端な公開データが残らない。
+const tmpPath = `${outPath}.tmp-${process.pid}`;
+try {
+	writeFileSync(tmpPath, JSON.stringify(directory, null, '\t') + '\n');
+	renameSync(tmpPath, outPath);
+} catch (error) {
+	rmSync(tmpPath, { force: true });
+	throw error;
+}
+console.log(`${outPath} を更新した。`);
