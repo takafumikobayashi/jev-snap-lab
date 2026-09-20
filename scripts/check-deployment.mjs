@@ -11,6 +11,7 @@
  */
 
 import { cityChecks } from './lib/city-smoke.mjs';
+import { statusDetail, withRateLimitRetry } from './lib/rate-limit-retry.mjs';
 
 const [, , rawUrl, ...flags] = process.argv;
 if (!rawUrl) {
@@ -25,6 +26,22 @@ const check = (name, ok, detail = '') => {
 	results.push({ name, ok, detail });
 	console.log(`  ${ok ? 'OK  ' : 'FAIL'} ${name}${detail ? `  ${detail}` : ''}`);
 };
+
+/**
+ * `/api/judge` を叩く。レート制限は入力検証より先に評価されるため、
+ * 不正リクエストの確認も枠を消費する。上限の低いデプロイで自分自身を
+ * 締め出さないよう、429 は Retry-After を待って一度だけやり直す。
+ */
+const judge = (body) =>
+	withRateLimitRetry(
+		() =>
+			fetch(`${base}/api/judge`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(body)
+			}),
+		{ log: (message) => console.log(`  ..   ${message}`) }
+	);
 
 async function main() {
 	console.log(`対象: ${base}\n`);
@@ -85,32 +102,20 @@ async function main() {
 	);
 
 	// --- API（上流を呼ばない経路） ---
-	const badRequest = await fetch(`${base}/api/judge`, {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ mode: 'love', text: '   ' })
-	});
-	check('入力不正が 400', badRequest.status === 400, `status=${badRequest.status}`);
+	const badRequest = await judge({ mode: 'love', text: '   ' });
+	check('入力不正が 400', badRequest.status === 400, statusDetail(badRequest));
 	check('判定 API が no-store', badRequest.headers.get('cache-control') === 'no-store');
 	const badBody = await badRequest.json();
 	check('エラーに内部情報を含めない', !JSON.stringify(badBody).includes('TYPESAFE'));
 
-	const tooLarge = await fetch(`${base}/api/judge`, {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ mode: 'love', text: 'あ'.repeat(20_000) })
-	});
-	check('巨大なボディが 400', tooLarge.status === 400, `status=${tooLarge.status}`);
+	const tooLarge = await judge({ mode: 'love', text: 'あ'.repeat(20_000) });
+	check('巨大なボディが 400', tooLarge.status === 400, statusDetail(tooLarge));
 
 	// --- 判定の1往復（任意） ---
 	if (runSmoke) {
-		const smoke = await fetch(`${base}/api/judge`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ mode: 'city', text: '家の前の防犯灯が切れてます' })
-		});
+		const smoke = await judge({ mode: 'city', text: '家の前の防犯灯が切れてます' });
 		const body = await smoke.json();
-		check('判定が 200', smoke.status === 200, `status=${smoke.status}`);
+		check('判定が 200', smoke.status === 200, statusDetail(smoke));
 		if (smoke.status === 200) {
 			check('カードが返る', body.results?.length > 0, `${body.results?.length} 枚`);
 			check('model が返る', typeof body.model === 'string', body.model);
