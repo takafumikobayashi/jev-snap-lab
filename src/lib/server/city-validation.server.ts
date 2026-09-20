@@ -109,9 +109,17 @@ export function validateDirectory(value: unknown, options: ValidationOptions): C
 		sectionByCandidate.set(candidate, section);
 
 		requireString(unit.officialName, `${unitId}.officialName`);
+		// 候補の説明文。criteria の組み立てで無条件に slice するため、
+		// ここで型を保証しないと後段が TypeError になる。設定エラーとして
+		// 読み込み時に落とす。
+		requireString(unit.publicSummary, `${unitId}.publicSummary`);
 		if (unit.unit !== null && typeof unit.unit !== 'string') {
 			// 未確認の係は null。空文字で埋めない。
 			fail(`${unitId}.unit が文字列でも null でもない`);
+		}
+		if (unit.department !== null && typeof unit.department !== 'string') {
+			// 表示名の組み立てに使う。null は許すが他の型は許さない。
+			fail(`${unitId}.department が文字列でも null でもない`);
 		}
 
 		if (!Array.isArray(unit.sourceRefs)) fail(`${unitId}.sourceRefs が配列でない`);
@@ -135,7 +143,16 @@ export function validateDirectory(value: unknown, options: ValidationOptions): C
 				`${unitId}.responsibilities[].responsibilityId`
 			);
 			requireString(responsibility.officialText, `${rid}.officialText`);
+			// 分掌事務の要約。ここも括弧除去で無条件に文字列として扱う。
+			requireString(responsibility.publicSummary, `${rid}.publicSummary`);
 			if (!Array.isArray(responsibility.keywords)) fail(`${rid}.keywords が配列でない`);
+			for (const keyword of responsibility.keywords as unknown[]) {
+				// 文字列でない要素は includes() が黙って false になり、
+				// 係の特定が静かに外れる。落ちないぶん見つけにくい。
+				if (typeof keyword !== 'string' || keyword.length === 0) {
+					fail(`${rid}.keywords に空でない文字列でない要素がある`);
+				}
+			}
 			if (!Array.isArray(responsibility.sourceRefs)) fail(`${rid}.sourceRefs が配列でない`);
 			for (const ref of responsibility.sourceRefs as unknown[]) {
 				if (typeof ref !== 'string' || !sourceIds.has(ref)) {

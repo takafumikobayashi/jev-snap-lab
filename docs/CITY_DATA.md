@@ -401,7 +401,10 @@ JSONを型へcastするだけでは、壊れたデータがそのままUIと上�
 - `sourceId` の一意性
 - 出典URLが `null` か、`CITY_SOURCE_HOSTS` で許可したホストのhttpsであること
 - `organizationUnitId` の一意性
-- activeな組織単位の必須項目（`routingCandidateId`、`section`、`officialName`）
+- activeな組織単位の必須項目（`routingCandidateId`、`section`、`officialName`、`publicSummary`）
+- 分掌事務の必須項目（`responsibilityId`、`officialText`、`publicSummary`）
+- `keywords` の各要素が空でない文字列であること
+- `department` が文字列か `null` であること
 - `sourceRefs` が `sourceIndex` に存在すること（組織単位と分掌事務の両方）
 - `routingCategories` が `categories` の部分集合であること
 - `routingCandidateId` が課レベルであること（`.` を含まない）
@@ -411,6 +414,8 @@ JSONを型へcastするだけでは、壊れたデータがそのままUIと上�
 **例外メッセージにホスト名を含めない。** サーバーログから自治体が判明するのを避けるため、許可されていないホストは値を伏せて報告する。
 
 実際にこの検証は、`CITY_SOURCE_HOSTS` 未設定のまま実データを読もうとしたときに正しく拒否した。
+
+文字列として使うフィールドを列挙しているのは、型としての正しさより**後段の壊れ方**が理由になる。`publicSummary` は criteria の組み立てで `.slice()` / `.replace()` に無条件で渡るため、欠けていると設定エラーではなく生の `TypeError` になる。`keywords` の非文字列要素はさらに悪く、`includes()` が黙って `false` を返すだけで例外にならず、係の特定が静かに外れる。
 
 ### バンドルへの混入を防ぐ
 

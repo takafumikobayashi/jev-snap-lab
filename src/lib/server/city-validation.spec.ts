@@ -188,6 +188,55 @@ describe('validateDirectory', () => {
 			}, '未知の出典');
 		});
 	});
+
+	// 検証を通ってしまうと、criteria 組み立ての `.slice()` や `.replace()` が
+	// 生の TypeError になる。読み込み時に設定エラーとして落とす。
+	describe('文字列として使うフィールド', () => {
+		it('組織の publicSummary が無ければ拒否する', () => {
+			expectFail((d) => {
+				delete (d.organizations as Record<string, unknown>[])[0].publicSummary;
+			}, 'sec.u1.publicSummary');
+		});
+
+		it('組織の publicSummary が文字列でなければ拒否する', () => {
+			expectFail(
+				(d) => ((d.organizations as Record<string, unknown>[])[0].publicSummary = 42),
+				'sec.u1.publicSummary'
+			);
+		});
+
+		it('組織の publicSummary が空文字なら拒否する', () => {
+			expectFail(
+				(d) => ((d.organizations as Record<string, unknown>[])[0].publicSummary = ''),
+				'sec.u1.publicSummary'
+			);
+		});
+
+		it('分掌の publicSummary が無ければ拒否する', () => {
+			expectFail((d) => {
+				const org = (d.organizations as Record<string, unknown>[])[0];
+				delete (org.responsibilities as Record<string, unknown>[])[0].publicSummary;
+			}, 'sec.u1.r1.publicSummary');
+		});
+
+		it('department は null を許すが他の型は拒否する', () => {
+			const ok = valid();
+			(ok.organizations as Record<string, unknown>[])[0].department = null;
+			expect(() => validateDirectory(ok, NO_HOSTS)).not.toThrow();
+			expectFail(
+				(d) => ((d.organizations as Record<string, unknown>[])[0].department = 7),
+				'sec.u1.department'
+			);
+		});
+
+		it('keywords に文字列でない要素があれば拒否する', () => {
+			// 落ちずに includes() が false になり、係の特定が静かに外れる。
+			expectFail((d) => {
+				const org = (d.organizations as Record<string, unknown>[])[0];
+				(org.responsibilities as Record<string, unknown>[])[0].keywords = ['配灯', 7];
+			}, 'sec.u1.r1.keywords');
+		});
+	});
 });
 
 describe('parseAllowedHosts', () => {
