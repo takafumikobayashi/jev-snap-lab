@@ -179,6 +179,14 @@ describe('POST /api/judge', () => {
 			expect(evaluate).not.toHaveBeenCalled();
 		});
 
+		it('上限を超えるボディを Jev を呼ばずに拒否する', async () => {
+			// 文字数検証の前に打ち切る。巨大なボディを読み込ませない。
+			const huge = 'あ'.repeat(20_000);
+			const response = await post({ mode: 'love', text: huge });
+			expect(response.status).toBe(400);
+			expect(evaluate).not.toHaveBeenCalled();
+		});
+
 		it('入力検証に落ちれば 400 で、Jev を呼ばない', async () => {
 			for (const body of [
 				{ mode: 'unknown', text: 'x' },

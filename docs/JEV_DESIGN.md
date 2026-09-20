@@ -406,6 +406,7 @@ estimatedCostUsd = input_tokens / 1_000_000 * 0.042
 - クライアントとサーバーの両方で mode enum を検証する。
 - サーバーで Unicode code points 基準の280文字制限を検証する。実装では日本語の合成文字・絵文字の扱いをテストする。
 - 空白だけ、制御文字のみ、JSON bodyでないリクエストは400。
+- リクエストボディのサイズ上限を、JSONへ変換する**前**に適用する。文字数の検証だけでは、巨大なボディを読み込んだ後にしか弾けない。
 - stateにユーザー入力と固定モード文字列以外の任意オブジェクトを受け付けない。
 - **送信前**に、組み立てた質問の `criteria` が type ごとの形（Choice=map、Score=array、Noul={true,false}）に一致することを検証する。Scoreは2〜10要素、Choiceは255候補以下。ここで弾けば422を事前に防げる。
 - レスポンスの `answers` のtype、probability範囲、Scoreのlegend、必須質問キーをサーバー側で検証する。

@@ -54,7 +54,11 @@ question catalog / labels ─────────┴─ server only
 ## 3. データフロー
 
 1. ブラウザは入力文とモードだけを `POST /api/judge` へ送る。
-2. server routeが `Content-Type: application/json`、mode enum、280 code points、空白のみを検証する。
+2. server routeが `Content-Type: application/json`、**ボディのサイズ上限**、mode enum、280 code points、空白のみを検証する。
+
+   **ボディは上限つきで読む。** `request.json()` は本文全体をメモリへ展開してから返すため、文字数を検証する前に巨大なボディを読み込んでしまう。上限（8KB）を超えた時点でストリームの読み取りを打ち切る。`Content-Length` は詐称できるので、宣言値で早期に弾いたうえで、実際に読んだバイト数でも見る。
+
+   8KBという値は、280 code pointsの日本語がUTF-8で840バイト程度、絵文字だけでも1,120バイト程度であることから決めた。JSONのエスケープとキー名を足しても数KBに収まるため、正当な入力を拒まない。
 3. `questionCatalog` がモードの質問を返す。
 4. CITYでは読み込んだデータセットの activeな組織単位から `route_to.criteria`を生成する。
 5. Jev公式SDKをserver-only moduleで呼び出す。
@@ -273,7 +277,7 @@ Client-visible error shape:
 
 | App status | code | 例 |
 |---:|---|---|
-| 400 | `INVALID_INPUT` | JSON不正、mode不正、空白のみ、281文字以上 |
+| 400 | `INVALID_INPUT` | ボディが8KB超、JSON不正、mode不正、空白のみ、281文字以上 |
 | 401/500 | `CONFIGURATION_ERROR` | Jevキー未設定・無効。ユーザーには一般エラー |
 | 422 | `QUESTION_DEFINITION_ERROR` | 固定質問またはCITYデータから生成した質問が不正 |
 | 429 | `RATE_LIMITED` | upstreamまたはアプリ側のレート制限 |

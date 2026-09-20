@@ -23,6 +23,7 @@ import {
 import { isFictional, resolveUnit, sourcesFor } from '$lib/server/city-directory.server';
 import { createRateLimiter, DEFAULT_OPTIONS } from '$lib/server/rate-limit.server';
 import { describeFailure, validateJudgeInput } from '$lib/validation/judge-input';
+import { readJsonBody } from '$lib/server/request-body.server';
 import { env } from '$env/dynamic/private';
 
 /**
@@ -138,22 +139,21 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 		return failure('INVALID_INPUT', requestId);
 	}
 
-	let body: unknown;
-	try {
-		body = await request.json();
-	} catch {
-		// parse 失敗。例外の内容はクライアントへ返さない。
-		log({ requestId, status: 400, code: 'INVALID_INPUT', detail: 'NOT_JSON' });
+	// 上限つきで読む。request.json() は本文全体を先にメモリへ展開するため、
+	// 文字数を検証する前に巨大なボディを読み込んでしまう。
+	const parsed = await readJsonBody(request);
+	if (!parsed.ok) {
+		log({ requestId, status: 400, code: 'INVALID_INPUT', detail: parsed.reason });
 		return failure('INVALID_INPUT', requestId);
 	}
 
-	const validated = validateJudgeInput(body);
+	const validated = validateJudgeInput(parsed.value);
 	if (!validated.ok) {
 		log({
 			requestId,
 			status: 400,
 			code: 'INVALID_INPUT',
-			detail: describeFailure(validated.failure, (body as { text?: unknown })?.text)
+			detail: describeFailure(validated.failure, (parsed.value as { text?: unknown })?.text)
 		});
 		return failure('INVALID_INPUT', requestId);
 	}
