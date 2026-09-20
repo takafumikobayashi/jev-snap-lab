@@ -14,8 +14,28 @@ function valid(): Record<string, unknown> {
 		effectiveFrom: '2026-04-01',
 		retrievedAt: '2026-09-20',
 		sourceIndex: [
-			{ sourceId: 's1', title: '出典1', url: null, retrievedAt: '2026-09-20' },
-			{ sourceId: 's2', title: '出典2', url: null, retrievedAt: '2026-09-20' }
+			{
+				sourceId: 's1',
+				title: '出典1',
+				url: null,
+				sourceType: 'organization_page',
+				locator: '組織一覧',
+				publishedOrUpdatedAt: null,
+				retrievedAt: '2026-09-20',
+				effectiveFrom: '2026-04-01',
+				notes: null
+			},
+			{
+				sourceId: 's2',
+				title: '出典2',
+				url: null,
+				sourceType: 'rule',
+				locator: '第3条',
+				publishedOrUpdatedAt: '2026-03-15',
+				retrievedAt: '2026-09-20',
+				effectiveFrom: null,
+				notes: '架空'
+			}
 		],
 		categories: [
 			{ id: 'safety', label: '安全' },
@@ -235,6 +255,61 @@ describe('validateDirectory', () => {
 				const org = (d.organizations as Record<string, unknown>[])[0];
 				(org.responsibilities as Record<string, unknown>[])[0].keywords = ['配灯', 7];
 			}, 'sec.u1.r1.keywords');
+		});
+	});
+
+	// 出典は根拠表示へそのまま補間される。欠けると「（undefined / 取得日 …）」、
+	// 型が違うと「[object Object]」が利用者の画面に出る。
+	describe('根拠表示に使う出典フィールド', () => {
+		const source = (d: Record<string, unknown>) => (d.sourceIndex as Record<string, unknown>[])[0];
+
+		it('locator が無ければ拒否する', () => {
+			expectFail((d) => delete source(d).locator, 'sourceIndex[s1].locator');
+		});
+
+		it('locator が空文字なら拒否する', () => {
+			expectFail((d) => (source(d).locator = ''), 'sourceIndex[s1].locator');
+		});
+
+		it('effectiveFrom が文字列でなければ拒否する', () => {
+			expectFail((d) => (source(d).effectiveFrom = { y: 2026 }), 'sourceIndex[s1].effectiveFrom');
+		});
+
+		it('effectiveFrom は null を許す', () => {
+			const ok = valid();
+			source(ok).effectiveFrom = null;
+			expect(() => validateDirectory(ok, NO_HOSTS)).not.toThrow();
+		});
+
+		it('日付でない retrievedAt を拒否する', () => {
+			// 画面に「取得日」として出る。形を見ないとそのまま利用者へ届く。
+			for (const bad of ['2026/09/20', '2026-13-45', '2026-02-30', '昨日']) {
+				expectFail((d) => (source(d).retrievedAt = bad), 'sourceIndex[s1].retrievedAt');
+			}
+		});
+
+		it('sourceType が既知の値でなければ拒否する', () => {
+			expectFail((d) => (source(d).sourceType = 'blog'), 'sourceIndex[s1].sourceType');
+		});
+
+		it('notes が文字列でも null でもなければ拒否する', () => {
+			expectFail((d) => (source(d).notes = 7), 'sourceIndex[s1].notes');
+		});
+
+		it('データバージョンに使う日付も検証する', () => {
+			// `jurisdiction-effectiveFrom` として画面に出る。
+			expectFail((d) => (d.effectiveFrom = '2026-04'), 'effectiveFrom');
+		});
+
+		it('組織の有効期間も日付として検証する', () => {
+			expectFail(
+				(d) => ((d.organizations as Record<string, unknown>[])[0].effectiveFrom = 'いつか'),
+				'sec.u1.effectiveFrom'
+			);
+			expectFail(
+				(d) => ((d.organizations as Record<string, unknown>[])[0].effectiveTo = 20260401),
+				'sec.u1.effectiveTo'
+			);
 		});
 	});
 });

@@ -400,6 +400,8 @@ JSONを型へcastするだけでは、壊れたデータがそのままUIと上�
 - `schemaVersion` と `fictional` の存在と型
 - `sourceId` の一意性
 - 出典URLが `null` か、`CITY_SOURCE_HOSTS` で許可したホストのhttpsであること
+- 出典の必須項目（`title`、`locator`、`retrievedAt`、`sourceType`）と、`effectiveFrom` / `publishedOrUpdatedAt` / `notes` が null 可の型どおりであること
+- 画面に出る日付（`retrievedAt`、`effectiveFrom`、データバージョンの `effectiveFrom`、組織の有効期間）が実在する `YYYY-MM-DD` であること
 - `organizationUnitId` の一意性
 - activeな組織単位の必須項目（`routingCandidateId`、`section`、`officialName`、`publicSummary`）
 - 分掌事務の必須項目（`responsibilityId`、`officialText`、`publicSummary`）
@@ -415,7 +417,7 @@ JSONを型へcastするだけでは、壊れたデータがそのままUIと上�
 
 実際にこの検証は、`CITY_SOURCE_HOSTS` 未設定のまま実データを読もうとしたときに正しく拒否した。
 
-文字列として使うフィールドを列挙しているのは、型としての正しさより**後段の壊れ方**が理由になる。`publicSummary` は criteria の組み立てで `.slice()` / `.replace()` に無条件で渡るため、欠けていると設定エラーではなく生の `TypeError` になる。`keywords` の非文字列要素はさらに悪く、`includes()` が黙って `false` を返すだけで例外にならず、係の特定が静かに外れる。
+文字列として使うフィールドを列挙しているのは、型としての正しさより**後段の壊れ方**が理由になる。出典の `locator` や `effectiveFrom` は根拠表示へそのまま補間されるため、欠けると「（undefined / 取得日 …）」、型が違えば「[object Object]」が利用者の画面に出る。日付は形まで見る。`2026-02-30` は `Date` が 3月2日へ繰り上げてしまい、検証を往復比較にしないと通ってしまう。`publicSummary` は criteria の組み立てで `.slice()` / `.replace()` に無条件で渡るため、欠けていると設定エラーではなく生の `TypeError` になる。`keywords` の非文字列要素はさらに悪く、`includes()` が黙って `false` を返すだけで例外にならず、係の特定が静かに外れる。
 
 ### バンドルへの混入を防ぐ
 

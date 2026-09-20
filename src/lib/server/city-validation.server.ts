@@ -21,6 +21,9 @@ export type ValidationOptions = {
 	allowedHosts: string[];
 };
 
+/** `CitySourceRecord.sourceType` が取り得る値（src/lib/types/city.ts）。 */
+const SOURCE_TYPES = ['organization_page', 'ordinance', 'rule', 'council_material'];
+
 function fail(detail: string): never {
 	throw new Error(`city-directory の検証に失敗: ${detail}`);
 }
@@ -28,6 +31,37 @@ function fail(detail: string): never {
 function requireString(value: unknown, where: string): string {
 	if (typeof value !== 'string' || value.length === 0) fail(`${where} が空でない文字列でない`);
 	return value;
+}
+
+/**
+ * `YYYY-MM-DD` の実在する日付。
+ *
+ * 画面に「取得日」「有効日」として、データバージョンの一部としても出る。
+ * 形まで見ないと `2026-13-45` のような値がそのまま利用者へ届く。
+ */
+function requireDate(value: unknown, where: string): string {
+	const text = requireString(value, where);
+	// Date は 2026-02-30 を 3/2 へ繰り上げてしまうため、往復させて確かめる。
+	// 2026-13-45 のような月日は Invalid Date になり NaN で弾かれる。
+	const parsed = new Date(`${text}T00:00:00Z`);
+	if (
+		!/^\d{4}-\d{2}-\d{2}$/.test(text) ||
+		Number.isNaN(parsed.getTime()) ||
+		parsed.toISOString().slice(0, 10) !== text
+	) {
+		fail(`${where} が YYYY-MM-DD の日付でない`);
+	}
+	return text;
+}
+
+function requireDateOrNull(value: unknown, where: string): void {
+	if (value === null || value === undefined) return;
+	requireDate(value, where);
+}
+
+function requireStringOrNull(value: unknown, where: string): void {
+	if (value === null || value === undefined) return;
+	if (typeof value !== 'string') fail(`${where} が文字列でも null でもない`);
 }
 
 /**
@@ -44,8 +78,9 @@ export function validateDirectory(value: unknown, options: ValidationOptions): C
 	if (typeof directory.fictional !== 'boolean') fail('fictional が真偽値でない');
 	requireString(directory.jurisdiction, 'jurisdiction');
 	requireString(directory.displayName, 'displayName');
-	requireString(directory.effectiveFrom, 'effectiveFrom');
-	requireString(directory.retrievedAt, 'retrievedAt');
+	// データバージョン（`jurisdiction-effectiveFrom`）は画面に出る。
+	requireDate(directory.effectiveFrom, 'effectiveFrom');
+	requireDate(directory.retrievedAt, 'retrievedAt');
 
 	if (!Array.isArray(directory.sourceIndex)) fail('sourceIndex が配列でない');
 	if (!Array.isArray(directory.organizations)) fail('organizations が配列でない');
@@ -57,8 +92,17 @@ export function validateDirectory(value: unknown, options: ValidationOptions): C
 		const id = requireString(entry.sourceId, 'sourceIndex[].sourceId');
 		if (sourceIds.has(id)) fail(`sourceId が重複している: ${id}`);
 		sourceIds.add(id);
+		// 出典は根拠表示へそのまま補間される。欠けると「（undefined / 取得日
+		// …）」、型が違うと「[object Object]」が利用者の画面に出る。
 		requireString(entry.title, `sourceIndex[${id}].title`);
-		requireString(entry.retrievedAt, `sourceIndex[${id}].retrievedAt`);
+		requireString(entry.locator, `sourceIndex[${id}].locator`);
+		requireDate(entry.retrievedAt, `sourceIndex[${id}].retrievedAt`);
+		requireDateOrNull(entry.effectiveFrom, `sourceIndex[${id}].effectiveFrom`);
+		requireDateOrNull(entry.publishedOrUpdatedAt, `sourceIndex[${id}].publishedOrUpdatedAt`);
+		requireStringOrNull(entry.notes, `sourceIndex[${id}].notes`);
+		if (!SOURCE_TYPES.includes(entry.sourceType as string)) {
+			fail(`sourceIndex[${id}].sourceType が既知の値でない`);
+		}
 
 		const url = entry.url;
 		if (url === null || url === undefined) continue;
@@ -121,6 +165,9 @@ export function validateDirectory(value: unknown, options: ValidationOptions): C
 			// 表示名の組み立てに使う。null は許すが他の型は許さない。
 			fail(`${unitId}.department が文字列でも null でもない`);
 		}
+
+		requireDate(unit.effectiveFrom, `${unitId}.effectiveFrom`);
+		requireDateOrNull(unit.effectiveTo, `${unitId}.effectiveTo`);
 
 		if (!Array.isArray(unit.sourceRefs)) fail(`${unitId}.sourceRefs が配列でない`);
 		for (const ref of unit.sourceRefs as unknown[]) {
