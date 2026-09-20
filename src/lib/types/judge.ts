@@ -12,6 +12,22 @@ export type Mode = (typeof MODES)[number];
 /** 入力の上限。Unicode code points で数える（UTF-16 の length ではない）。 */
 export const MAX_INPUT_CODE_POINTS = 280;
 
+/**
+ * Unicode code points で文字数を数える。
+ *
+ * `String.prototype.length` は UTF-16 の code unit 数なので、絵文字や
+ * 一部の漢字（サロゲートペア）で実際より大きい値を返す。280 の上限判定に
+ * length を使うと、日本語話者の入力を不当に短く切ることになる。
+ */
+export function countCodePoints(value: string): number {
+	return [...value].length;
+}
+
+/** 入力が 280 code points 以内かどうか。空文字は true。 */
+export function isWithinLengthLimit(value: string): boolean {
+	return countCodePoints(value) <= MAX_INPUT_CODE_POINTS;
+}
+
 export function isMode(value: unknown): value is Mode {
 	return typeof value === 'string' && (MODES as readonly string[]).includes(value);
 }
