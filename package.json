@@ -19,7 +19,8 @@
 		"test:e2e": "playwright test",
 		"test:all": "pnpm run test && pnpm run test:e2e",
 		"check:docs": "node scripts/check-docs.mjs",
-		"check:secrets": "node scripts/check-secrets.mjs"
+		"check:secrets": "node scripts/check-secrets.mjs",
+		"check:deployment": "node scripts/check-deployment.mjs"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",

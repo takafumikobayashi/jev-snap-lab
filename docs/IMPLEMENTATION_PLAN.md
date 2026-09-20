@@ -157,11 +157,13 @@
 
 タスク:
 
-- Vercel Previewへデプロイ
+手順とチェックリストは [DEPLOY.md](DEPLOY.md) にまとめた。
+
+- Vercel Previewへデプロイ（`develop` への push で自動）
 - envをPreview / Productionに分離
 - APIキー、モデル、timeoutを確認
-- 低コストのスモークテストを実施
-- Productionへデプロイ
+- 低コストのスモークテストを実施（`pnpm check:deployment <url>`。`--smoke` で判定を1回だけ実行）
+- Productionへデプロイ（`main` へ merge）
 - READMEのローカル実行方法を実装後の実際のコマンドへ更新
 - CITY_DATAの取得日とデータバージョンを確認
 

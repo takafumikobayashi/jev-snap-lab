@@ -21,6 +21,7 @@ CITY は正式な行政案内サービスではなく、Jev と根拠付きル�
 - [CITY データ設計](docs/CITY_DATA.md)
 - [アーキテクチャ](docs/ARCHITECTURE.md)
 - [実装計画](docs/IMPLEMENTATION_PLAN.md)
+- [デプロイ手順](docs/DEPLOY.md)
 
 ## 技術構成の推奨案
 
