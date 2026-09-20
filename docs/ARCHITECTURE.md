@@ -342,8 +342,10 @@ sveltekit({
 
 MVPでは外部DBなしで過剰な設計をしない。ただし次の二層を用意する。
 
-1. クライアント: 送信中の二重送信を禁止し、連打にクールダウンを置く。
-2. サーバー: IP単位のbest-effort in-memory token bucketを実装し、例えば10 requests/minuteを既定値とする。serverlessのインスタンスを跨いで完全な制限にはならないことを明記する。
+1. クライアント: 送信中の二重送信を禁止し、連打にクールダウンを置く。**Phase 3**。
+2. サーバー: IP単位のbest-effort in-memory token bucketを実装し、例えば10 requests/minuteを既定値とする。serverlessのインスタンスを跨いで完全な制限にはならないことを明記する。**Phase 5**（`src/lib/server/rate-limit.server.ts`）。
+
+判定APIは上流に課金が発生するため、公開前に必ず入れる。ただしUIが無い段階では踏みようがないため、画面と一緒に検証できるPhase 5に置く。
 
 upstreamから429 / 529が返ったときは、公式SDKのbackoffと`retry-after`処理を利用する。アプリ側の追加retryは行わず、最終的に429ならユーザーへ待機を促す。
 

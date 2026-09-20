@@ -135,6 +135,7 @@
 - CITY data test: 同じ課の全レコードが同じ `routingCandidateId` を持つ。`routingCategories` が `categories` の部分集合である
 - CITY data test: active recordのsourceRefs、URL allowlist、effective date
 - e2e: 入力→送信→結果、エラー→再試行、モード切替
+- `rate-limit.server.ts` を実装する（IP単位のbest-effort in-memory token bucket、既定 10 requests/minute。[ARCHITECTURE.md](ARCHITECTURE.md) の §9）
 - secret scanとclient bundle確認
 - CSPヘッダーが実際に付与され、違反なくページが動作することを確認
 - request本文がログに出ないことを確認
@@ -263,6 +264,7 @@ Phase 2とPhase 3はAPI契約を先に固定すれば並行できる。Phase 4 C
 - [ ] responseにAPIキー、生レスポンス、内部stack traceを含めない
 - [ ] `Cache-Control: no-store`を設定する
 - [ ] Content Security Policyを設定し、CSP違反なくページが動作する
+- [ ] アプリ側のレート制限が有効で、超過時に 429 `RATE_LIMITED` を返す
 
 ### CITY
 

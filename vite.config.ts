@@ -15,7 +15,27 @@ export default defineConfig({
 			// maxDuration はアダプタが Build Output API v3 の .vc-config.json へ
 			// 書き出す。vercel.json の functions グロブは SvelteKit の生成関数名
 			// (catchall.func) と一致しないため効かない。
-			adapter: adapter({ maxDuration: 20 })
+			adapter: adapter({ maxDuration: 20 }),
+			// SvelteKit がハイドレーション用に生成するインライン要素へ
+			// nonce / hash を自動付与する。hooks.server.ts で手書きすると
+			// それらが壊れる（docs/ARCHITECTURE.md §8）。
+			csp: {
+				mode: 'auto',
+				directives: {
+					'default-src': ['self'],
+					'script-src': ['self'],
+					// ブラウザは TypeSafe API を直接呼ばず /api/judge だけを叩く。
+					'connect-src': ['self'],
+					'img-src': ['self', 'data:'],
+					'font-src': ['self'],
+					'object-src': ['none'],
+					'base-uri': ['self'],
+					'form-action': ['self'],
+					'frame-ancestors': ['none']
+					// style-src は指定しない。Svelte の transition はインライン
+					// <style> を生成するため、締めると動かなくなる。
+				}
+			}
 		})
 	],
 	test: {

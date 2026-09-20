@@ -1,1 +1,27 @@
 @import 'tailwindcss';
+
+/*
+ * dark: バリアントを使う以上、ページ自体の地の色も配色に合わせる必要がある。
+ * 背景を定義しないと、OS がダークモードのとき白地の上にダークモード用の
+ * 配色（明るいバー、明るいチップ）が乗り、コントラストが反転して見える。
+ *
+ * color-scheme はフォーム部品（textarea のキャレットやスクロールバー）を
+ * 配色に追従させるために指定する。
+ */
+:root {
+	color-scheme: light dark;
+	--page-bg: var(--color-white);
+	--page-fg: var(--color-neutral-900);
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		--page-bg: var(--color-neutral-950);
+		--page-fg: var(--color-neutral-100);
+	}
+}
+
+body {
+	background-color: var(--page-bg);
+	color: var(--page-fg);
+}
