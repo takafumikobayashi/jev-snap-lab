@@ -6,6 +6,9 @@
 	import ModeTabs from '$lib/components/ModeTabs.svelte';
 	import ResultCard from '$lib/components/ResultCard.svelte';
 	import type { JudgeResponse, Mode } from '$lib/types/judge';
+	import type { PageData } from './$types';
+
+	let { data }: { data: PageData } = $props();
 
 	type Status = 'idle' | 'judging' | 'success' | 'error';
 
@@ -108,8 +111,13 @@
 			<p
 				class="mt-4 rounded-md border border-neutral-300 px-3 py-2 text-xs text-neutral-600 dark:border-neutral-700 dark:text-neutral-400"
 			>
-				<strong>架空の市</strong>をモデルにした<strong>技術検証・デモ</strong
-				>です。実在の自治体の公式案内ではありません。組織名・分掌・条文はすべて架空のものです。
+				{#if data.cityFictional}
+					<strong>架空の市</strong>をモデルにした<strong>技術検証・デモ</strong
+					>です。実在の自治体の公式案内ではありません。組織名・分掌・条文はすべて架空のものです。
+				{:else}
+					実在する自治体の公開情報をモデルにした<strong>技術検証・デモ</strong
+					>です。正式な行政案内ではありません。最終確認は必ず公式窓口へ。
+				{/if}
 			</p>
 		{/if}
 

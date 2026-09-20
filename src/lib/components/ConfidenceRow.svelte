@@ -14,9 +14,16 @@
 <p class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-neutral-500">
 	<span>判定のまとまり {toPercent(confidence)}%</span>
 	{#if note}
+		<!--
+			状態を示す色は系列色と別枠。ライトでは 3:1 未満なので、色だけに
+			意味を持たせず印と文言を必ず添える。
+		-->
 		<span
-			class="rounded border border-amber-500 px-1.5 py-0.5 font-medium text-amber-700 dark:text-amber-400"
+			class="inline-flex items-center gap-1 rounded border px-1.5 py-0.5 font-medium"
+			style="border-color: #fab219; color: inherit"
 		>
+			<span class="h-1.5 w-1.5 rounded-full" style="background-color: #fab219" aria-hidden="true"
+			></span>
 			{note}
 		</span>
 	{:else}
