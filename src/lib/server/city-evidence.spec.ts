@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildCityBlock } from './city-evidence.server';
 import { DISPLAYED_CHOICE_OPTIONS, type ResultCard } from '$lib/types/judge';
 import { routeCriteria, routeLabels } from './city-directory.server';
+import { cityChecks } from '../../../scripts/lib/city-smoke.mjs';
 
 /** 実データの候補キーで Choice カードを組み立てる。確率は降順。 */
 function routeCard(keys: string[]): ResultCard {
@@ -105,5 +106,31 @@ describe('buildCityBlock', () => {
 		// バージョンと架空フラグは候補の有無に関わらず返す。
 		expect(city?.directoryVersion).toBe('mcity-2026-04-01');
 		expect(city?.fictional).toBe(true);
+	});
+});
+
+/**
+ * 受入確認を本物のレスポンスに当てる。
+ *
+ * scripts/check-deployment.mjs は型検査の外にあり、CI でも動かない
+ * （デプロイ先の URL が要る）。レスポンスの形を変えたときに気付けるよう、
+ * 実際の組み立て結果を通す。以前 `city.sources` を見たままになっていて、
+ * URL が漏れていても合格する検査になっていた。
+ */
+describe('受入確認との整合', () => {
+	it('実際のレスポンスが check-deployment の検査を通る', () => {
+		const city = buildCityBlock([routeCard(candidateIds.slice(0, 3))], '防犯灯が切れています');
+		const results = cityChecks({ city });
+		expect(results.filter((result) => !result.ok)).toEqual([]);
+	});
+
+	it('URL を持つ出典を混ぜると落ちる（空振りでないこと）', () => {
+		const city = buildCityBlock([routeCard(candidateIds.slice(0, 3))], 'x');
+		const first = city?.candidates[0];
+		if (first?.kind !== 'unit') throw new Error('unit でない');
+		first.sources[0].url = 'https://example.test/soshiki';
+
+		const failed = cityChecks({ city }).filter((result) => !result.ok);
+		expect(failed.map((result) => result.name)).toEqual(['出典に URL を持たない']);
 	});
 });

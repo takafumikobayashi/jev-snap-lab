@@ -82,7 +82,11 @@ pnpm check:deployment https://<preview-url> --smoke
 
 - 判定が200で、カード・model・usageが返ること
 - **CITYが架空データであること**（`city.fictional === true`）
-- 出典がURLを持たないこと
+- `city.candidates` が返ること
+- 候補に出典が付いていること
+- 出典がURLを持たないこと（`city.candidates[].sources[].url === null`）
+
+CITYの確認は `scripts/lib/city-smoke.mjs` に切り出し、単体テストで「壊れたレスポンスを落とせること」を固定している。以前は `city.sources` という存在しないパスを見ており、`?? []` の既定値によって**URLが漏れていても合格する**空振りの検査になっていた。空集合を合格にしないこと、対象の存在を先に確かめることを検査の前提にしている。
 
 ### スクリプトで確認できないもの
 

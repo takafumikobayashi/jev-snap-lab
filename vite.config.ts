@@ -53,6 +53,15 @@ export default defineConfig({
 					include: ['src/**/*.{test,spec}.{js,ts}'],
 					exclude: ['src/**/*.svelte.{test,spec}.{js,ts}']
 				}
+			},
+			{
+				// 運用スクリプトも検査対象にする。受入確認そのものが壊れていると
+				// 「合格」を信用できない（scripts/lib/city-smoke.mjs の経緯）。
+				test: {
+					name: 'scripts',
+					environment: 'node',
+					include: ['scripts/**/*.{test,spec}.mjs']
+				}
 			}
 		]
 	}

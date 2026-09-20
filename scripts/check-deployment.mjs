@@ -10,6 +10,8 @@
  * 確認項目は docs/ARCHITECTURE.md の §11 と docs/DEPLOY.md に対応する。
  */
 
+import { cityChecks } from './lib/city-smoke.mjs';
+
 const [, , rawUrl, ...flags] = process.argv;
 if (!rawUrl) {
 	console.error('usage: check-deployment.mjs <url> [--smoke]');
@@ -117,16 +119,11 @@ async function main() {
 				typeof body.usage?.inputTokens === 'number',
 				`${body.usage?.inputTokens} tok`
 			);
-			// 公開デプロイは架空データでなければならない。
-			check(
-				'CITY が架空データ',
-				body.city?.fictional === true,
-				`fictional=${body.city?.fictional}`
-			);
-			check(
-				'出典に URL を持たない',
-				(body.city?.sources ?? []).every((s) => s.url === null)
-			);
+			// CITY の確認は cityChecks() に切り出してある。そこだけ単体テストで
+			// 「壊れたレスポンスを落とせること」を固定している。
+			for (const result of cityChecks(body)) {
+				check(result.name, result.ok, result.detail);
+			}
 		} else {
 			check('判定のエラー内容', false, JSON.stringify(body).slice(0, 160));
 		}
