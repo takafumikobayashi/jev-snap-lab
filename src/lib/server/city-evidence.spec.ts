@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildCityBlock } from './city-evidence.server';
 import { DISPLAYED_CHOICE_OPTIONS, type ResultCard } from '$lib/types/judge';
-import { routeCriteria } from './city-directory.server';
+import { routeCriteria, routeLabels } from './city-directory.server';
 
 /** 実データの候補キーで Choice カードを組み立てる。確率は降順。 */
 function routeCard(keys: string[]): ResultCard {
@@ -13,13 +13,14 @@ function routeCard(keys: string[]): ResultCard {
 		confidence: 0.8,
 		options: keys.map((key, index) => ({
 			key,
-			label: key,
+			label: routeLabels()[key] ?? key,
 			probability: (keys.length - index) / keys.length
 		}))
 	};
 }
 
-const candidateIds = Object.keys(routeCriteria());
+// other_or_unclear は組織に紐づかないため、課の候補としては除く。
+const candidateIds = Object.keys(routeCriteria()).filter((key) => key !== 'other_or_unclear');
 
 describe('buildCityBlock', () => {
 	it('画面に出る件数ぶんだけ根拠を返す', () => {
@@ -41,6 +42,8 @@ describe('buildCityBlock', () => {
 	it('2位・3位にも課名と出典を付ける', () => {
 		const city = buildCityBlock([routeCard(candidateIds.slice(0, 3))], 'x');
 		for (const candidate of city?.candidates ?? []) {
+			expect(candidate.kind).toBe('unit');
+			if (candidate.kind !== 'unit') continue;
 			expect(candidate.officialName).not.toBe('');
 			expect(candidate.section).not.toBe('');
 			expect(candidate.sources.length).toBeGreaterThan(0);
@@ -53,11 +56,31 @@ describe('buildCityBlock', () => {
 		expect(city?.candidates[0].selected).toBe(true);
 	});
 
-	it('データセットに無い候補は落とす', () => {
-		// criteria はデータから生成しているため通常は起きないが、
-		// 返ってきた ID を無条件に信用しない。
-		const city = buildCityBlock([routeCard(['no-such-candidate', candidateIds[0]])], 'x');
-		expect(city?.candidates.map((c) => c.candidateId)).toEqual([candidateIds[0]]);
+	it('組織データに紐づかない候補は unroutable にする', () => {
+		// other_or_unclear は「絞り込めない」を表す正規の候補。落とすと、
+		// 画面の Choice には出ているのに根拠欄から消える。unit として返すと
+		// 出典が空の課になり「出典データ未登録」と誤った原因を示す。
+		const city = buildCityBlock([routeCard(['other_or_unclear', candidateIds[0]])], 'x');
+		expect(city?.candidates.map((c) => c.candidateId)).toEqual([
+			'other_or_unclear',
+			candidateIds[0]
+		]);
+
+		const [unclear, unit] = city?.candidates ?? [];
+		expect(unclear.kind).toBe('unroutable');
+		expect(unit.kind).toBe('unit');
+		// 画面に出す名前は持たせる。無名の行にしない。
+		if (unclear.kind === 'unroutable') expect(unclear.label).toBe('絞り込めない');
+	});
+
+	it('other_or_unclear が正規の候補として存在する', () => {
+		// この前提が崩れると上のテストが意味を失う（docs/JEV_DESIGN.md §7）。
+		expect(Object.keys(routeCriteria())).toContain('other_or_unclear');
+	});
+
+	it('データセットに無い候補も落とさず unroutable にする', () => {
+		const city = buildCityBlock([routeCard(['no-such-candidate'])], 'x');
+		expect(city?.candidates.map((c) => c.kind)).toEqual(['unroutable']);
 	});
 
 	it('route_to カードが無ければ候補を空にする', () => {

@@ -130,6 +130,7 @@ describe('POST /api/judge', () => {
 			expect(body.city?.directoryVersion).toBe('mcity-2026-04-01');
 			expect(body.city?.candidates.length).toBeGreaterThan(0);
 			for (const candidate of body.city?.candidates ?? []) {
+				if (candidate.kind !== 'unit') continue;
 				expect(candidate.sources.length).toBeGreaterThan(0);
 				for (const source of candidate.sources) {
 					// 架空データの出典は URL を持たない。
@@ -148,7 +149,8 @@ describe('POST /api/judge', () => {
 			).json()) as JudgeResponse;
 			const [top] = body.city?.candidates ?? [];
 			expect(top).toBeDefined();
-			expect(top.officialName).toContain('M市');
+			expect(top.kind).toBe('unit');
+			if (top.kind === 'unit') expect(top.officialName).toContain('M市');
 		});
 
 		it('画面に出る上位候補すべてに根拠を付ける', async () => {
@@ -168,6 +170,11 @@ describe('POST /api/judge', () => {
 				displayed.map((option) => option.key)
 			);
 			for (const candidate of body.city?.candidates ?? []) {
+				// unroutable（絞り込めない）でも行としては必ず返す。
+				if (candidate.kind !== 'unit') {
+					expect(candidate.label).not.toBe('');
+					continue;
+				}
 				expect(candidate.officialName).not.toBe('');
 				expect(candidate.sources.length).toBeGreaterThan(0);
 			}

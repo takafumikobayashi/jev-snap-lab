@@ -38,8 +38,7 @@ export function buildCityBlock(
 					// 同じ件数だけ根拠を付ける。出ていない候補の根拠は送らない。
 					routeTo.options
 						.slice(0, DISPLAYED_CHOICE_OPTIONS)
-						.map((option) => evidenceFor(option.key, option.probability, routeTo.selected, text))
-						.filter((candidate): candidate is CityCandidateEvidence => candidate !== null)
+						.map((option) => evidenceFor(option, routeTo.selected, text))
 				: []
 	};
 }
@@ -47,22 +46,27 @@ export function buildCityBlock(
 /**
  * 候補1件ぶんの根拠。
  *
- * データセットに無い候補 ID は null を返して落とす。criteria はデータから
- * 生成しているため通常は起きないが、返ってきた ID を無条件に信用しない。
+ * 組織データに対応する課が無い候補（`other_or_unclear`、および万一データに
+ * 無い ID）は `unroutable` として返す。落とすと、画面の Choice には出ている
+ * 候補が根拠欄から消え、下位の候補が答えであるかのように見える。
  */
 function evidenceFor(
-	candidateId: string,
-	probability: number,
+	option: { key: string; label: string; probability: number },
 	selectedId: string,
 	text: string
-): CityCandidateEvidence | null {
-	const resolved = resolveUnit(candidateId, text);
-	if (!resolved) return null;
+): CityCandidateEvidence {
+	const base = {
+		candidateId: option.key,
+		probability: option.probability,
+		selected: option.key === selectedId
+	};
+
+	const resolved = resolveUnit(option.key, text);
+	if (!resolved) return { ...base, kind: 'unroutable', label: option.label };
 
 	return {
-		candidateId,
-		probability,
-		selected: candidateId === selectedId,
+		...base,
+		kind: 'unit',
 		// 係まで絞れた場合だけ係を含む名称になる。絞れなければ課まで。
 		officialName: resolved.unit?.officialName ?? resolved.sectionOfficialName,
 		section: resolved.section,
@@ -72,6 +76,6 @@ function evidenceFor(
 			officialText: responsibility.officialText,
 			responsibilityId: responsibility.responsibilityId
 		})),
-		sources: sourcesFor(candidateId)
+		sources: sourcesFor(option.key)
 	};
 }

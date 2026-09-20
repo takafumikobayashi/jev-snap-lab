@@ -131,22 +131,37 @@ export type JudgeResponse = {
 	};
 };
 
-/**
- * 担当課候補1件ぶんの根拠。
- *
- * `matchedResponsibilities` が空なら、課までしか絞れていないことを意味する。
- * 係を推測して名指ししない（docs/CITY_DATA.md §5）。
- */
-export type CityCandidateEvidence = {
-	/** Choice の候補キー。`results` の option と突き合わせる。 */
+/** 候補の共通部分。`results` の option と突き合わせる。 */
+type CityCandidateBase = {
+	/** Choice の候補キー。 */
 	candidateId: string;
 	probability: number;
 	/** Jev が選んだ候補か。分布の先頭とは限らないため確率とは別に持つ。 */
 	selected: boolean;
-	/** 係まで絞れた場合だけ係を含む名称になる。絞れなければ課まで。 */
-	officialName: string;
-	section: string;
-	unit: string | null;
-	matchedResponsibilities: Array<{ officialText: string; responsibilityId: string }>;
-	sources: CitySource[];
 };
+
+/**
+ * 担当課候補1件ぶんの根拠。
+ *
+ * `other_or_unclear` は「絞り込めない」を表す正規の候補であって、組織データ
+ * に対応する課を持たない。組織に紐づく候補と同じ形で返すと、UI は出典が空の
+ * 課として描き「出典データ未登録」と誤った原因を示す。黙って落とすと、画面の
+ * Choice には出ているのに根拠欄から消える。どちらも避けるため型で分ける
+ * （docs/JEV_DESIGN.md §9 の「候補を絞り切れないと表示する」）。
+ */
+export type CityCandidateEvidence =
+	| (CityCandidateBase & {
+			kind: 'unit';
+			/** 係まで絞れた場合だけ係を含む名称になる。絞れなければ課まで。 */
+			officialName: string;
+			section: string;
+			unit: string | null;
+			/** 空なら課までしか絞れていない。係を推測して名指ししない。 */
+			matchedResponsibilities: Array<{ officialText: string; responsibilityId: string }>;
+			sources: CitySource[];
+	  })
+	| (CityCandidateBase & {
+			kind: 'unroutable';
+			/** 画面に出す候補名。組織名ではないため officialName と分ける。 */
+			label: string;
+	  });

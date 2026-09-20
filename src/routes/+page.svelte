@@ -227,9 +227,9 @@
 									>
 										<p>
 											<span class:font-semibold={candidate.selected}>
-												{candidate.officialName}
+												{candidate.kind === 'unit' ? candidate.officialName : candidate.label}
 											</span>
-											{#if candidate.unit === null}
+											{#if candidate.kind === 'unit' && candidate.unit === null}
 												<!-- 係まで絞れていないことを名称の隣で示す。 -->
 												<span class="text-neutral-500">（課まで）</span>
 											{/if}
@@ -239,7 +239,16 @@
 											</span>
 										</p>
 
-										{#if candidate.matchedResponsibilities.length > 0}
+										{#if candidate.kind !== 'unit'}
+											<!--
+												組織データに紐づかない候補。出典が無いのはデータ欠落では
+												なく、担当を絞り込めなかった結果である
+												（docs/JEV_DESIGN.md §9）。
+											-->
+											<p class="mt-1 text-neutral-500">
+												文面からは担当課を絞り切れませんでした。公式窓口でご確認ください。
+											</p>
+										{:else if candidate.matchedResponsibilities.length > 0}
 											<ul class="mt-1 list-disc pl-4 text-neutral-600 dark:text-neutral-400">
 												{#each candidate.matchedResponsibilities as responsibility (responsibility.responsibilityId)}
 													<li>{responsibility.officialText}</li>
@@ -252,7 +261,7 @@
 											</p>
 										{/if}
 
-										{#if candidate.sources.length > 0}
+										{#if candidate.kind === 'unit' && candidate.sources.length > 0}
 											<ul class="mt-1 space-y-1">
 												{#each candidate.sources as source (source.sourceId)}
 													<li>
@@ -281,7 +290,11 @@
 													</li>
 												{/each}
 											</ul>
-										{:else}
+										{:else if candidate.kind === 'unit'}
+											<!--
+												実在の課なのに出典が無い場合だけ未登録として出す。
+												絞り込み不能と混ぜない（docs/PRODUCT_SPEC.md §8）。
+											-->
 											<p class="mt-1 text-amber-700 dark:text-amber-400">出典データ未登録</p>
 										{/if}
 									</li>

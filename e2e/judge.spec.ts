@@ -403,6 +403,7 @@ test.describe('開示', () => {
 					fictional: true,
 					candidates: [
 						{
+							kind: 'unit',
 							candidateId: 'c1',
 							probability: 0.7,
 							selected: true,
@@ -444,6 +445,7 @@ test.describe('開示', () => {
 					fictional: false,
 					candidates: [
 						{
+							kind: 'unit',
 							candidateId: 'c1',
 							probability: 0.7,
 							selected: true,
@@ -470,6 +472,7 @@ test.describe('開示', () => {
 		// 選ばれた1件だけに根拠を付けると、候補が割れた入力ほど
 		// 2位・3位と比べる材料が無くなる。
 		const candidate = (n: number, probability: number, selected: boolean) => ({
+			kind: 'unit',
 			candidateId: `c${n}`,
 			probability,
 			selected,
@@ -514,6 +517,51 @@ test.describe('開示', () => {
 			await expect(page.getByText(`出典${n}（架空）`)).toBeVisible();
 			await expect(page.getByText(`${percent}%`).first()).toBeVisible();
 		}
+	});
+
+	test('絞り込み不能と出典未登録を区別する', async ({ page }) => {
+		// other_or_unclear は「絞り込めない」を表す正規の候補で、組織データに
+		// 対応する課を持たない。出典が無いのはデータ欠落ではない。
+		await stubJudge(page, () => ({
+			status: 200,
+			body: judgeResponse({
+				mode: 'city',
+				city: {
+					directoryVersion: 'mcity-2026-04-01',
+					fictional: true,
+					candidates: [
+						{
+							kind: 'unroutable',
+							candidateId: 'other_or_unclear',
+							probability: 0.6,
+							selected: true,
+							label: '絞り込めない'
+						},
+						{
+							kind: 'unit',
+							candidateId: 'c9',
+							probability: 0.4,
+							selected: false,
+							officialName: 'M市 A部 B9課',
+							section: 'B9課',
+							unit: null,
+							matchedResponsibilities: [],
+							sources: []
+						}
+					]
+				}
+			})
+		}));
+		await page.goto('/');
+		await page.getByRole('tab', { name: 'city' }).click();
+		await textarea(page).fill('よく分からない問い合わせ');
+		await judge(page).click();
+
+		// 絞り込めない候補は理由を説明し、未登録扱いにしない。
+		await expect(page.getByText('絞り込めない')).toBeVisible();
+		await expect(page.getByText('担当課を絞り切れませんでした')).toBeVisible();
+		// 実在の課で出典が空のときだけ未登録と出す。1件だけ。
+		await expect(page.getByText('出典データ未登録')).toHaveCount(1);
 	});
 
 	test('全モードで外部送信と非保存を明示する', async ({ page }) => {

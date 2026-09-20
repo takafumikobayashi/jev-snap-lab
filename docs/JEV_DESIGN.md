@@ -267,6 +267,7 @@ other_or_unclear
 3. 上位候補ごとにローカルの `sourceRefs` をjoinし、課、係、分掌、公式URL、取得日、有効日を表示する。件数は画面の折り畳みと同じ `DISPLAYED_CHOICE_OPTIONS` 件。選ばれた1件だけに根拠を付けると、候補が割れた入力ほど比較材料が無くなる。
 4. `human_review_likely.noul`、`location_information_missing.noul`、`emergency_signal.noul` を機械的な手続き開始条件にしない。
 5. `confidence`が低い、`other_or_unclear`が上位、または出典がない場合は「候補を絞り切れない」と表示する。
+6. **絞り込み不能と出典未登録を混ぜない。** `other_or_unclear` は組織データに対応する課を持たない正規の候補であり、出典が空なのはデータ欠落ではない。ここで「出典データ未登録」と出すと、利用者に誤った原因を示す。レスポンスでは `kind: 'unroutable'` として型で区別し、候補自体は落とさない（落とすと、画面のChoiceには出ているのに根拠欄から消える）。「出典データ未登録」は実在の課で `sourceRefs` が空の場合だけに使う。
 
 ## 8. レスポンスのアプリ内契約
 
