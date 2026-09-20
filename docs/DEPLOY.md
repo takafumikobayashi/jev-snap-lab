@@ -33,7 +33,7 @@ Vercelダッシュボードで **Add New → Project** から `takafumikobayashi
 | `TYPESAFE_DEFAULT_MODEL` | `jev-latest` | 任意 | 未設定でも既定値が同じ |
 | `JEV_TIMEOUT_MS` | `3500` | 任意 | 未設定でも既定値が同じ |
 | `JEV_TOTAL_TIMEOUT_MS` | `12000` | 任意 | 未設定でも既定値が同じ |
-| `APP_RATE_LIMIT_PER_MINUTE` | `10` | 任意 | 未設定でも既定値が同じ |
+| `APP_RATE_LIMIT_PER_MINUTE` | `10` | 任意 | 正の整数のみ。読めない値は既定値へ戻り、`RATE_LIMIT_INVALID` を警告に出す |
 
 **設定してはいけないもの**
 

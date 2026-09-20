@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createRateLimiter, DEFAULT_OPTIONS } from './rate-limit.server';
+import { createRateLimiter, DEFAULT_OPTIONS, parseRateLimit } from './rate-limit.server';
 
 const MINUTE = 60_000;
 
@@ -109,5 +109,26 @@ describe('createRateLimiter', () => {
 			limiter.check('z', 0);
 			expect(limiter.size()).toBeLessThanOrEqual(3);
 		});
+	});
+});
+
+describe('parseRateLimit', () => {
+	it('未設定なら既定値を使い、設定ミス扱いにしない', () => {
+		for (const raw of [undefined, '', '   ']) {
+			expect(parseRateLimit(raw)).toEqual({ limit: DEFAULT_OPTIONS.limit, invalid: false });
+		}
+	});
+
+	it('正の整数を受ける（前後の空白は落とす）', () => {
+		expect(parseRateLimit('2')).toEqual({ limit: 2, invalid: false });
+		expect(parseRateLimit(' 2 ')).toEqual({ limit: 2, invalid: false });
+		expect(parseRateLimit('120')).toEqual({ limit: 120, invalid: false });
+	});
+
+	it('読めない値は既定値へ戻しつつ設定ミスとして報告する', () => {
+		// 黙って既定の 10 件/分へ戻ると、絞ったつもりのまま走り続ける。
+		for (const raw of ['2/min', '0', '-1', 'abc', '2.5', 'Infinity', '1e3x']) {
+			expect(parseRateLimit(raw), raw).toEqual({ limit: DEFAULT_OPTIONS.limit, invalid: true });
+		}
 	});
 });

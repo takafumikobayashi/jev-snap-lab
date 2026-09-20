@@ -22,7 +22,7 @@ import {
 	resolveUnit,
 	sourcesFor
 } from '$lib/server/city-directory.server';
-import { createRateLimiter, DEFAULT_OPTIONS } from '$lib/server/rate-limit.server';
+import { createRateLimiter, parseRateLimit } from '$lib/server/rate-limit.server';
 import { describeFailure, validateJudgeInput } from '$lib/validation/judge-input';
 import { readJsonBody } from '$lib/server/request-body.server';
 import { env } from '$env/dynamic/private';
@@ -69,10 +69,19 @@ function failure(
  * 有効な best-effort である。serverless ではインスタンスを跨がない
  * （docs/ARCHITECTURE.md §9）。
  */
-const perMinute = Number(env.APP_RATE_LIMIT_PER_MINUTE);
-const rateLimiter = createRateLimiter({
-	limit: Number.isFinite(perMinute) && perMinute > 0 ? perMinute : DEFAULT_OPTIONS.limit
-});
+const rateLimit = parseRateLimit(env.APP_RATE_LIMIT_PER_MINUTE);
+if (rateLimit.invalid) {
+	// 設定してあるのに読めない値は設定ミス。既定値へ戻ったことを残さないと、
+	// 絞ったつもりのまま 10 件/分で走り続ける。値そのものは出さない。
+	console.warn(
+		JSON.stringify({
+			route: 'api/judge',
+			warning: 'RATE_LIMIT_INVALID',
+			detail: `APP_RATE_LIMIT_PER_MINUTE を正の整数として読めない。既定の ${rateLimit.limit} 件/分を使う。`
+		})
+	);
+}
+const rateLimiter = createRateLimiter({ limit: rateLimit.limit });
 
 /**
  * 構造化されたサーバーログ。

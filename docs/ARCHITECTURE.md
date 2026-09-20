@@ -393,7 +393,7 @@ sveltekit({
 MVPでは外部DBなしで過剰な設計をしない。ただし次の二層を用意する。
 
 1. クライアント: 送信中の二重送信を禁止し、連打にクールダウンを置く。**Phase 3**。
-2. サーバー: 送信元アドレス単位のbest-effort in-memory token bucket。既定は10 requests/minuteで、`APP_RATE_LIMIT_PER_MINUTE` で変更できる。**Phase 5で実装済み**（`src/lib/server/rate-limit.server.ts`）。
+2. サーバー: 送信元アドレス単位のbest-effort in-memory token bucket。既定は10 requests/minuteで、`APP_RATE_LIMIT_PER_MINUTE`（正の整数）で変更できる。読めない値を黙って既定値へ戻すと、絞ったつもりのまま10 requests/minuteで走り続ける。設定してあるのに読めない場合は `RATE_LIMIT_INVALID` を警告として残す。**Phase 5で実装済み**（`src/lib/server/rate-limit.server.ts`）。
 
 ### 実装上の判断
 

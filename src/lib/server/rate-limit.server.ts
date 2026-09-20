@@ -97,3 +97,22 @@ export function createRateLimiter(options: Partial<RateLimiterOptions> = {}): Ra
 		}
 	};
 }
+
+/**
+ * `APP_RATE_LIMIT_PER_MINUTE` を読む。
+ *
+ * 未設定なら既定値を使う。これは正常な運用。一方、設定してあるのに読めない
+ * 値（`2/min`、`0`、`-1`、`abc`）は設定ミスであり、黙って既定の 10 件/分へ
+ * 戻すと「課金保護のつもりで絞ったのに効いていない」に気付けない。
+ * 区別できるように invalid を返し、呼び出し側が警告を残す。
+ */
+export function parseRateLimit(raw: string | undefined): { limit: number; invalid: boolean } {
+	const trimmed = raw?.trim();
+	if (!trimmed) return { limit: DEFAULT_OPTIONS.limit, invalid: false };
+
+	const parsed = Number(trimmed);
+	// 件数なので正の整数だけ受ける。2.5 件/分は意図の読み取りようがない。
+	if (Number.isInteger(parsed) && parsed > 0) return { limit: parsed, invalid: false };
+
+	return { limit: DEFAULT_OPTIONS.limit, invalid: true };
+}
