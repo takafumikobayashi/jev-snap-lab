@@ -200,11 +200,13 @@ Noulは `romantic_frame` と意図的に重複させない。「別れ」「未�
 {
   "mode": "city",
   "text": "家の前の防犯灯が切れてます",
-  "jurisdiction": "安芸高田市",
-  "directory_effective_date": "2026-04-01",
-  "directory_version": "akitakata-2026-04-01"
+  "jurisdiction": "安芸高田市"
 }
 ```
+
+**`directory_version` と `directory_effective_date` は state へ入れない。** モデルにとって意味を持たないIDと日付でトークンを使うだけで、候補の説明は criteria 側に入っているため判定に寄与しない。`jurisdiction` だけは「どの自治体への問い合わせとして読むか」が判定に効くため残す。
+
+データバージョンはレスポンスの `city.directoryVersion` に必ず記録し、画面の根拠表示（§9）と観測ログで使う。
 
 担当候補の `criteria` は、[CITY_DATA.md](CITY_DATA.md) の静的データからサーバー側で生成する。Jevへ渡す候補は `id` と短い業務説明に限定し、採用後の根拠表示は必ず同じ `id` を使ってローカルデータへjoinする。
 
@@ -331,7 +333,12 @@ type ResultCard =
 4. `score` を100点満点や独自のパーセントへ再計算しない。
 5. 最大確率のレベルが複数並んだ場合は、小さいレベル番号を採る。
 
-`legend` はレスポンスから受け取った文言をそのまま表示する。アプリ側の日本語ラベルを使う場合は、質問定義の `criteria` と1対1対応するlabel mapから引き、`legend` とずれていないことをcontract testで検証する。
+**画面には `legend` をそのまま出さない。** `criteria` は英語で書く方針のため（Jevは英語が主な学習言語であり、判定精度を優先する。[Models](https://docs.typesafe.ai/models)）、`legend` には送った英語がそのまま返る。日本語UIに英語が混在するのを避けるため、質問定義と対になる `scoreLabels`（レベル順の日本語配列）を持ち、表示にはそちらを使う。
+
+`scoreLabels` は `criteria` と同じ長さ・同じ順序でなければならない。ずれると別レベルの説明を表示することになるため、次の2箇所で検証する。
+
+1. contract test: 全Score質問について `scoreLabels[id].length === criteria.length`
+2. 正規化時: レスポンスの `legend` のキー数と `scoreLabels` の長さが一致すること。不一致は契約違反としてエラーにする
 
 ### usage とコスト
 

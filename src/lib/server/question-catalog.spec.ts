@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { MODES } from '$lib/types/judge';
-import { buildCatalog, buildState } from './question-catalog.server';
+import {
+	buildCatalog,
+	buildState,
+	CITY_DIRECTORY_IS_PROVISIONAL,
+	CITY_DIRECTORY_VERSION,
+	CITY_JURISDICTION
+} from './question-catalog.server';
 import {
 	findQuestionDefects,
 	MAX_CHOICE_OPTIONS,
@@ -120,10 +126,115 @@ describe('buildCatalog', () => {
 	});
 });
 
+describe('質問 ID 集合の固定', () => {
+	// 自己整合性のテストは、質問とラベルを同時に消しても通ってしまう。
+	// 期待する ID 集合を明示的に固定し、欠落・意図しない追加を検出する。
+	// 変更するときは docs/JEV_DESIGN.md の §5 / §6 / §7 も必ず更新する。
+
+	it('LOVE は 7 問', () => {
+		expect(Object.keys(buildCatalog('love').questions).sort()).toEqual([
+			'is_long_distance',
+			'is_passionate',
+			'is_unrequited',
+			'love_signal_strength',
+			'relationship_ended',
+			'romantic_frame',
+			'still_loves'
+		]);
+	});
+
+	it('SOCIAL は 10 問', () => {
+		expect(Object.keys(buildCatalog('social').questions).sort()).toEqual([
+			'casualness',
+			'discussion_level',
+			'invites_agreement',
+			'is_boastful',
+			'is_joke_like',
+			'is_learning_or_discovery',
+			'is_reaction_bait',
+			'is_surprising',
+			'is_taunting',
+			'post_type'
+		]);
+	});
+
+	it('CITY は 8 問', () => {
+		expect(Object.keys(buildCatalog('city').questions).sort()).toEqual([
+			'cross_department_likely',
+			'emergency_signal',
+			'human_review_likely',
+			'location_information_missing',
+			'onsite_visit_likely',
+			'request_category',
+			'route_to',
+			'urgency'
+		]);
+	});
+});
+
+describe('scoreLabels', () => {
+	it('全 Score 質問に日本語ラベルがあり、criteria と長さが一致する', () => {
+		// ずれたまま表示すると、別レベルの説明を出すことになる。
+		for (const mode of MODES) {
+			const { questions, scoreLabels } = buildCatalog(mode);
+			for (const [id, question] of Object.entries(questions)) {
+				if (question.type !== 'score') continue;
+				expect(scoreLabels[id], `${mode}.${id}`).toBeDefined();
+				expect(scoreLabels[id].length, `${mode}.${id}`).toBe(question.criteria.length);
+			}
+		}
+	});
+
+	it('Score でない質問のラベルが紛れ込んでいない', () => {
+		for (const mode of MODES) {
+			const { questions, scoreLabels } = buildCatalog(mode);
+			for (const id of Object.keys(scoreLabels)) {
+				expect(questions[id]?.type, `${mode}.${id}`).toBe('score');
+			}
+		}
+	});
+
+	it('日本語ラベルに ASCII のみの要素がない', () => {
+		// criteria を貼り付けたまま放置する事故を検出する。
+		for (const mode of MODES) {
+			for (const [id, labels] of Object.entries(buildCatalog(mode).scoreLabels)) {
+				for (const label of labels) {
+					expect(/^[\x20-\x7e]+$/.test(label), `${mode}.${id}: ${label}`).toBe(false);
+				}
+			}
+		}
+	});
+});
+
 describe('buildState', () => {
-	it('mode と text だけを渡す', () => {
+	it('LOVE / SOCIAL は mode と text だけを渡す', () => {
 		// 任意のオブジェクトを state へ入れない（docs/JEV_DESIGN.md §10）。
 		expect(buildState('love', 'テスト')).toEqual({ mode: 'love', text: 'テスト' });
-		expect(Object.keys(buildState('city', 'x')).sort()).toEqual(['mode', 'text']);
+		expect(buildState('social', 'テスト')).toEqual({ mode: 'social', text: 'テスト' });
+	});
+
+	it('CITY は jurisdiction を足す', () => {
+		expect(buildState('city', '防犯灯が切れてます')).toEqual({
+			mode: 'city',
+			text: '防犯灯が切れてます',
+			jurisdiction: CITY_JURISDICTION
+		});
+	});
+
+	it('CITY の state にデータバージョンを入れない', () => {
+		// モデルにとって意味を持たないIDでトークンを使わない。
+		// バージョンはレスポンスの city.directoryVersion に記録する。
+		const state = buildState('city', 'x') as Record<string, unknown>;
+		expect(state.directory_version).toBeUndefined();
+		expect(state.directory_effective_date).toBeUndefined();
+		expect(Object.keys(state).sort()).toEqual(['jurisdiction', 'mode', 'text']);
+	});
+});
+
+describe('CITY 暫定データのガード', () => {
+	it('暫定であることがバージョン文字列から分かる', () => {
+		// Phase 4 で公式データへ差し替えるまで、出典が紐付かない。
+		expect(CITY_DIRECTORY_IS_PROVISIONAL).toBe(true);
+		expect(CITY_DIRECTORY_VERSION).toContain('provisional');
 	});
 });

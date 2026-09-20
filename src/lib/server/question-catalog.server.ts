@@ -17,13 +17,49 @@ export type QuestionCatalog = {
 	labels: Record<string, string>;
 	/** Choice の候補キー -> 画面に出す日本語ラベル。 */
 	optionLabels: Record<string, Record<string, string>>;
+	/**
+	 * Score の質問 ID -> レベル順の日本語ラベル。
+	 *
+	 * `criteria` は英語のままにしている。Jev は英語が主な学習言語であり
+	 * （[Models](https://docs.typesafe.ai/models)）、判定精度を優先するため。
+	 * 一方レスポンスの `legend` は送った `criteria` がそのまま返るため、
+	 * 日本語 UI にそのまま出すと英語が混在する。表示にはこの配列を使う。
+	 *
+	 * 配列は `criteria` と同じ長さ・同じ順序でなければならない。ずれは
+	 * contract test と正規化時の検証で検出する。
+	 */
+	scoreLabels: Record<string, string[]>;
 };
 
-/** Jev へ渡す state。ユーザー入力と固定のモード文字列だけを入れる。 */
+/**
+ * Jev へ渡す state。ユーザー入力と、サーバーが決める固定値だけを入れる。
+ *
+ * CITY だけ `jurisdiction` を足す。どの自治体への問い合わせとして読むかは
+ * 判定に効くため。一方 `directory_version` と `directory_effective_date` は
+ * state へ入れない。モデルにとって意味を持たないIDと日付でトークンを使う
+ * だけで、候補の説明は criteria 側に入っているため判定に寄与しない。
+ * データバージョンはレスポンスの `city.directoryVersion` に必ず記録する。
+ */
 export type JudgeState = {
 	mode: Mode;
 	text: string;
+	jurisdiction?: string;
 };
+
+/** CITY のモデルケース。Phase 4 で静的データの `displayName` から取る。 */
+export const CITY_JURISDICTION = '安芸高田市';
+
+/**
+ * CITY 候補データのバージョン。
+ *
+ * **Phase 4 で公式データから生成するまでの暫定値**。この値が返る間は、
+ * 候補に出典・施行日・取得日が紐付いていない。レスポンスを受け取る側は
+ * 公式の担当決定として表示してはならない。
+ */
+export const CITY_DIRECTORY_VERSION = 'provisional-no-official-sources';
+
+/** 暫定データを使っているか。UI の警告表示と、実運用への流出防止に使う。 */
+export const CITY_DIRECTORY_IS_PROVISIONAL = true;
 
 // ---------------------------------------------------------------------------
 // LOVE
@@ -91,6 +127,9 @@ function loveCatalog(): QuestionCatalog {
 			is_long_distance: '遠距離の要素がある？',
 			relationship_ended: '関係は終わっている？',
 			still_loves: 'まだ気持ちがある？'
+		},
+		scoreLabels: {
+			love_signal_strength: ['含意なし', '弱い', '明確', '非常に強い']
 		},
 		optionLabels: {
 			romantic_frame: {
@@ -181,6 +220,10 @@ function socialCatalog(): QuestionCatalog {
 			is_boastful: '自慢っぽく読める？',
 			is_taunting: '煽りとして読める？',
 			is_reaction_bait: '反応を誘う構造がある？'
+		},
+		scoreLabels: {
+			casualness: ['形式的', '会話的', 'くだけた'],
+			discussion_level: ['議論を招かない', '意見交換の余地あり', '議論を強く招く']
 		},
 		optionLabels: {
 			post_type: {
@@ -320,6 +363,9 @@ function cityCatalog(): QuestionCatalog {
 			location_information_missing: '場所の情報が足りない？',
 			emergency_signal: '緊急性が明示されている？'
 		},
+		scoreLabels: {
+			urgency: ['通常', '近日確認', '当日確認', '即時リスクの可能性']
+		},
 		optionLabels: {
 			route_to: {
 				crisis_management: '危機管理課',
@@ -375,7 +421,7 @@ export function buildCatalog(mode: Mode): QuestionCatalog {
 	return cityCatalog();
 }
 
-/** Jev へ渡す state。ユーザー入力と固定のモード文字列だけを入れる。 */
 export function buildState(mode: Mode, text: string): JudgeState {
+	if (mode === 'city') return { mode, text, jurisdiction: CITY_JURISDICTION };
 	return { mode, text };
 }
