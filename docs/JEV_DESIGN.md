@@ -363,7 +363,7 @@ estimatedCostUsd = input_tokens / 1_000_000 * 0.042
 
 ### MVP設定
 
-1試行timeoutは**3,500ms**、total request budgetは12,000msとする。この組み合わせは最悪ケースがちょうど予算に収まる。
+1試行timeoutは**3,500ms**、total request budgetは12,000msとする。通常時はちょうど3試行が予算に収まる。
 
 ```text
 3500 + 500 + 3500 + 1000 + 3500 = 12,000ms
@@ -372,7 +372,20 @@ estimatedCostUsd = input_tokens / 1_000_000 * 0.042
 
 公式デフォルトの10,000ms、あるいは以前の推奨値だった8,000msを1試行に使うと、3試行分で25,500msとなり12,000msの予算では試行2が途中で打ち切られ試行3が一度も実行されない。retryを設計に含めるなら1試行を短くする必要がある。
 
+#### total budget の性質（実装時の誤解を避けるため）
+
+上の12,000msは**通常時の計算であり、3試行の完了を保証しない**。3点を明確にしておく。
+
+1. **12,000msはAbortSignalによるハード上限である。** SDKのtimeoutは1試行あたりにしか効かず、`RequestOptions.timeout` の説明にも「there is no total retry budget」と明記されている。総予算はSDKの機能ではなくアプリ側で `AbortController` を用意して強制する。
+
+2. **3試行が必ず実行されるとは限らない。** SDKは `respectRetryAfter: true` かつ `maxRetryAfterMs: 60000` なので、上流が `Retry-After` で長い待機を指示した場合、固定backoff（500ms / 1,000ms）ではなくその指示に従う。429が返って `Retry-After: 30` が付けば、試行1の後で予算を使い切る。
+
+3. **Retry-After の待機も総予算で中断する。** `RequestOptions.signal` は「Cancellation signal for the request **and pending retries**」と定義されており、渡したAbortSignalは送信中のリクエストだけでなく待機中のretryも打ち切る。したがって予算超過時は待機ごと中断され、アプリは504 / `UPSTREAM_TIMEOUT` を返す。
+
+[RetryPolicy](https://docs.typesafe.ai/sdk/javascript/api/interfaces/RetryPolicy) / [RequestOptions](https://docs.typesafe.ai/sdk/javascript/api/interfaces/RequestOptions)
+
 - 429 / 529 / 408 / 5xx: SDKの指数backoffと `retry-after` 尊重を利用する。アプリ側で同じretryを二重実装しない。
+- 408 / 504: SDKのretry対象に408が含まれるため、ここへ残るのは「retryしても回復しなかった」場合である。障害ではなく時間切れとして `UPSTREAM_TIMEOUT`（504）へ写し、再試行可能として表示する。
 - timeout / 接続失敗もSDKが既定でretryする。アプリ側の「1回で失敗扱い」は、**SDKがretryを使い切った後**のユーザー向け挙動を指す。
 - 401: 設定エラー。ユーザーには接続失敗、サーバーログにはキー未設定/認証失敗の種別だけを記録し、キー値は記録しない。
 - 422: 質問定義またはリクエスト構築のバグ。ユーザーには再試行を促さず、一般的なエラーを表示し、監視対象にする。

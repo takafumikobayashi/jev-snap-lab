@@ -198,6 +198,8 @@ SDKのtimeoutは1試行単位で、公式記載のデフォルトは10,000ms。�
 
 SDKは `apiTimeoutError` と `apiConnectionError` も既定でretryするため、アプリ側で再送を重ねない。詳細な既定値は [JEV_DESIGN.md](JEV_DESIGN.md) の §9 を参照。
 
+**上の等式は通常時の計算であり、3試行の完了を保証しない。** SDKに総retry予算は無く（`RequestOptions.timeout` は1試行あたり）、`Retry-After` は最大60秒まで尊重される。上流が長い待機を指示すれば試行1の後で予算を使い切る。`JEV_TOTAL_TIMEOUT_MS` はあくまでAbortSignalによるハード上限であり、SDKへ渡した `signal` は送信中のリクエストに加えて**待機中のretryも中断する**。予算超過時は待機ごと打ち切り、504 / `UPSTREAM_TIMEOUT` を返す。
+
 ## 7. API route契約
 
 ### `POST /api/judge`
@@ -252,7 +254,7 @@ Client-visible error shape:
 | 422 | `QUESTION_DEFINITION_ERROR` | 固定質問またはCITYデータから生成した質問が不正 |
 | 429 | `RATE_LIMITED` | upstreamまたはアプリ側のレート制限 |
 | 502/503 | `UPSTREAM_UNAVAILABLE` | Jev障害・過負荷。上流の529をそのまま返さない（529はIANA未登録でCDN・プロキシの扱いが不定なため、アプリは503を返す） |
-| 504 | `UPSTREAM_TIMEOUT` | timeout / total budget超過 |
+| 504 | `UPSTREAM_TIMEOUT` | total budget超過、SDK timeout、上流の408 / 504。いずれも再試行可能として表示する |
 
 ## 8. セキュリティ
 

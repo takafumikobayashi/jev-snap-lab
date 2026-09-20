@@ -84,12 +84,22 @@ export function errorBody(code: ErrorCode, requestId: string): JudgeErrorBody {
 	};
 }
 
-/** 上流 TypeSafe API の HTTP status をアプリのエラーコードへ写す。 */
+/**
+ * 上流 TypeSafe API の HTTP status をアプリのエラーコードへ写す。
+ *
+ * ここへ来るのは SDK が retry を使い切った後の最終 status である。
+ * SDK の既定 retry 対象は 408 / 429 / 500-599 なので、これらが残って
+ * いる場合は「retry しても回復しなかった」ことを意味する。
+ */
 export function mapUpstreamStatus(status: number): ErrorCode {
 	if (status === 401 || status === 403) return 'CONFIGURATION_ERROR';
 	if (status === 422) return 'QUESTION_DEFINITION_ERROR';
 	if (status === 429) return 'RATE_LIMITED';
-	// 529 Overloaded を含む 5xx。上流の障害として扱う。
+	// 408 Request Timeout。SDK の retry 対象なので、残っていれば時間切れ。
+	// 利用者には再試行可能な timeout として見せる。
+	if (status === 408) return 'UPSTREAM_TIMEOUT';
+	// 上流 504 も時間切れとして扱う。529 Overloaded を含むその他の 5xx は障害。
+	if (status === 504) return 'UPSTREAM_TIMEOUT';
 	if (status >= 500) return 'UPSTREAM_UNAVAILABLE';
 	return 'INTERNAL_ERROR';
 }
