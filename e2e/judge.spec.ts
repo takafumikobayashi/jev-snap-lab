@@ -265,3 +265,56 @@ test.describe('セキュリティ', () => {
 		}
 	});
 });
+
+test.describe('メタ情報', () => {
+	test('OGP の画像が絶対 URL になる', async ({ page }) => {
+		// 相対 URL だとクローラーが解決できず、カードに画像が出ない。
+		// PUBLIC_SITE_URL の設定漏れはローカルでは踏めないので、CI で見る。
+		await page.goto('/');
+		const ogImage = await page.locator('meta[property="og:image"]').getAttribute('content');
+		expect(ogImage).toMatch(/^https?:\/\//);
+		expect(ogImage).toContain('/og-image.png');
+
+		const twitterImage = await page.locator('meta[name="twitter:image"]').getAttribute('content');
+		expect(twitterImage).toBe(ogImage);
+	});
+
+	test('OGP の必須プロパティが揃う', async ({ page }) => {
+		await page.goto('/');
+		for (const property of ['og:type', 'og:title', 'og:description', 'og:url']) {
+			const content = await page.locator(`meta[property="${property}"]`).getAttribute('content');
+			expect(content, property).toBeTruthy();
+		}
+		expect(await page.locator('meta[name="twitter:card"]').getAttribute('content')).toBe(
+			'summary_large_image'
+		);
+	});
+
+	test('og:image の宣言サイズが実画像と一致する', async ({ page, request }) => {
+		// 宣言と実物がずれるとカードの描画が崩れる。
+		await page.goto('/');
+		const width = await page.locator('meta[property="og:image:width"]').getAttribute('content');
+		const height = await page.locator('meta[property="og:image:height"]').getAttribute('content');
+
+		const response = await request.get('/og-image.png');
+		expect(response.status()).toBe(200);
+		const buffer = await response.body();
+		// PNG の IHDR は 16 バイト目から幅・高さが 4 バイトずつ並ぶ。
+		expect(String(buffer.readUInt32BE(16))).toBe(width);
+		expect(String(buffer.readUInt32BE(20))).toBe(height);
+	});
+
+	test('favicon が配信される', async ({ request }) => {
+		const response = await request.get('/favicon.png');
+		expect(response.status()).toBe(200);
+		expect(response.headers()['content-type']).toContain('image/png');
+	});
+
+	test('robots.txt は検索を拒否しつつ SNS を通す', async ({ request }) => {
+		// 全拒否のままだと OGP のカードが表示されない。
+		const body = await (await request.get('/robots.txt')).text();
+		expect(body).toMatch(/User-agent:\s*Twitterbot\s*\nAllow:\s*\//);
+		expect(body).toMatch(/User-agent:\s*facebookexternalhit\s*\nAllow:\s*\//);
+		expect(body).toMatch(/User-agent:\s*\*\s*\nDisallow:\s*\//);
+	});
+});

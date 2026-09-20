@@ -26,7 +26,9 @@ export default defineConfig({
 		timeout: 120_000,
 		env: {
 			// 手元の .env に実データが指定されていても、E2E は架空データで走らせる。
-			CITY_DIRECTORY: 'fictional-m-city'
+			CITY_DIRECTORY: 'fictional-m-city',
+			// OGP は絶対 URL を要求する。設定した状態での出力を検証する。
+			PUBLIC_SITE_URL: 'http://localhost:4173'
 		}
 	}
 });

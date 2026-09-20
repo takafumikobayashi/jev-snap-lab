@@ -140,6 +140,7 @@ question catalog / labels ─────────┴─ server only
 | `APP_RATE_LIMIT_PER_MINUTE` | No | アプリ側のbest-effort上限 | No |
 | `CITY_DIRECTORY` | No | CITYのデータセット名。既定は架空データ `fictional-m-city`（[CITY_DATA.md](CITY_DATA.md) の §9） | No |
 | `CITY_SOURCE_HOSTS` | No | 出典URLに許可するホスト（カンマ区切り）。未設定ならURLを持つ出典を許さない | No |
+| `PUBLIC_SITE_URL` | No | サイトの起点URL。OGPの絶対URL生成に使う。未設定なら画像系のmetaを出さない | Yes |
 | `PUBLIC_SITE_URL` | No | OGP画像の絶対URL生成用。未設定時は相対URL | Yes |
 | `PUBLIC_APP_LABEL` | No | CITYのデモ注意文など公開可能な表示設定 | Yes可 |
 
@@ -301,6 +302,25 @@ Client-visible error shape:
 - server logにはrequestId、mode、latency、status、model、usageのみを基本とし、textとJev request bodyを記録しない。
 - TypeSafe SDKのdebug loggingを本番で有効にしない。公式SDKはdebugでbodyもログし得るため、ログレベルはwarnまたはerrorにする。
 - Vercelのアクセスログや上流事業者の保持方針は、実装・公開前に各利用規約とDPAを確認する。
+
+### 検索エンジンとSNSクローラーの扱い
+
+`static/robots.txt` で**検索エンジンは拒否し、SNSのリンク展開だけ通す**。
+
+全拒否にすると、SNSのクローラーも `robots.txt` を尊重するためOGPカードが表示されない。一方で検索流入は塞ぎたい（[CITY_DATA.md](CITY_DATA.md) の §9）。リンクを踏んだ人だけが到達する経路は残す、という切り分けである。
+
+`robots.txt` はUser-agentごとに最も具体的なgroupだけが適用されるため、個別のクローラーに `Allow: /` を書いた上で、最後に `User-agent: *` を `Disallow: /` にする。
+
+### OGP
+
+`og:image` は**絶対URL**でなければクローラーが解決できない。`PUBLIC_SITE_URL` から組み立て、**未設定なら画像系のmetaを出さない**。壊れた相対URLを出すくらいなら出さない方がよい。クローラーはどちらも無視するが、出さなければ設定漏れだと分かる。サーバー起動時にも警告を残す。
+
+設定漏れはローカルでは踏めないため、E2Eで次を検証する。
+
+- `og:image` が絶対URLであること
+- `og:type` / `og:title` / `og:description` / `og:url` が揃うこと
+- `og:image:width` / `height` の宣言が実画像のPNGヘッダーと一致すること
+- `robots.txt` が検索を拒否しつつSNSを通すこと
 
 ### 応答ヘッダー
 

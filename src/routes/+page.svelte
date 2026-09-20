@@ -9,7 +9,15 @@
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
-	const ogImageUrl = $derived(`${data.siteUrl}/og-image.png`);
+
+	/**
+	 * OGP は絶対 URL を要求する。`PUBLIC_SITE_URL` が未設定だと相対 URL に
+	 * なってしまうため、その場合は画像系の meta を出さない。
+	 *
+	 * 壊れた相対 URL を出すくらいなら出さない方がよい。クローラーはどちらも
+	 * 無視するが、出さなければ「設定漏れ」だと分かる。
+	 */
+	const ogImageUrl = $derived(data.siteUrl ? `${data.siteUrl}/og-image.png` : null);
 
 	type Status = 'idle' | 'judging' | 'success' | 'error';
 
@@ -89,17 +97,22 @@
 	<meta property="og:type" content="website" />
 	<meta property="og:title" content="Jev Snap Lab" />
 	<meta property="og:description" content="Tiny inputs. Instant decisions." />
-	<meta property="og:image" content={ogImageUrl} />
-	<meta
-		property="og:image:alt"
-		content="短い入力から3系統の確率的な判断へ分岐するJev Snap Labのビジュアル"
-	/>
-	<meta property="og:image:width" content="1200" />
-	<meta property="og:image:height" content="630" />
+	{#if data.siteUrl}
+		<meta property="og:url" content={data.siteUrl} />
+	{/if}
 	<meta name="twitter:card" content="summary_large_image" />
 	<meta name="twitter:title" content="Jev Snap Lab" />
 	<meta name="twitter:description" content="Tiny inputs. Instant decisions." />
-	<meta name="twitter:image" content={ogImageUrl} />
+	{#if ogImageUrl}
+		<meta property="og:image" content={ogImageUrl} />
+		<meta
+			property="og:image:alt"
+			content="短い入力から3系統の確率的な判断へ分岐するJev Snap Labのビジュアル"
+		/>
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta name="twitter:image" content={ogImageUrl} />
+	{/if}
 </svelte:head>
 
 <main class="mx-auto max-w-3xl px-4 py-10 sm:py-16">
