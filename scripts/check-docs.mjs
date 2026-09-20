@@ -14,6 +14,7 @@ import { globSync } from 'node:fs';
 
 const DOC_FILES = [
 	'README.md',
+	'.env.example',
 	...readdirSync('docs')
 		.filter((f) => f.endsWith('.md'))
 		.map((f) => `docs/${f}`)
@@ -34,7 +35,18 @@ for (const file of DOC_FILES) {
 		if (!existsSync(target)) problems.push(`${file}: リンク切れ ${match[1]}`);
 	}
 
-	// 2. バッククォート内のリポジトリ相対パスが実在するか。
+	// 2. static/ 配下のファイル名への言及が実在するか。
+	//    拡張子を変えたとき、説明文やコメントが取り残されやすい。
+	for (const [index, line] of lines.entries()) {
+		for (const match of line.matchAll(
+			/\/((?:og-image|favicon|robots)[A-Za-z0-9_-]*\.[a-z0-9]+)/g
+		)) {
+			if (existsSync(join('static', match[1]))) continue;
+			problems.push(`${file}:${index + 1}: static に無いファイル ${match[1]}`);
+		}
+	}
+
+	// 3. バッククォート内のリポジトリ相対パスが実在するか。
 	for (const [index, line] of lines.entries()) {
 		for (const match of line.matchAll(
 			/`((?:src|data|scripts|static|e2e|docs)\/[A-Za-z0-9_./*-]+)`/g
