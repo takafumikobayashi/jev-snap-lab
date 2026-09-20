@@ -78,9 +78,10 @@ function buildCityBlock(results: JudgeResponse['results'], text: string): JudgeR
 		...(resolved
 			? {
 					resolvedUnit: {
-						officialName: resolved.unit.officialName,
-						section: resolved.unit.section,
-						unit: resolved.unit.unit,
+						// 係まで絞れた場合だけ係を含む名称になる。絞れなければ課まで。
+						officialName: resolved.unit?.officialName ?? resolved.sectionOfficialName,
+						section: resolved.section,
+						unit: resolved.unit?.name ?? null,
 						// 一致した分掌事務。空なら課までしか絞れていない。
 						matchedResponsibilities: resolved.matched.map((responsibility) => ({
 							officialText: responsibility.officialText,

@@ -164,7 +164,13 @@
 							<p class="font-semibold">根拠データ</p>
 
 							{#if city.resolvedUnit}
-								<p class="mt-1">{city.resolvedUnit.officialName}</p>
+								<p class="mt-1">
+									{city.resolvedUnit.officialName}
+									{#if city.resolvedUnit.unit === null}
+										<!-- 係まで絞れていないことを名称の隣で示す。 -->
+										<span class="text-neutral-500">（課まで）</span>
+									{/if}
+								</p>
 								{#if city.resolvedUnit.matchedResponsibilities.length > 0}
 									<ul class="mt-1 list-disc pl-4 text-neutral-600 dark:text-neutral-400">
 										{#each city.resolvedUnit.matchedResponsibilities as responsibility (responsibility.responsibilityId)}
@@ -174,7 +180,7 @@
 								{:else}
 									<!-- 係を推測して名指ししない（docs/CITY_DATA.md §5）。 -->
 									<p class="mt-1 text-neutral-500">
-										文面からは係まで絞り込めませんでした。課までの候補として扱ってください。
+										文面からは係を特定できませんでした。課までの候補として扱ってください。
 									</p>
 								{/if}
 							{/if}

@@ -177,7 +177,7 @@ describe('routeCriteria / routeLabels', () => {
 describe('resolveUnit', () => {
 	it('防犯灯から危機管理課の係と分掌事務を特定する', () => {
 		const resolved = resolveUnit('crisis_management', '家の前の防犯灯が切れてます');
-		expect(resolved?.unit.unit).toBe('防災・生活安全係');
+		expect(resolved?.unit?.name).toBe('防災・生活安全係');
 		expect(resolved?.matched.map((r) => r.officialText)).toContain(
 			'防犯施設の設置及び管理に関すること。'
 		);
@@ -185,7 +185,7 @@ describe('resolveUnit', () => {
 
 	it('道路の穴から建設課の維持係を特定する', () => {
 		const resolved = resolveUnit('construction_works', '道路に大きな穴があって危ない');
-		expect(resolved?.unit.unit).toBe('維持係');
+		expect(resolved?.unit?.name).toBe('維持係');
 		expect(resolved?.matched.length).toBeGreaterThan(0);
 	});
 
@@ -196,13 +196,39 @@ describe('resolveUnit', () => {
 
 	it('住民票から市民課の窓口係を特定する', () => {
 		const resolved = resolveUnit('citizen_services', '住民票を取りたい');
-		expect(resolved?.unit.unit).toBe('窓口係');
+		expect(resolved?.unit?.name).toBe('窓口係');
 	});
 
-	it('手がかりが無ければ係を名指しせず、一致ゼロで返す', () => {
-		// 推測で担当を名指ししない（docs/CITY_DATA.md §5）。
-		const resolved = resolveUnit('crisis_management', '何か困っています');
+	it('係まで絞れたときは名称に係を含む', () => {
+		const resolved = resolveUnit('citizen_services', '住民票を取りたい');
+		expect(resolved?.unit?.officialName).toContain('窓口係');
+	});
+
+	it('手がかりが無ければ係を返さない', () => {
+		// 配下の係を1つ選んで返すと、判定していない係名を名指しすることに
+		// なる。実際に一致0件のまま先頭の係を返し、正しい係と食い違っていた。
+		const resolved = resolveUnit('social_welfare', 'よく分からない用件です');
 		expect(resolved?.matched).toEqual([]);
+		expect(resolved?.unit).toBeNull();
+	});
+
+	it('係を返さない場合も課の名称は返す', () => {
+		const resolved = resolveUnit('social_welfare', 'よく分からない用件です');
+		expect(resolved?.section).toBeTruthy();
+		expect(resolved?.sectionOfficialName).toContain(resolved?.section ?? '');
+	});
+
+	it('係を返さない場合の名称に係名が混ざらない', () => {
+		// 複数の係を持つ課で、どれかの名前が漏れていないことを確かめる。
+		const resolved = resolveUnit('social_welfare', 'よく分からない用件です');
+		const units = getDirectory()
+			.organizations.filter((u) => u.routingCandidateId === 'social_welfare')
+			.map((u) => u.unit)
+			.filter((u): u is string => u !== null);
+		expect(units.length).toBeGreaterThan(1);
+		for (const name of units) {
+			expect(resolved?.sectionOfficialName.includes(name), name).toBe(false);
+		}
 	});
 
 	it('未知の候補では null を返す', () => {

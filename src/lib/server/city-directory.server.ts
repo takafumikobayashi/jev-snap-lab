@@ -233,10 +233,25 @@ export function categoryLabels(): Record<string, string> {
 }
 
 export type ResolvedUnit = {
-	unit: CityOrganizationUnit;
+	/** 課レベルの正式名称。係は含まない。常に返せる。 */
+	sectionOfficialName: string;
+	section: string;
+	/**
+	 * 係まで絞れた場合のみ非 null。
+	 *
+	 * 手がかりが無いときに配下の係を1つ選んで返すと、判定していない係名を
+	 * 名指しすることになる。実際に「生活保護の相談」で一致0件のまま
+	 * 「地域福祉係」を表示し、正しい「生活福祉係」と食い違っていた。
+	 */
+	unit: { name: string; officialName: string } | null;
 	/** 一致した分掌事務。空なら課レベルまでしか絞れていない。 */
 	matched: CityResponsibility[];
 };
+
+/** 係を含まない課レベルの正式名称を組み立てる。 */
+function sectionOfficialName(unit: CityOrganizationUnit): string {
+	return [loadDirectory().displayName, unit.department, unit.section].filter(Boolean).join(' ');
+}
 
 /**
  * 選ばれた課の配下から、入力文に一致する係を探す。
@@ -248,7 +263,7 @@ export function resolveUnit(candidateId: string, text: string): ResolvedUnit | n
 	const units = activeUnits().filter((unit) => unit.routingCandidateId === candidateId);
 	if (units.length === 0) return null;
 
-	let best: ResolvedUnit | null = null;
+	let best: { unit: CityOrganizationUnit; matched: CityResponsibility[] } | null = null;
 	let bestScore = 0;
 
 	for (const unit of units) {
@@ -261,9 +276,22 @@ export function resolveUnit(candidateId: string, text: string): ResolvedUnit | n
 		}
 	}
 
-	// 手がかりが無ければ係を選ばない。推測で担当を名指ししない。
-	if (!best) return { unit: units[0], matched: [] };
-	return best;
+	// 手がかりが無ければ係を返さない。課までの候補として扱う。
+	if (!best) {
+		return {
+			sectionOfficialName: sectionOfficialName(units[0]),
+			section: units[0].section,
+			unit: null,
+			matched: []
+		};
+	}
+
+	return {
+		sectionOfficialName: sectionOfficialName(best.unit),
+		section: best.unit.section,
+		unit: best.unit.unit ? { name: best.unit.unit, officialName: best.unit.officialName } : null,
+		matched: best.matched
+	};
 }
 
 /** 候補に紐づく出典。レスポンスの `city.sources` に載せる。 */
