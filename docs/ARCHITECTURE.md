@@ -135,6 +135,7 @@ question catalog / labels ─────────┴─ server only
 | `JEV_INPUT_PRICE_PER_MILLION_TOKENS` | No | コスト推計。既定0.042 | No |
 | `APP_RATE_LIMIT_PER_MINUTE` | No | アプリ側のbest-effort上限 | No |
 | `CITY_DIRECTORY` | No | CITYのデータセット名。既定は架空データ `fictional-m-city`（[CITY_DATA.md](CITY_DATA.md) の §9） | No |
+| `CITY_SOURCE_HOSTS` | No | 出典URLに許可するホスト（カンマ区切り）。未設定ならURLを持つ出典を許さない | No |
 | `PUBLIC_APP_LABEL` | No | CITYのデモ注意文など公開可能な表示設定 | Yes可 |
 
 `.env`はコミットしない。VercelではPreview / Productionごとに分離する。`PUBLIC_` prefix以外の秘密はSvelteのpublic env importへ渡さない。
@@ -286,7 +287,7 @@ Client-visible error shape:
 - Svelteの通常のテキストバインディングで表示し、`{@html}`を使わない。
 - 入力はJevへ渡すだけで、Markdown / HTMLとして解釈しない。
 - 結果ラベルとCITYのURLは静的なカタログからのみ出す。
-- `source.url`は許可した`https://www.mcity.jp/`または公式例規集ホストだけに制限し、ユーザー入力URLをリンクにしない。
+- `source.url`は`CITY_SOURCE_HOSTS`で許可したホストのhttpsだけに制限する。**許可ホストの一覧はリポジトリに書かない**（自治体が特定されるため）。未設定ならURLを持つ出典を一切許さず、架空データはURLを持たないので公開時はこれで足りる。ユーザー入力URLをリンクにしない。
 - レスポンス本文をそのままDOMへ挿入しない。
 
 ### ログ・保存

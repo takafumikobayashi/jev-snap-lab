@@ -10,6 +10,8 @@ import { join } from 'node:path';
 import { env } from '$env/dynamic/private';
 import type { CityDirectory, CityOrganizationUnit, CityResponsibility } from '$lib/types/city';
 import type { CitySource } from '$lib/types/judge';
+import { JudgeError } from './errors.server';
+import { parseAllowedHosts, validateDirectory } from './city-validation.server';
 
 /**
  * 公開用の既定データセット。架空の自治体で、出典 URL を持たない。
@@ -35,6 +37,25 @@ const bundled = import.meta.glob(
 let cached: CityDirectory | null = null;
 
 /**
+ * 読み込んだデータセットを検証する。
+ *
+ * JSON を型へ cast するだけでは、壊れたデータが UI と上流 API へ流れる。
+ * 検証の失敗は設定エラーとして扱い、利用者へ詳細を返さない。
+ */
+function verify(value: unknown, name: string): CityDirectory {
+	try {
+		return validateDirectory(value, {
+			allowedHosts: parseAllowedHosts(env.CITY_SOURCE_HOSTS)
+		});
+	} catch (error) {
+		throw new JudgeError(
+			'CONFIGURATION_ERROR',
+			`CITY_DIRECTORY "${name}": ${error instanceof Error ? error.message : 'unknown'}`
+		);
+	}
+}
+
+/**
  * データセットを読み込む。
  *
  * `$env/dynamic/private` はリクエスト処理が始まってから値が入るため、
@@ -48,7 +69,7 @@ function loadDirectory(): CityDirectory {
 
 	const entry = Object.entries(bundled).find(([path]) => path.endsWith(`/${name}.json`));
 	if (entry) {
-		cached = entry[1].default;
+		cached = verify(entry[1].default, name);
 		return cached;
 	}
 
@@ -63,7 +84,7 @@ function loadDirectory(): CityDirectory {
 		throw new Error(`CITY_DIRECTORY "${name}" が見つからない。バンドル済み: ${available}`);
 	}
 
-	cached = JSON.parse(readFileSync(path, 'utf8')) as CityDirectory;
+	cached = verify(JSON.parse(readFileSync(path, 'utf8')), name);
 	return cached;
 }
 

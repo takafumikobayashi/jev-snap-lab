@@ -379,6 +379,27 @@ type CitySource = {
 
 さらに `pnpm city:check-leak` で、**コミット対象とビルド成果物**を検査する。`publicSummary` はJevの criteria としてリクエストに載るため、漏れれば画面だけでなく上流APIにも渡る。公開前に必ず実行する。
 
+### 読み込み時の検証
+
+JSONを型へcastするだけでは、壊れたデータがそのままUIと上流APIへ流れる。とくに`local-*.json`はバンドルへ含めず実行時に読むため、ビルド時の検査を一切通らない。読み込み時の検証が唯一の砦になる。
+
+`validateDirectory()` で次を確認し、失敗すれば設定エラーとして扱う。利用者には詳細を返さない。
+
+- `schemaVersion` と `fictional` の存在と型
+- `sourceId` の一意性
+- 出典URLが `null` か、`CITY_SOURCE_HOSTS` で許可したホストのhttpsであること
+- `organizationUnitId` の一意性
+- activeな組織単位の必須項目（`routingCandidateId`、`section`、`officialName`）
+- `sourceRefs` が `sourceIndex` に存在すること（組織単位と分掌事務の両方）
+- `routingCategories` が `categories` の部分集合であること
+- `routingCandidateId` が課レベルであること（`.` を含まない）
+- 同じ候補に複数の `section` が紐づいていないこと
+- 係が文字列か `null` であること（未確認を空文字で埋めていないこと）
+
+**例外メッセージにホスト名を含めない。** サーバーログから自治体が判明するのを避けるため、許可されていないホストは値を伏せて報告する。
+
+実際にこの検証は、`CITY_SOURCE_HOSTS` 未設定のまま実データを読もうとしたときに正しく拒否した。
+
 ### バンドルへの混入を防ぐ
 
 データセットの読み込みで `local-*.json` を **glob から除外する**。含めると、実データを手元に置いた状態でビルドしたとき、実在の自治体データがサーバー用チャンクへそのまま埋め込まれる。リポジトリから除外していても成果物経由で公開されるため、`.gitignore` だけでは足りない。
