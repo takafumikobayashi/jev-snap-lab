@@ -107,5 +107,17 @@ export type JudgeResponse = {
 		 */
 		provisional: boolean;
 		sources: CitySource[];
+		/**
+		 * ローカルの join で解決した組織単位。
+		 *
+		 * `matchedResponsibilities` が空なら、課までしか絞れていないことを
+		 * 意味する。係を推測して名指ししない（docs/CITY_DATA.md §5）。
+		 */
+		resolvedUnit?: {
+			officialName: string;
+			section: string;
+			unit: string | null;
+			matchedResponsibilities: Array<{ officialText: string; responsibilityId: string }>;
+		};
 	};
 };

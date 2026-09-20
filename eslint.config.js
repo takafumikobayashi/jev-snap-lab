@@ -34,8 +34,11 @@ export default defineConfig(
 		}
 	},
 	{
-		// Override or add rule settings here, such as:
-		// 'svelte/button-has-type': 'error'
-		rules: {}
+		rules: {
+			// CITY の根拠表示は安芸高田市の公式サイトと例規集への外部リンクである。
+			// resolve() はアプリ内ルートの解決用で、外部 URL には使えない。
+			// リンク先が許可ホストに限られることは city-directory.spec.ts で固定している。
+			'svelte/no-navigation-without-resolve': ['error', { ignoreLinks: true }]
+		}
 	}
 );

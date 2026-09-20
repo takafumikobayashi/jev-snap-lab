@@ -10,6 +10,14 @@
 
 import { choice, noul, score, type Questions } from '@typesafe-ai/sdk';
 import type { Mode } from '$lib/types/judge';
+import {
+	categoryCriteria,
+	categoryLabels,
+	directoryVersion,
+	jurisdictionName,
+	routeCriteria,
+	routeLabels
+} from './city-directory.server';
 
 export type QuestionCatalog = {
 	questions: Questions;
@@ -46,20 +54,19 @@ export type JudgeState = {
 	jurisdiction?: string;
 };
 
-/** CITY のモデルケース。Phase 4 で静的データの `displayName` から取る。 */
-export const CITY_JURISDICTION = '安芸高田市';
+/** CITY のモデルケース。静的データの `displayName` から取る。 */
+export const CITY_JURISDICTION = jurisdictionName();
+
+/** CITY 候補データのバージョン。レスポンスと観測ログに記録する。 */
+export const CITY_DIRECTORY_VERSION = directoryVersion();
 
 /**
- * CITY 候補データのバージョン。
+ * 暫定データを使っているか。
  *
- * **Phase 4 で公式データから生成するまでの暫定値**。この値が返る間は、
- * 候補に出典・施行日・取得日が紐付いていない。レスポンスを受け取る側は
- * 公式の担当決定として表示してはならない。
+ * 公式の組織ページと事務組織規則から生成したデータに差し替えたため false。
+ * 出典・施行日・取得日が候補へ紐付いている。
  */
-export const CITY_DIRECTORY_VERSION = 'provisional-no-official-sources';
-
-/** 暫定データを使っているか。UI の警告表示と、実運用への流出防止に使う。 */
-export const CITY_DIRECTORY_IS_PROVISIONAL = true;
+export const CITY_DIRECTORY_IS_PROVISIONAL = false;
 
 // ---------------------------------------------------------------------------
 // LOVE
@@ -244,75 +251,16 @@ function socialCatalog(): QuestionCatalog {
 // CITY
 // ---------------------------------------------------------------------------
 
-/**
- * 担当課の候補。**Phase 4 で `city-directory.json` から生成するまでの暫定値**。
- *
- * 候補キーは課レベルの `routingCandidateId` である。係で分割すると Choice の
- * 確率が係の数だけ割れ、課としての確度が下がる（docs/CITY_DATA.md §5）。
- * 係の特定は Jev ではなくローカルの join で解決する。
- *
- * ここに書いた説明文は分掌の要約であって公式の根拠ではない。根拠表示は
- * Phase 4 で静的データを join してから行う。
- */
-const CITY_ROUTE_CANDIDATES = {
-	crisis_management: '防犯、防犯灯などの防犯施設、防災、交通安全、消費生活相談、消防団。',
-	general_affairs: '総務、例規、情報公開、個人情報、行政組織。',
-	secretary_public_relations: '広報、報道、市長・副市長の秘書、要望・陳情。',
-	property_management: '庁舎、公共施設、市有財産、修繕、公用車。',
-	finance: '予算、決算、入札、契約、工事検査。',
-	policy_planning: '総合計画、地方創生、定住、住民自治、NPO。',
-	dx_promotion: '庁内ネットワーク、情報システム、DX、光ネットワーク。',
-	citizen_services: '戸籍、住民票、印鑑登録、パスポート、マイナンバー。',
-	tax: '市民税、県民税、固定資産税、納税相談。',
-	environment_policy: 'ごみ、資源回収、公害、不法投棄、犬、墓地。',
-	human_rights_multicultural: '人権相談、多文化共生、男女共同参画、犯罪被害者支援。',
-	social_welfare: '地域福祉、生活保護、障害者福祉、高齢者福祉。',
-	child_family_center: '妊娠、子どもの健診、子どもの予防接種、子育て相談、家庭児童相談。',
-	health_promotion: '成人健診、感染症、予防接種、精神保健、健康づくり。',
-	insurance_medical: '国民健康保険、医療費、後期高齢者医療、国民年金、介護保険。',
-	agriculture: '農業経営、新規就農、農産物、畜産、有害鳥獣。',
-	forestry_fisheries: '農村整備、農道・林道、治山、森林、水産、地籍。',
-	commerce_tourism: '商工業、企業立地、雇用、観光、観光施設。',
-	construction_management: '道路・河川の占用、台帳、都市計画、建築確認、住宅、空き家。',
-	construction_works: '道路・橋りょうの新設改良と維持、水防、災害復旧。',
-	sewerage: '下水道料金、排水設備、下水道施設、浄化槽、し尿処理。',
-	water_enterprise:
-		'水道料金、給水装置、水道施設、水質。市の課ではなく広島県水道広域連合企業団が担当する。',
-	branch_office: '支所窓口での各種申請の一次受付。',
-	other_or_unclear: '上のいずれにも当てはまらない、または文面から担当を絞り込めない。'
-} as const;
-
-/**
- * 問い合わせカテゴリ。**Phase 4 で `city-directory.json` の `categories` から
- * 生成するまでの暫定値**。組織改編で課名が変わっても比較できる安定軸。
- */
-const CITY_CATEGORIES = {
-	safety_security: '防犯、市民の安全、防犯灯などの防犯施設。',
-	road_bridge: '道路、橋りょう、河川。',
-	waste_environment: 'ごみ、資源回収、環境、不法投棄。',
-	water_sewer: '水道、下水道、浄化槽。',
-	housing_building: '住宅、建築、空き家、都市計画。',
-	resident_records: '戸籍、住民登録、証明書交付。',
-	tax: '市税、納税。',
-	welfare: '福祉、障害、高齢者、生活保護。',
-	childcare: '子育て、こども、保育。',
-	health: '健康、医療、保険、年金。',
-	agriculture: '農業、林業、水産。',
-	commerce_tourism: '商工、観光、雇用。',
-	disaster: '防災、災害、災害復旧。',
-	other: '上のいずれにも当てはまらない。'
-} as const;
-
 function cityCatalog(): QuestionCatalog {
 	return {
 		questions: {
 			route_to: choice(
 				'Which city department should look at this resident enquiry first? Judge only from `text`. Choose `other_or_unclear` when the text does not narrow it down.',
-				CITY_ROUTE_CANDIDATES
+				routeCriteria()
 			),
 			request_category: choice(
 				'Which category does this resident enquiry belong to?',
-				CITY_CATEGORIES
+				categoryCriteria()
 			),
 			urgency: score(
 				'How soon does this enquiry appear to need attention? This is a reading of the text, not a service level agreement.',
@@ -367,48 +315,8 @@ function cityCatalog(): QuestionCatalog {
 			urgency: ['通常', '近日確認', '当日確認', '即時リスクの可能性']
 		},
 		optionLabels: {
-			route_to: {
-				crisis_management: '危機管理課',
-				general_affairs: '総務課',
-				secretary_public_relations: '秘書広報課',
-				property_management: '財産管理課',
-				finance: '財政課',
-				policy_planning: '政策企画課',
-				dx_promotion: 'DX推進課',
-				citizen_services: '市民課',
-				tax: '税務課',
-				environment_policy: '環境政策課',
-				human_rights_multicultural: '人権多文化共生推進課',
-				social_welfare: '社会福祉課',
-				child_family_center: 'こども家庭センター',
-				health_promotion: '健康推進課',
-				insurance_medical: '保険医療課',
-				agriculture: '地域営農課',
-				forestry_fisheries: '農林水産課',
-				commerce_tourism: '商工観光課',
-				construction_management: '管理課',
-				construction_works: '建設課',
-				sewerage: '下水道課',
-				water_enterprise: '広島県水道広域連合企業団 安芸高田事務所',
-				branch_office: '支所',
-				other_or_unclear: '絞り込めない'
-			},
-			request_category: {
-				safety_security: '防犯・市民安全',
-				road_bridge: '道路・橋りょう・河川',
-				waste_environment: 'ごみ・環境',
-				water_sewer: '水道・下水道',
-				housing_building: '住宅・建築・空き家',
-				resident_records: '戸籍・住民登録',
-				tax: '税',
-				welfare: '福祉・障害・高齢者',
-				childcare: '子育て・こども',
-				health: '健康・医療・保険',
-				agriculture: '農林水産',
-				commerce_tourism: '商工・観光',
-				disaster: '防災・災害',
-				other: 'その他・判定不能'
-			}
+			route_to: routeLabels(),
+			request_category: categoryLabels()
 		}
 	};
 }

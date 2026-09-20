@@ -21,6 +21,7 @@ import {
 	CITY_DIRECTORY_IS_PROVISIONAL,
 	CITY_DIRECTORY_VERSION
 } from '$lib/server/question-catalog.server';
+import { resolveUnit, sourcesFor } from '$lib/server/city-directory.server';
 import { describeFailure, validateJudgeInput } from '$lib/validation/judge-input';
 
 /**
@@ -55,6 +56,40 @@ function failure(code: ErrorCode, requestId: string): Response {
  */
 function log(fields: Record<string, unknown>): void {
 	console.info(JSON.stringify({ route: 'api/judge', ...fields }));
+}
+
+/**
+ * CITY の根拠ブロック。
+ *
+ * Jev が選んだ課の ID で静的データへ join する。係はローカルの
+ * キーワード一致で解決し、決められない場合は課までに留める
+ * （docs/CITY_DATA.md §5）。Jev に係を判定させない。
+ */
+function buildCityBlock(results: JudgeResponse['results'], text: string): JudgeResponse['city'] {
+	const routeTo = results.find((card) => card.id === 'route_to');
+	const candidateId = routeTo?.kind === 'choice' ? routeTo.selected : null;
+
+	const resolved = candidateId ? resolveUnit(candidateId, text) : null;
+
+	return {
+		directoryVersion: CITY_DIRECTORY_VERSION,
+		provisional: CITY_DIRECTORY_IS_PROVISIONAL,
+		sources: candidateId ? sourcesFor(candidateId) : [],
+		...(resolved
+			? {
+					resolvedUnit: {
+						officialName: resolved.unit.officialName,
+						section: resolved.unit.section,
+						unit: resolved.unit.unit,
+						// 一致した分掌事務。空なら課までしか絞れていない。
+						matchedResponsibilities: resolved.matched.map((responsibility) => ({
+							officialText: responsibility.officialText,
+							responsibilityId: responsibility.responsibilityId
+						}))
+					}
+				}
+			: {})
+	};
 }
 
 export const POST: RequestHandler = async ({ request }) => {
@@ -114,16 +149,7 @@ export const POST: RequestHandler = async ({ request }) => {
 				)
 			},
 			results,
-			...(mode === 'city'
-				? {
-						city: {
-							directoryVersion: CITY_DIRECTORY_VERSION,
-							provisional: CITY_DIRECTORY_IS_PROVISIONAL,
-							// Phase 4 で公式データを join するまで出典は空。
-							sources: []
-						}
-					}
-				: {})
+			...(mode === 'city' ? { city: buildCityBlock(results, text) } : {})
 		};
 
 		log({

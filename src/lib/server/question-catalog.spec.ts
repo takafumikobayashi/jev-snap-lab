@@ -231,10 +231,14 @@ describe('buildState', () => {
 	});
 });
 
-describe('CITY 暫定データのガード', () => {
-	it('暫定であることがバージョン文字列から分かる', () => {
-		// Phase 4 で公式データへ差し替えるまで、出典が紐付かない。
-		expect(CITY_DIRECTORY_IS_PROVISIONAL).toBe(true);
-		expect(CITY_DIRECTORY_VERSION).toContain('provisional');
+describe('CITY データの出所', () => {
+	it('公式データを使っており、暫定フラグが立っていない', () => {
+		// Phase 4 で city-directory.json へ差し替えた。出典が候補へ紐付く。
+		expect(CITY_DIRECTORY_IS_PROVISIONAL).toBe(false);
+		expect(CITY_DIRECTORY_VERSION).not.toContain('provisional');
+	});
+
+	it('バージョンに管轄と施行日が入る', () => {
+		expect(CITY_DIRECTORY_VERSION).toBe('akitakata-2026-04-01');
 	});
 });

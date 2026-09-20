@@ -110,15 +110,29 @@ describe('POST /api/judge', () => {
 	});
 
 	describe('CITY の暫定データ', () => {
-		it('暫定であることを明示して返す', async () => {
+		it('公式データのバージョンと出典を返す', async () => {
 			mockSuccess('city');
 			const body = (await (
-				await post({ mode: 'city', text: '防犯灯が切れてます' })
+				await post({ mode: 'city', text: '家の前の防犯灯が切れてます' })
 			).json()) as JudgeResponse;
-			expect(body.city?.provisional).toBe(true);
-			expect(body.city?.directoryVersion).toContain('provisional');
-			// 出典が無い状態で公式の担当決定として見せないこと。
-			expect(body.city?.sources).toEqual([]);
+			expect(body.city?.provisional).toBe(false);
+			expect(body.city?.directoryVersion).toBe('akitakata-2026-04-01');
+			expect(body.city?.sources.length).toBeGreaterThan(0);
+			for (const source of body.city?.sources ?? []) {
+				expect(source.url).toMatch(/^https:\/\//);
+				expect(source.retrievedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+			}
+		});
+
+		it('入力文から係と分掌事務を join する', async () => {
+			// synthesizeAnswers は criteria の先頭候補を選ぶ。先頭が
+			// 危機管理課である前提に依存しないよう、解決結果の有無だけ見る。
+			mockSuccess('city');
+			const body = (await (
+				await post({ mode: 'city', text: '家の前の防犯灯が切れてます' })
+			).json()) as JudgeResponse;
+			expect(body.city?.resolvedUnit).toBeDefined();
+			expect(body.city?.resolvedUnit?.officialName).toContain('安芸高田市');
 		});
 
 		it('LOVE / SOCIAL には city ブロックを付けない', async () => {
