@@ -268,6 +268,19 @@ test.describe('セキュリティ', () => {
 		expect(problems).toEqual([]);
 	});
 
+	test('判定 API のレスポンスをキャッシュさせない', async ({ page }) => {
+		// 入力と判定結果を中間キャッシュにも履歴にも残さない。
+		await page.goto('/');
+		const response = await page.request.post('/api/judge', {
+			headers: { 'Content-Type': 'application/json' },
+			data: { mode: 'love', text: '   ' }
+		});
+		expect(response.status()).toBe(400);
+		expect(response.headers()['cache-control']).toBe('no-store');
+		expect(response.headers()['x-content-type-options']).toBe('nosniff');
+		expect(response.headers()['referrer-policy']).toBe('strict-origin-when-cross-origin');
+	});
+
 	test('CSP ヘッダーが付与される', async ({ page }) => {
 		const response = await page.goto('/');
 		const csp = response?.headers()['content-security-policy'];
@@ -306,6 +319,72 @@ test.describe('セキュリティ', () => {
 			expect(source).not.toContain('TYPESAFE_API_KEY');
 			expect(source).not.toMatch(/api-[A-Za-z0-9_-]{40,}/);
 		}
+	});
+});
+
+test.describe('アクセシビリティとレスポンシブ', () => {
+	test('結果の更新が支援技術へ通知される', async ({ page }) => {
+		// aria-live="polite" の領域に結果が入ること。
+		await stubJudge(page, () => ({ status: 200, body: judgeResponse() }));
+		await page.goto('/');
+
+		const live = page.locator('[aria-live="polite"]');
+		await expect(live).toHaveAttribute('aria-busy', 'false');
+
+		await textarea(page).fill('テスト入力');
+		await judge(page).click();
+		await expect(live.getByText('恋愛的な読み')).toBeVisible();
+	});
+
+	test('判定中は aria-busy が立つ', async ({ page }) => {
+		await stubJudge(page, () => ({ status: 200, body: judgeResponse(), delayMs: 600 }));
+		await page.goto('/');
+		await textarea(page).fill('テスト入力');
+		await judge(page).click();
+		await expect(page.locator('[aria-live="polite"]')).toHaveAttribute('aria-busy', 'true');
+	});
+
+	test('モバイル幅で横スクロールが出ない', async ({ page }) => {
+		await stubJudge(page, () => ({ status: 200, body: judgeResponse() }));
+		await page.setViewportSize({ width: 375, height: 700 });
+		await page.goto('/');
+		await textarea(page).fill('もう君のことは忘れたはずなのに');
+		await judge(page).click();
+		await expect(page.getByText('恋愛的な読み')).toBeVisible();
+
+		const overflow = await page.evaluate(
+			() => document.documentElement.scrollWidth - document.documentElement.clientWidth
+		);
+		expect(overflow).toBeLessThanOrEqual(0);
+	});
+
+	test('モバイル幅では結果が1列になる', async ({ page }) => {
+		await stubJudge(page, () => ({ status: 200, body: judgeResponse() }));
+		await page.setViewportSize({ width: 375, height: 700 });
+		await page.goto('/');
+		await textarea(page).fill('テスト入力');
+		await judge(page).click();
+		await expect(page.getByText('恋愛的な読み')).toBeVisible();
+
+		// 先頭2枚のカードの左端が揃っていれば縦並び。
+		const cards = page.locator('[aria-live="polite"] .grid > div');
+		const first = await cards.nth(0).boundingBox();
+		const second = await cards.nth(1).boundingBox();
+		expect(first!.x).toBe(second!.x);
+	});
+
+	test('デスクトップ幅では結果が2列になる', async ({ page }) => {
+		await stubJudge(page, () => ({ status: 200, body: judgeResponse() }));
+		await page.setViewportSize({ width: 1280, height: 900 });
+		await page.goto('/');
+		await textarea(page).fill('テスト入力');
+		await judge(page).click();
+		await expect(page.getByText('恋愛的な読み')).toBeVisible();
+
+		const cards = page.locator('[aria-live="polite"] .grid > div');
+		const first = await cards.nth(0).boundingBox();
+		const second = await cards.nth(1).boundingBox();
+		expect(second!.x).toBeGreaterThan(first!.x);
 	});
 });
 

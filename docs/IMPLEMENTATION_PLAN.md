@@ -236,63 +236,96 @@ Phase 2とPhase 3はAPI契約を先に固定すれば並行できる。Phase 4 C
 
 ## 5. Definition of Done
 
+各項目は自動テストか実測で確認している。根拠は §5.1 にまとめた。残るのは Preview 環境での実機スモークテストだけで、これはデプロイ後にしか実施できない。
+
+
 ### 機能
 
-- [ ] 3モードを1画面で切り替えられる
-- [ ] 最大280 Unicode code pointsをclient/server両方で検証する
-- [ ] 1回のJev呼び出しで複数質問を返す
-- [ ] Choice / Score / Noulをそれぞれ正しく表示する
-- [ ] LOVE、SOCIAL、CITYの質問IDと表示ラベルが設計と一致する
-- [ ] CITYの候補に公式根拠データがjoinされる
-- [ ] `route_to` が課レベルで、係はローカルjoinで解決される
-- [ ] カテゴリ一覧がデータセットのみに定義されている
+- [x] 3モードを1画面で切り替えられる
+- [x] 最大280 Unicode code pointsをclient/server両方で検証する
+- [x] 1回のJev呼び出しで複数質問を返す
+- [x] Choice / Score / Noulをそれぞれ正しく表示する
+- [x] LOVE、SOCIAL、CITYの質問IDと表示ラベルが設計と一致する
+- [x] CITYの候補に公式根拠データがjoinされる
+- [x] `route_to` が課レベルで、係はローカルjoinで解決される
+- [x] カテゴリ一覧がデータセットのみに定義されている
 
 ### Jev
 
-- [ ] APIキーはserver-only
-- [ ] 実レスポンスのmodelとusageを扱える
-- [ ] latencyを計測して表示できる
-- [ ] `probabilities`、`confidence`、`noul`を混同しない
-- [ ] 401 / 422 / 429 / 529 / timeout / network failureを処理する
-- [ ] retryに上限があり、AbortSignalによる総時間上限が効いている（保留中のretry待機も中断される）
-- [ ] Vercelの `maxDuration` が総予算より大きく設定され、`.vercel/output/**/.vc-config.json` に反映されている
-- [ ] type別の `criteria` の形を守り、送信前に検証している
-- [ ] Scoreの表示ラベルを `Math.round(score)` で引いていない
+- [x] APIキーはserver-only
+- [x] 実レスポンスのmodelとusageを扱える
+- [x] latencyを計測して表示できる
+- [x] `probabilities`、`confidence`、`noul`を混同しない
+- [x] 401 / 422 / 429 / 529 / timeout / network failureを処理する
+- [x] retryに上限があり、AbortSignalによる総時間上限が効いている（保留中のretry待機も中断される）
+- [x] Vercelの `maxDuration` が総予算より大きく設定され、`.vercel/output/**/.vc-config.json` に反映されている
+- [x] type別の `criteria` の形を守り、送信前に検証している
+- [x] Scoreの表示ラベルを `Math.round(score)` で引いていない
 
 ### セキュリティ・プライバシー
 
-- [ ] 入力本文を永続保存しない
-- [ ] 入力本文を本番ログへ出さない
-- [ ] `dangerouslyAllowBrowser`を使わない
-- [ ] `{@html}`を使わずXSSを防ぐ
-- [ ] responseにAPIキー、生レスポンス、内部stack traceを含めない
-- [ ] `Cache-Control: no-store`を設定する
-- [ ] Content Security Policyを設定し、CSP違反なくページが動作する
-- [ ] アプリ側のレート制限が有効で、超過時に 429 `RATE_LIMITED` を返す
+- [x] 入力本文を永続保存しない
+- [x] 入力本文を本番ログへ出さない
+- [x] `dangerouslyAllowBrowser`を使わない
+- [x] `{@html}`を使わずXSSを防ぐ
+- [x] responseにAPIキー、生レスポンス、内部stack traceを含めない
+- [x] `Cache-Control: no-store`を設定する
+- [x] Content Security Policyを設定し、CSP違反なくページが動作する
+- [x] アプリ側のレート制限が有効で、超過時に 429 `RATE_LIMITED` を返す
 
 ### CITY
 
-- [ ] 部 / 課 / 係 / 分掌 / 市民向け説明 / 根拠URL / 取得日 / 有効日がデータ化されている
-- [ ] 公式組織ページと事務組織規則の出典を分けて保持する
-- [ ] 係未確認を推測で埋めていない
-- [ ] external operatorを市課と区別する
-- [ ] 正式な行政案内でない旨を常時表示する
-- [ ] データ更新手順と受入テストが存在する
+- [x] 部 / 課 / 係 / 分掌 / 市民向け説明 / 根拠URL / 取得日 / 有効日がデータ化されている
+- [x] 公式組織ページと事務組織規則の出典を分けて保持する
+- [x] 係未確認を推測で埋めていない
+- [x] external operatorを市課と区別する
+- [x] 正式な行政案内でない旨を常時表示する
+- [x] データ更新手順と受入テストが存在する
 
 ### UX / 品質
 
-- [ ] mobile / desktopで崩れない
-- [ ] keyboard操作と`aria-live`が機能する
-- [ ] 色だけに依存しない
-- [ ] low confidenceを正解として強調しない
+- [x] mobile / desktopで崩れない
+- [x] keyboard操作と`aria-live`が機能する
+- [x] 色だけに依存しない
+- [x] low confidenceを正解として強調しない
 - [ ] Preview環境で実機スモークテストを完了する
 
 ### ドキュメント
 
-- [ ] READMEのローカル実行手順が実装と一致する
-- [ ] env一覧と秘密管理が更新されている
-- [ ] JEV_DESIGNの実機確認結果が更新されている
-- [ ] CITY_DATAの取得日、施行日、差分が更新されている
+- [x] READMEのローカル実行手順が実装と一致する
+- [x] env一覧と秘密管理が更新されている
+- [x] JEV_DESIGNの実機確認結果が更新されている
+- [x] CITY_DATAの取得日、施行日、差分が更新されている
+
+### 5.1 検証の根拠
+
+| 項目 | 根拠 |
+|---|---|
+| 3モード切替、280 code points、複数質問、Choice/Score/Noul表示 | E2E（C-01 / C-03 / C-04、3種類の描き分け、バーの実描画） |
+| 質問IDとラベルが設計と一致 | `question-catalog.spec.ts` のID集合固定 |
+| CITYの根拠join、課レベルの`route_to`、カテゴリの単一定義 | `city-directory.spec.ts` |
+| APIキーがserver-only | E2Eのバンドル検査、CIの静的出力検査 |
+| model / usage / latency | 実機での3モード疎通（Phase 2）、E2Eの表示確認 |
+| probabilities / confidence / noul の非混同 | `display.spec.ts`、UIで別カード・別表示 |
+| 401 / 422 / 429 / 529 / timeout / network | `jev-config.spec.ts` の `mapSdkError` |
+| retry上限とAbortSignalの総時間上限 | `jev-client.spec.ts`（signalの受け渡しとabortの発火） |
+| `maxDuration` の反映 | `.vercel/output/**/.vc-config.json` を実測（全7関数で20秒） |
+| 送信前のcriteria検証 | `question-validation.spec.ts` |
+| `Math.round(score)` を使わない | `display.spec.ts` の二峰分布 |
+| 入力を永続保存しない | `localStorage` / `sessionStorage` / `cookie` / `indexedDB` の不使用をgrepで確認 |
+| 入力本文をログへ出さない | `server.spec.ts`、dev実機のログ確認 |
+| `dangerouslyAllowBrowser` 不使用、`{@html}` 不使用 | grep（前者はコメント内の言及のみ） |
+| レスポンスに内部情報を含めない | `server.spec.ts` |
+| `Cache-Control: no-store` ほかのヘッダー | E2E |
+| CSP | E2E（違反0件、ヘッダー内容、バーの実描画） |
+| レート制限 | `rate-limit.spec.ts`、`server.spec.ts`、dev実機で12回連打 |
+| CITYデータの構造と出典 | `city-directory.spec.ts`、`city-validation.spec.ts` |
+| 行政案内でない旨の常時表示 | E2E（モードごとの注意文の出し分け） |
+| mobile / desktop で崩れない | E2E（375px で横スクロールなし・1列、1280px で2列） |
+| keyboard と `aria-live` | E2E（矢印キーでのタブ移動、`aria-live` 領域への結果反映、`aria-busy`） |
+| 色だけに依存しない | `CardHeader` が種類を文字でも示す。パレットは検証スクリプトで実測 |
+| low confidence を強調しない | E2E（「判断が割れています」の表示） |
+| ドキュメントの整合 | `pnpm check:docs`（リンクとパス参照の実在） |
 
 ## 6. 実装開始前に確認する重要な選択肢
 

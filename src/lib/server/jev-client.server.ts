@@ -57,8 +57,14 @@ export type EvaluateResult = {
  * この signal は送信中のリクエストだけでなく**待機中の retry も中断する**
  * ため、`Retry-After` による長い待機もここで打ち切られる。
  */
-export async function evaluate(state: JudgeState, questions: Questions): Promise<EvaluateResult> {
-	const { client, config } = getClient();
+export async function evaluate(
+	state: JudgeState,
+	questions: Questions,
+	/** テストで総時間上限を短くするための上書き。本番では渡さない。 */
+	overrides?: Partial<Pick<JevConfig, 'totalTimeoutMs'>>
+): Promise<EvaluateResult> {
+	const { client, config: base } = getClient();
+	const config = { ...base, ...overrides };
 
 	// 送信前に criteria の形を確認する。ここで弾けば 422 を往復せずに済む。
 	const defects = findQuestionDefects(questions);
