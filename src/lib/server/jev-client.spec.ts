@@ -23,6 +23,7 @@ vi.mock('$env/dynamic/private', () => ({
 }));
 
 const { evaluate, resetJevClient } = await import('./jev-client.server');
+const { DEFAULTS } = await import('./jev-config.server');
 const { noul } = await import('@typesafe-ai/sdk');
 
 const questions = { flag: noul('Is it so?') };
@@ -58,19 +59,47 @@ describe('evaluate の総時間上限', () => {
 	});
 
 	it('総予算を超えたら signal が abort される', async () => {
-		// SDK が応答しない状況を作る。signal の発火だけを見る。
-		let captured: AbortSignal | undefined;
-		systemOne.mockImplementation((_request: unknown, options: { signal: AbortSignal }) => {
-			captured = options.signal;
-			return new Promise((_resolve, reject) => {
-				options.signal.addEventListener('abort', () => reject(new Error('aborted')));
+		// 実時間に依存させない。短い予算を渡して待つ方式だと、並列実行や
+		// 負荷でテストタイムアウトに化ける。偽タイマーで時間を進める。
+		vi.useFakeTimers();
+		try {
+			let captured: AbortSignal | undefined;
+			systemOne.mockImplementation((_request: unknown, options: { signal: AbortSignal }) => {
+				captured = options.signal;
+				// SDK が応答しない状況。signal の発火だけを見る。
+				return new Promise((_resolve, reject) => {
+					options.signal.addEventListener('abort', () => reject(new Error('aborted')));
+				});
 			});
-		});
 
-		await expect(evaluate(state, questions, { totalTimeoutMs: 30 })).rejects.toBeInstanceOf(
-			JudgeError
-		);
-		expect(captured?.aborted).toBe(true);
+			const pending = evaluate(state, questions);
+			const assertion = expect(pending).rejects.toBeInstanceOf(JudgeError);
+
+			// 既定の総予算は 12,000ms（docs/JEV_DESIGN.md §9）。
+			await vi.advanceTimersByTimeAsync(DEFAULTS.totalTimeoutMs);
+
+			await assertion;
+			expect(captured?.aborted).toBe(true);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('予算に達する前は abort しない', async () => {
+		vi.useFakeTimers();
+		try {
+			let captured: AbortSignal | undefined;
+			systemOne.mockImplementation((_request: unknown, options: { signal: AbortSignal }) => {
+				captured = options.signal;
+				return new Promise(() => {});
+			});
+
+			void evaluate(state, questions);
+			await vi.advanceTimersByTimeAsync(DEFAULTS.totalTimeoutMs - 1);
+			expect(captured?.aborted).toBe(false);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	it('中断は timeout として扱う', async () => {
