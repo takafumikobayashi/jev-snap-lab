@@ -37,7 +37,9 @@ CITY は正式な行政案内サービスではなく、Jev と根拠付きル�
 
 ## ローカル実行方法
 
-パッケージマネージャは **pnpm** です（npm 10 系に依存解決のバグがあるため）。Node.js 20 以上が必要です。
+パッケージマネージャは **pnpm** です。Node.js 20 以上が必要です。
+
+pnpm を採用したのは、この構成の依存を npm でインストールできなかったためです。開発環境（macOS / Node 22.19.0 / npm 10.9.3）で `npm install` が arborist の peer 解決中に `Cannot read properties of null (reading 'edgesOut')` で異常終了しました。`--legacy-peer-deps` を付けると解決できたため依存の衝突ではありませんが、他のバージョンや環境での再現性は確認していません。pnpm では問題なくインストールできます。
 
 ```bash
 corepack enable          # pnpm が未導入の場合のみ

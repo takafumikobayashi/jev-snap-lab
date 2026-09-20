@@ -119,7 +119,7 @@ question catalog / labels ─────────┴─ server only
 └── vite.config.ts       # SvelteKit + Tailwind + adapter-vercel + Vitest
 ```
 
-SvelteKit 2.63 以降は `svelte.config.js` を持たず、`sveltekit()` プラグインのオプションとして `vite.config.ts` に集約する。runes モード（Svelte 5）は同ファイルで強制している。
+本プロジェクトでは設定を `vite.config.ts` へ集約し、`svelte.config.js` を置かない。SvelteKit 2.62 以降は `sveltekit()` プラグインが `KitConfig` を直接受け取れるようになっており、その場合 `svelte.config.js` は無視される。`svelte.config.js` を使う方式も引き続きサポートされているため、必要になれば移せる。adapter、CSP、runes モード（Svelte 5）の強制はいずれも `vite.config.ts` に置く。
 
 `*.server.ts`はブラウザへバンドルされないserver-only境界を意図する。Jevキーを持つモジュールは `src/lib/server/` からしかimportしない。
 

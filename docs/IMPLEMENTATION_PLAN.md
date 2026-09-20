@@ -7,7 +7,7 @@
 推奨ベースライン:
 
 - SvelteKit + TypeScript + Tailwind CSS
-- Node.js 20以上 / pnpm（npm 10系は arborist の peer 解決でクラッシュするため）
+- Node.js 20以上 / pnpm（開発環境の npm 10.9.3 でこの構成の依存をインストールできなかったため。詳細は README を参照）
 - TypeSafe公式JavaScript SDK
 - Vercel
 - DBなし、入力永続化なし
