@@ -112,13 +112,82 @@ export function routeCandidates(): RouteCandidate[] {
 		// 候補説明は publicSummary を主にし、長くなりすぎないよう切る。
 		// state と最長の質問で 32k tokens の制限がある（docs/JEV_DESIGN.md §2）。
 		const summary = head.publicSummary.slice(0, 220);
+		const duties = representativeDuties(units);
 		return {
 			id,
 			label: head.section,
-			description: `${head.section}。${summary}`,
+			description:
+				duties.length > 0
+					? `${head.section}。${summary} 主な分掌: ${duties.join('、')}。`
+					: `${head.section}。${summary}`,
 			units
 		};
 	});
+}
+
+/**
+ * どの課にも現れる定型の分掌。候補の区別に寄与しないため説明へ入れない。
+ *
+ * 実データでは「課の事務の調整及び課の庶務に関すること。」が20課、
+ * 「部内の他課の所掌に属しない事務に関すること。」が5課に現れる。
+ */
+const BOILERPLATE = ['課の事務の調整', '部内の他課の所掌に属しない'];
+
+/** 1候補あたりに含める分掌の上限。トークン量と精度の折り合い。 */
+const MAX_DUTIES_PER_CANDIDATE = 12;
+
+/**
+ * 候補の区別に寄与しにくい語。これらだけで構成される分掌は後回しにする。
+ *
+ * 「企画及び調整」「計画」「総括」といった行政共通の抽象語は、どの課の
+ * 説明にも現れるため、住民の問い合わせ文と結び付かない。一方で固有名詞や
+ * 具体的な事物を含む分掌は、それ1件で候補を決められることがある。
+ */
+const GENERIC_DUTY =
+	/^(市行政に関する)?[^、]{0,6}(企画及び調整|総合的な調整|計画|総括|統計|庶務|連絡調整|事務の調整)$/;
+
+/**
+ * 候補説明に載せる代表的な分掌事務。
+ *
+ * 組織ページの `publicSummary` だけでは、条文に明記された事務が Jev へ
+ * 届かない。例えば政策企画課の市民向け説明には「サンフレッチェ広島応援
+ * 事業」が現れず、実際にこの入力で政策企画課が上位に来なかった。
+ * 保持している分掌事務を候補の手がかりとして渡す。
+ *
+ * 全件は入れない。件数の多い課（最大69件）に引きずられて説明の長さが
+ * 偏り、トークンも増えるため。キーワード登録済みのものを優先する。
+ */
+function representativeDuties(units: CityOrganizationUnit[]): string[] {
+	const all = units.flatMap((unit) => unit.responsibilities);
+	const usable = all.filter(
+		(responsibility) =>
+			!BOILERPLATE.some((pattern) => responsibility.officialText.includes(pattern))
+	);
+
+	// 法令名の括弧書きは長いだけで区別に効かないため落とす。
+	const cleaned = usable.map((responsibility) => ({
+		text: responsibility.publicSummary.replace(/\([^)]*\)/g, '').trim(),
+		hasKeyword: responsibility.keywords.length > 0
+	}));
+
+	// 上限で切る以上、条文順の先頭から詰めると後ろの具体的な分掌が落ちる。
+	// 実際、政策企画課では「サンフレッチェ広島応援事業」が14番目にあり、
+	// 抽象的な計画・調整の分掌に押し出されて説明へ入らなかった。
+	// 住民の言葉と結び付けたもの、次に具体性のあるものを優先する。
+	const rank = (duty: { text: string; hasKeyword: boolean }) => {
+		if (duty.hasKeyword) return 0;
+		return GENERIC_DUTY.test(duty.text) ? 2 : 1;
+	};
+
+	const seen = new Set<string>();
+	const picked: string[] = [];
+	for (const duty of [...cleaned].sort((a, b) => rank(a) - rank(b))) {
+		if (!duty.text || seen.has(duty.text)) continue;
+		seen.add(duty.text);
+		picked.push(duty.text);
+		if (picked.length >= MAX_DUTIES_PER_CANDIDATE) break;
+	}
+	return picked;
 }
 
 /** `route_to` の criteria。`other_or_unclear` を必ず含める。 */

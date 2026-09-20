@@ -135,8 +135,22 @@ describe('routeCriteria / routeLabels', () => {
 
 	it('候補説明が長くなりすぎない', () => {
 		// state と最長の質問で 32k tokens の制限がある（docs/JEV_DESIGN.md §2）。
+		// 分掌事務を載せる分だけ長くなるが、1候補あたりの上限は設けている。
 		for (const [key, description] of Object.entries(routeCriteria())) {
-			expect(description.length, key).toBeLessThan(300);
+			expect(description.length, key).toBeLessThan(600);
+		}
+	});
+
+	it('候補説明に代表的な分掌事務が載る', () => {
+		// publicSummary だけでは条文にある事務が Jev へ届かない。
+		const criteria = routeCriteria();
+		expect(criteria.policy_planning).toContain('主な分掌');
+		expect(criteria.crisis_management).toContain('防犯施設の設置及び管理');
+	});
+
+	it('どの課にも現れる定型の分掌を説明へ入れない', () => {
+		for (const [key, description] of Object.entries(routeCriteria())) {
+			expect(description.includes('課の事務の調整'), key).toBe(false);
 		}
 	});
 
