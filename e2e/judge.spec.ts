@@ -229,7 +229,7 @@ test.describe('モード切替と競合', () => {
 	test('モードごとの注意文が出し分けられる', async ({ page }) => {
 		await page.goto('/');
 		// LOVE は著作物の入力がありうるので注意を常時出す。
-		const loveNotice = page.getByText('作品の分析や評価ではありません');
+		const loveNotice = page.getByText('著作物の取り扱いにはご注意ください');
 		const cityNotice = page.getByText('技術検証・デモ');
 
 		await expect(loveNotice).toBeVisible();

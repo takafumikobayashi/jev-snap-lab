@@ -144,7 +144,7 @@
 				class="mt-4 rounded-md border border-neutral-300 px-3 py-2 text-xs text-neutral-600 dark:border-neutral-700 dark:text-neutral-400"
 			>
 				判定するのは<strong>文面がどう読めるか</strong
-				>であり、作品の分析や評価ではありません。著作物を入力する場合は、その取り扱いにご注意ください。
+				>で、作品の評価ではありません。著作物の取り扱いにはご注意ください。
 			</p>
 		{/if}
 
