@@ -5,324 +5,339 @@
 	"cases": [
 		{
 			"id": "privacy_001",
-			"text": "明日の会議室を予約したい",
+			"text": "令和8年度の粗大ごみ収集は、毎月第2・第4水曜日に実施します。",
 			"difficulty": "easy",
-			"gold": "safe",
-			"note": "個人の情報を含まない"
+			"gold": "safe"
 		},
 		{
 			"id": "privacy_002",
-			"text": "来月の定例会の議題を整理したい",
+			"text": "甲市役所本庁舎の窓口受付時間は午前8時30分から午後5時15分までです。",
 			"difficulty": "easy",
 			"gold": "safe"
 		},
 		{
 			"id": "privacy_003",
-			"text": "プリンタのトナーが切れたので交換したい",
+			"text": "防災訓練を10月15日に市民体育館で実施します。参加は自由です。",
 			"difficulty": "easy",
 			"gold": "safe"
 		},
 		{
 			"id": "privacy_004",
-			"text": "庁舎の空調が効きすぎている",
+			"text": "住民票の写しの交付手数料は1通300円です。",
 			"difficulty": "easy",
 			"gold": "safe"
 		},
 		{
 			"id": "privacy_005",
-			"text": "この文章を英語に翻訳してほしい",
+			"text": "今年度の市民アンケートの回答率は62.3％でした。",
 			"difficulty": "easy",
 			"gold": "safe"
 		},
 		{
 			"id": "privacy_006",
-			"text": "Excelで複数シートを1枚にまとめる方法を知りたい",
+			"text": "子育て支援センターの利用者数は前年比で8％増加しました。",
 			"difficulty": "easy",
 			"gold": "safe"
 		},
 		{
 			"id": "privacy_007",
-			"text": "防災訓練の案内文を作りたい",
+			"text": "次回の庁議は9月30日14時から第1会議室で行います。",
 			"difficulty": "easy",
 			"gold": "safe"
 		},
 		{
 			"id": "privacy_008",
-			"text": "ごみ収集カレンダーのデザインを考えたい",
+			"text": "ごみ袋の有料化について市民から多数の意見が寄せられています。",
 			"difficulty": "easy",
 			"gold": "safe"
 		},
 		{
 			"id": "privacy_009",
-			"text": "会議の議事録の書き方のコツを教えてほしい",
+			"text": "市内の保育所のうち3施設で定員に空きがあります。",
 			"difficulty": "easy",
 			"gold": "safe"
 		},
 		{
 			"id": "privacy_010",
-			"text": "職員向け研修のアンケート項目を考えたい",
+			"text": "国民健康保険料の算定方法について、条例第12条の規定を確認したい。",
 			"difficulty": "easy",
 			"gold": "safe"
 		},
 		{
 			"id": "privacy_011",
-			"text": "午後の打ち合わせ資料の構成を相談したい",
+			"text": "介護保険制度の改正内容を職員向けに説明する資料を作りたい。",
 			"difficulty": "easy",
 			"gold": "safe"
 		},
 		{
 			"id": "privacy_012",
-			"text": "市のホームページの文章を分かりやすくしたい",
+			"text": "甲市立第一小学校の校庭開放は土日の9時から17時までです。",
 			"difficulty": "easy",
 			"gold": "safe"
 		},
 		{
 			"id": "privacy_013",
-			"text": "統計データの見せ方についてアイデアがほしい",
-			"difficulty": "easy",
-			"gold": "safe"
+			"text": "4月から6月までの転入者数は1,248人でした。",
+			"difficulty": "medium",
+			"gold": "safe",
+			"note": "集計値で個人に戻せない"
 		},
 		{
 			"id": "privacy_014",
-			"text": "チラシのキャッチコピーを考えてほしい",
-			"difficulty": "easy",
-			"gold": "safe"
+			"text": "来庁者のうち70代以上が全体の34％を占めています。",
+			"difficulty": "medium",
+			"gold": "safe",
+			"note": "統計。個人は特定されない"
 		},
 		{
 			"id": "privacy_015",
-			"text": "SQLでグループごとの合計を出す書き方を知りたい",
-			"difficulty": "easy",
-			"gold": "safe"
+			"text": "株式会社甲野商事から公園清掃業務の見積書が届きました。",
+			"difficulty": "medium",
+			"gold": "safe",
+			"note": "法人の情報は個人情報ではない"
 		},
 		{
 			"id": "privacy_016",
-			"text": "山田太郎さんの住所と電話番号をリスト化したい",
-			"difficulty": "easy",
+			"text": "担当の佐藤課長に確認したところ、来週中に回答できるとのことです。",
+			"difficulty": "hard",
 			"gold": "review",
-			"note": "氏名・住所・電話が揃う"
+			"note": "職務上でも氏名は個人情報。公人の公務上の言動（privacy_017）とは別に扱う"
 		},
 		{
 			"id": "privacy_017",
-			"text": "申請者の氏名とマイナンバーの対応表を作りたい",
-			"difficulty": "easy",
-			"gold": "review",
-			"note": "マイナンバー"
+			"text": "甲市長の記者会見の要旨をまとめたい。",
+			"difficulty": "medium",
+			"gold": "safe",
+			"note": "公人の公務上の言動"
 		},
 		{
 			"id": "privacy_018",
-			"text": "生活保護の相談記録を要約してほしい",
-			"difficulty": "easy",
-			"gold": "review",
-			"note": "要配慮個人情報"
-		},
-		{
-			"id": "privacy_019",
-			"text": "職員の健康診断結果をまとめたい",
-			"difficulty": "easy",
-			"gold": "review",
-			"note": "要配慮個人情報"
-		},
-		{
-			"id": "privacy_020",
-			"text": "児童虐待の通告内容を整理したい",
-			"difficulty": "easy",
-			"gold": "review"
-		},
-		{
-			"id": "privacy_021",
-			"text": "納税者ごとの滞納額の一覧を作りたい",
-			"difficulty": "easy",
-			"gold": "review"
-		},
-		{
-			"id": "privacy_022",
-			"text": "患者の既往歴を含む相談票を分類したい",
-			"difficulty": "easy",
-			"gold": "review"
-		},
-		{
-			"id": "privacy_023",
-			"text": "転入者の世帯構成を一覧にしたい",
-			"difficulty": "easy",
-			"gold": "review"
-		},
-		{
-			"id": "privacy_024",
-			"text": "特定の職員の勤務評定について相談したい",
-			"difficulty": "easy",
-			"gold": "review"
-		},
-		{
-			"id": "privacy_025",
-			"text": "生年月日と口座番号が入った名簿を整理したい",
-			"difficulty": "easy",
-			"gold": "review"
-		},
-		{
-			"id": "privacy_026",
-			"text": "障害者手帳の等級ごとに人数を出したい",
-			"difficulty": "medium",
-			"gold": "review",
-			"note": "個人単位でなくとも要配慮情報に触れる"
-		},
-		{
-			"id": "privacy_027",
-			"text": "苦情の電話内容を、名前を含めて記録したい",
-			"difficulty": "easy",
-			"gold": "review"
-		},
-		{
-			"id": "privacy_028",
-			"text": "選挙人名簿の抽出条件を相談したい",
-			"difficulty": "medium",
-			"gold": "review"
-		},
-		{
-			"id": "privacy_029",
-			"text": "介護認定の調査票の内容を整理したい",
-			"difficulty": "easy",
-			"gold": "review"
-		},
-		{
-			"id": "privacy_030",
-			"text": "保護者から届いたメールの本文を要約したい",
-			"difficulty": "medium",
-			"gold": "review",
-			"note": "差出人の事情が含まれうる"
-		},
-		{
-			"id": "privacy_031",
-			"text": "市内の70代男性からの問い合わせ内容をまとめたい",
-			"difficulty": "hard",
-			"gold": "review",
-			"note": "属性の組み合わせで個人が絞られうる"
-		},
-		{
-			"id": "privacy_032",
-			"text": "A地区在住の方から寄せられた要望を分類したい",
-			"difficulty": "hard",
-			"gold": "review",
-			"note": "地区が狭いと識別されうる"
-		},
-		{
-			"id": "privacy_033",
-			"text": "問い合わせメールを担当課へ振り分けたい",
-			"difficulty": "hard",
-			"gold": "review",
-			"note": "本文に個人情報が含まれる前提"
-		},
-		{
-			"id": "privacy_034",
-			"text": "窓口アンケートの自由記述を集計したい",
-			"difficulty": "hard",
-			"gold": "review",
-			"note": "自由記述に個人事情が混ざる"
-		},
-		{
-			"id": "privacy_035",
-			"text": "SNSに寄せられた市への意見を分類したい",
-			"difficulty": "hard",
-			"gold": "safe",
-			"note": "公開情報だが投稿者が特定されうる。境界"
-		},
-		{
-			"id": "privacy_036",
-			"text": "匿名化済みの相談統計を分析したい",
-			"difficulty": "medium",
-			"gold": "safe",
-			"note": "匿名化済みと明示されている"
-		},
-		{
-			"id": "privacy_037",
-			"text": "職員番号だけのリストを並べ替えたい",
-			"difficulty": "hard",
-			"gold": "review",
-			"note": "単体では識別しにくいが内部IDは照合されうる"
-		},
-		{
-			"id": "privacy_038",
-			"text": "昨年度の窓口来庁者数を月別に出したい",
-			"difficulty": "easy",
-			"gold": "safe",
-			"note": "集計値のみ"
-		},
-		{
-			"id": "privacy_039",
-			"text": "市議会議員の発言内容を要約したい",
-			"difficulty": "medium",
-			"gold": "safe",
-			"note": "公職者の公開された発言"
-		},
-		{
-			"id": "privacy_040",
-			"text": "退職した職員の連絡先を探したい",
-			"difficulty": "easy",
-			"gold": "review"
-		},
-		{
-			"id": "privacy_041",
-			"text": "事業者名と担当者名が載った契約書を要約したい",
-			"difficulty": "medium",
-			"gold": "review",
-			"note": "法人情報に個人名が混ざる"
-		},
-		{
-			"id": "privacy_042",
-			"text": "公開済みの入札結果を一覧にしたい",
-			"difficulty": "medium",
-			"gold": "safe",
-			"note": "公開情報"
-		},
-		{
-			"id": "privacy_043",
-			"text": "寄せられた要望の件数を地区別に数えたい",
-			"difficulty": "medium",
-			"gold": "safe",
-			"note": "集計値のみ"
-		},
-		{
-			"id": "privacy_044",
-			"text": "相談者の年齢と相談内容の傾向を見たい",
-			"difficulty": "hard",
-			"gold": "review"
-		},
-		{
-			"id": "privacy_045",
-			"text": "採用選考の面接メモを整理したい",
-			"difficulty": "medium",
-			"gold": "review"
-		},
-		{
-			"id": "privacy_046",
-			"text": "市長への手紙の内容を分類したい",
-			"difficulty": "hard",
-			"gold": "review",
-			"note": "差出人の事情が含まれうる"
-		},
-		{
-			"id": "privacy_047",
-			"text": "災害時の避難者名簿を整理したい",
-			"difficulty": "easy",
-			"gold": "review"
-		},
-		{
-			"id": "privacy_048",
-			"text": "庁内の座席表を更新したい",
-			"difficulty": "medium",
-			"gold": "safe",
-			"note": "氏名は含むが内部情報。境界"
-		},
-		{
-			"id": "privacy_049",
-			"text": "問い合わせ件数の推移をグラフにしたい",
+			"text": "市民相談の件数を月別に集計したところ、7月が最多でした。",
 			"difficulty": "easy",
 			"gold": "safe"
 		},
 		{
-			"id": "privacy_050",
-			"text": "ある世帯の児童手当の支給状況を確認したい",
+			"id": "privacy_019",
+			"text": "桜町3丁目の市道に大きな穴が空いており危険です。",
+			"difficulty": "medium",
+			"gold": "safe",
+			"note": "場所の情報のみ。世帯は絞れない"
+		},
+		{
+			"id": "privacy_020",
+			"text": "甲市議会議員の政治資金収支報告書の記載内容を確認したい。",
+			"difficulty": "hard",
+			"gold": "safe",
+			"note": "法令で公開が前提の公人情報。境界"
+		},
+		{
+			"id": "privacy_021",
+			"text": "市のホームページに載せる転入手続きの案内文を分かりやすくしたい。",
 			"difficulty": "easy",
-			"gold": "review"
+			"gold": "safe"
+		},
+		{
+			"id": "privacy_022",
+			"text": "山田花子さん（甲市桜町2-14-3）から、上下水道の名義変更の相談がありました。",
+			"difficulty": "easy",
+			"gold": "review",
+			"note": "氏名と住所"
+		},
+		{
+			"id": "privacy_023",
+			"text": "鈴木一郎様、電話番号090-0000-1234。折り返しご連絡ください。",
+			"difficulty": "easy",
+			"gold": "review",
+			"note": "氏名と連絡先"
+		},
+		{
+			"id": "privacy_024",
+			"text": "相談者：田中美咲、生年月日1987年4月2日。生活保護の申請について。",
+			"difficulty": "easy",
+			"gold": "review",
+			"note": "氏名と生年月日、要配慮情報"
+		},
+		{
+			"id": "privacy_025",
+			"text": "佐々木健太さん（72歳）が要介護3の認定を受けました。",
+			"difficulty": "easy",
+			"gold": "review",
+			"note": "氏名と要配慮情報"
+		},
+		{
+			"id": "privacy_026",
+			"text": "k.nakamura@example.jp から転出届についての問い合わせが届きました。",
+			"difficulty": "easy",
+			"gold": "review",
+			"note": "メールアドレスは単体で識別子になりうる"
+		},
+		{
+			"id": "privacy_027",
+			"text": "マイナンバー000000000000 の方の課税証明書を発行したい。",
+			"difficulty": "easy",
+			"gold": "review",
+			"note": "法令で特に厳格に扱う識別子"
+		},
+		{
+			"id": "privacy_028",
+			"text": "伊藤様の世帯（甲市緑が丘1-5-2）は児童扶養手当を受給しています。",
+			"difficulty": "easy",
+			"gold": "review",
+			"note": "氏名・住所と受給状況"
+		},
+		{
+			"id": "privacy_029",
+			"text": "高橋さんのお子さんが不登校で悩んでいるとの相談を受けました。",
+			"difficulty": "easy",
+			"gold": "review",
+			"note": "第三者の事情を含む要配慮情報"
+		},
+		{
+			"id": "privacy_030",
+			"text": "渡辺様は精神障害者保健福祉手帳2級をお持ちです。",
+			"difficulty": "easy",
+			"gold": "review",
+			"note": "要配慮情報"
+		},
+		{
+			"id": "privacy_031",
+			"text": "小林様の国民健康保険料が3か月滞納となっています。",
+			"difficulty": "easy",
+			"gold": "review",
+			"note": "氏名と滞納状況"
+		},
+		{
+			"id": "privacy_032",
+			"text": "相談記録：本人は治療中の疾患について職場に伝えていない。",
+			"difficulty": "easy",
+			"gold": "review",
+			"note": "氏名が無くても要配慮情報"
+		},
+		{
+			"id": "privacy_033",
+			"text": "生活保護受給世帯の一覧をExcelから抽出しました。",
+			"difficulty": "hard",
+			"gold": "safe",
+			"note": "要配慮情報の一覧を指すが、この文に世帯も氏名も含まれない"
+		},
+		{
+			"id": "privacy_034",
+			"text": "令和8年8月分の児童手当で振込口座が変更になった方の一覧です。",
+			"difficulty": "hard",
+			"gold": "safe",
+			"note": "口座情報の一覧を指すが、この文に氏名も口座も含まれない"
+		},
+		{
+			"id": "privacy_035",
+			"text": "加藤様から、隣家の騒音についての苦情が今回で5回目です。",
+			"difficulty": "medium",
+			"gold": "review",
+			"note": "氏名と近隣トラブルの経緯"
+		},
+		{
+			"id": "privacy_036",
+			"text": "甲市桜町2-14-3の世帯について、水道の使用量が急減しています。",
+			"difficulty": "medium",
+			"gold": "review",
+			"note": "住所単体でも世帯が特定される"
+		},
+		{
+			"id": "privacy_037",
+			"text": "先月DV相談があった女性が再度来庁されました。",
+			"difficulty": "medium",
+			"gold": "review",
+			"note": "氏名が無くても要配慮。照合で特定されうる"
+		},
+		{
+			"id": "privacy_038",
+			"text": "職員番号102345の職員の時間外勤務が月80時間を超えています。",
+			"difficulty": "medium",
+			"gold": "review",
+			"note": "内部IDは名簿と照合できる"
+		},
+		{
+			"id": "privacy_039",
+			"text": "甲市立第一小学校3年2組の児童1名が転校しました。",
+			"difficulty": "medium",
+			"gold": "review",
+			"note": "母集団が小さく1名に絞られる"
+		},
+		{
+			"id": "privacy_040",
+			"text": "窓口アンケートの自由記述欄に「夫の暴力から逃げたい」と書かれていました。",
+			"difficulty": "medium",
+			"gold": "review",
+			"note": "要配慮情報"
+		},
+		{
+			"id": "privacy_041",
+			"text": "市長への手紙に、実名で近隣トラブルの相談が書かれていました。",
+			"difficulty": "hard",
+			"gold": "safe",
+			"note": "「実名で」とあるが実名はこの文に含まれない"
+		},
+		{
+			"id": "privacy_042",
+			"text": "同姓同名が2名いるため、生年月日で照合して特定したい。",
+			"difficulty": "hard",
+			"gold": "safe",
+			"note": "照合の意図はあるが、この文に氏名も生年月日も含まれない。意図では判定しない"
+		},
+		{
+			"id": "privacy_043",
+			"text": "甲市青葉町の空き家について、所有者の氏名と連絡先を調べたい。",
+			"difficulty": "hard",
+			"gold": "safe",
+			"note": "調べたい対象が個人だが、この文に氏名も連絡先も含まれない"
+		},
+		{
+			"id": "privacy_044",
+			"text": "アンケートの自由記述に回答者の勤務先が書かれているものがあります。",
+			"difficulty": "hard",
+			"gold": "safe",
+			"note": "自由記述の中身はこの文に含まれない"
+		},
+		{
+			"id": "privacy_045",
+			"text": "近隣住民から、隣の家の子どもが夜中に泣いているとの通報がありました。",
+			"difficulty": "medium",
+			"gold": "review",
+			"note": "虐待の疑いを含む要配慮情報"
+		},
+		{
+			"id": "privacy_046",
+			"text": "匿名希望の方から、特定の窓口職員の対応が悪いという苦情がありました。",
+			"difficulty": "hard",
+			"gold": "review",
+			"note": "匿名でも、いつ・どの窓口かが加われば対象の職員が絞られる。要確認側へ倒す判断"
+		},
+		{
+			"id": "privacy_047",
+			"text": "70代の男性から、独居で生活に不安があるとの相談がありました。",
+			"difficulty": "hard",
+			"gold": "review",
+			"note": "年代・性別・世帯状況の組み合わせ"
+		},
+		{
+			"id": "privacy_048",
+			"text": "甲市在住、40代、ひとり親、非正規雇用の方からの相談内容です。",
+			"difficulty": "hard",
+			"gold": "review",
+			"note": "属性を重ねると1人に絞られうる"
+		},
+		{
+			"id": "privacy_049",
+			"text": "B町内会の会長宅に回覧板が届いていないとの連絡がありました。",
+			"difficulty": "hard",
+			"gold": "review",
+			"note": "役職は氏名と同じ働きをする"
+		},
+		{
+			"id": "privacy_050",
+			"text": "昨年度の職員採用試験の合格者名簿を庁内で共有したい。",
+			"difficulty": "hard",
+			"gold": "safe",
+			"note": "名簿の中身はこの文に含まれない"
 		}
 	]
 }

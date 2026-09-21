@@ -73,34 +73,39 @@ function load(theme: 'privacy' | 'deadline' | 'dx'): BatchDataset {
 /** 事例1件あたり1問を作る軸。`path` は `cases.privacy_001` のようなキー参照。 */
 type Axis = { key: string; build: (path: string) => Questions[string] };
 
+/**
+ * PRIVACY の軸。
+ *
+ * 判断の対象は**入力文そのもの**である。「〜をまとめたい」という作業の
+ * 説明ではなく、これから貼り付けようとしている文章を仕分ける。fixture も
+ * その形にしてある（data/batch/privacy.json）。
+ */
 const PRIVACY_AXES: Axis[] = [
 	{
 		key: 'identifies',
 		build: (path) =>
-			noul(`Would the material described in \`${path}.text\` single out a specific individual?`, {
-				true: 'A particular person could be pinned down, by name, by an identifier, or by a combination of attributes.',
-				false: 'No particular person could be pinned down from it.'
+			noul(`Does \`${path}.text\` single out one particular private individual?`, {
+				true: 'One particular person can be pinned down from it — by name, address, phone number, email address, an identification number, an internal staff or case number, a role held by one person, or a combination of attributes narrow enough to isolate one person.',
+				false:
+					'No particular private individual can be pinned down. Aggregate figures, organisations and companies, places without a household, and public figures acting in their official capacity do not count.'
 			})
 	},
 	{
 		key: 'personal',
 		build: (path) =>
-			noul(
-				`Does the material described in \`${path}.text\` concern a person's own circumstances or attributes?`,
-				{
-					true: "It concerns someone's situation, condition, history, or personal attributes.",
-					false:
-						'It concerns procedures, documents, schedules, or organisations rather than a person.'
-				}
-			)
+			noul(`Does \`${path}.text\` describe a particular person's own situation?`, {
+				true: "It states something about an individual's circumstances, household, family, conduct, finances, or dealings with the authority.",
+				false:
+					'It concerns procedures, rules, schedules, statistics, facilities, or organisations rather than any individual.'
+			})
 	},
 	{
 		key: 'sensitive',
 		build: (path) =>
-			noul(`Does the material described in \`${path}.text\` need careful handling?`, {
-				true: 'It touches health, disability, welfare, beliefs, criminal matters, social status, or other information a mistake would harm someone over.',
+			noul(`Does \`${path}.text\` touch information that would harm someone if mishandled?`, {
+				true: 'It touches health, disability, medical treatment, welfare or benefit receipt, poverty or debt, criminal or abuse matters, domestic violence, beliefs, social status, or a child at risk.',
 				false:
-					'Ordinary administrative content, where disclosure would not harm anyone in particular.'
+					'Ordinary administrative content, where disclosure would not expose anyone to harm or prejudice.'
 			})
 	}
 ];
@@ -289,21 +294,74 @@ function record(label: string, built: Built[], result: RunResult, agreement: str
 // 一致率（人手gold）
 // ---------------------------------------------------------------------------
 
-/** PRIVACY: 3つのNoulの最大値が閾値以上なら review。閾値は掃引して報告する。 */
+/**
+ * PRIVACY の判定ルール。
+ *
+ * **3軸の最大値では過検知する。** `sensitive` が話題の語に反応するためで、
+ * 「生活保護受給世帯の一覧をExcelから抽出しました」は誰も特定できないのに
+ * sensitive=0.96 になる。個人が出てこない文を要確認にしても、利用者は
+ * 警告を無視するようになるだけである。
+ *
+ * 実測（§4.6）では `identifies` か `personal` のどちらかが閾値以上、という
+ * 規則が最も良かった。見逃し0のまま、過検知が4件から2件に減る。
+ */
+function privacyVerdict(answers: Record<string, Answer>, id: string, threshold: number): string {
+	const at = (key: string) => answers[`${id}__${key}`]?.noul ?? 0;
+	return at('identifies') >= threshold || at('personal') >= threshold ? 'review' : 'safe';
+}
+
 function privacyAgreement(dataset: BatchDataset, answers: Record<string, Answer>): string {
-	const rows = dataset.cases.map((item) => {
+	const sweep = [0.3, 0.5, 0.7].map((threshold) => {
+		const hits = dataset.cases.filter(
+			(item) => privacyVerdict(answers, item.id, threshold) === item.gold
+		).length;
+		return `${threshold}:${((hits / dataset.cases.length) * 100).toFixed(0)}%`;
+	});
+
+	// 一致率は非対称である。**見逃しと過検知を分けて数える。** 個人情報を
+	// 見落とすのと、安全な文を要確認にするのとでは重さが違う。
+	const missed = dataset.cases.filter(
+		(item) => item.gold === 'review' && privacyVerdict(answers, item.id, 0.5) === 'safe'
+	);
+	const over = dataset.cases.filter(
+		(item) => item.gold === 'safe' && privacyVerdict(answers, item.id, 0.5) === 'review'
+	);
+	const oldRule = dataset.cases.filter((item) => {
 		const top = Math.max(
 			...PRIVACY_AXES.map((axis) => answers[`${item.id}__${axis.key}`]?.noul ?? 0)
 		);
-		return { gold: item.gold as string, top };
-	});
-	const sweep = [0.3, 0.5, 0.7, 0.9].map((threshold) => {
-		const hits = rows.filter(
-			(row) => (row.top >= threshold ? 'review' : 'safe') === row.gold
-		).length;
-		return `${threshold}:${((hits / rows.length) * 100).toFixed(0)}%`;
-	});
-	return `agree(${sweep.join(' ')})`;
+		return (top >= 0.5 ? 'review' : 'safe') === item.gold;
+	}).length;
+
+	// どちら向きに外したかが分からないと、ラベルを直すのか質問文を直すのか
+	// 決められない。外した中身をそのまま出す。
+	for (const [label, items] of [
+		['見逃し', missed],
+		['過検知', over]
+	] as const) {
+		report.push(
+			...items.map((item) => {
+				const axes = PRIVACY_AXES.map((axis) =>
+					(answers[`${item.id}__${axis.key}`]?.noul ?? 0).toFixed(2)
+				).join('/');
+				return `    ${label} ${item.id} ${axes} ${item.difficulty} ${item.text}`;
+			})
+		);
+	}
+	if (process.env.BATCH_DUMP === '1') {
+		// ラベルや判定ルールを変えたときの影響を、測り直さずに評価するための生値。
+		report.push(
+			...dataset.cases.map((item) => {
+				const axes = PRIVACY_AXES.map((axis) =>
+					(answers[`${item.id}__${axis.key}`]?.noul ?? 0).toFixed(2)
+				).join('/');
+				return `  DUMP ${item.id} ${item.gold as string} ${axes} ${item.text}`;
+			})
+		);
+	}
+	return `agree(${sweep.join(' ')}) 見逃し=${missed.length} 過検知=${over.length} max3軸なら=${
+		oldRule * 2
+	}%`;
 }
 
 function deadlineChoiceAgreement(dataset: BatchDataset, answers: Record<string, Answer>): string {
