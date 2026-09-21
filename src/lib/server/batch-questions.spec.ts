@@ -34,6 +34,54 @@ function goodAnswers(request: ReturnType<typeof buildBatchRequest>): Record<stri
 	);
 }
 
+describe('質問定義の置き場所', () => {
+	// **実測時と本番実装で質問文がずれるのを防ぐ。** 採用している質問文は
+	// batch-questions.server.ts にしか無く、benchmark も契約テストも Phase 13
+	// の本番経路もここから読む。書き写した瞬間に、片方だけ直したときずれる。
+	const CONTRACT = 'src/lib/server/batch-questions.server.ts';
+	const CONSUMERS = ['src/lib/server/batch-judge.live.spec.ts'];
+
+	/**
+	 * 採用している質問文と criteria の断片。
+	 *
+	 * **他と紛れない長さで取る。** `what should be taken up first?` だけだと
+	 * Pattern C の `is this what should be taken up first?` に含まれ、正しい
+	 * コードが「書き写している」と判定される。短い断片は使わない。
+	 */
+	const ADOPTED = [
+		'single out one particular private individual',
+		"describe a particular person's own situation",
+		'would harm someone if mishandled',
+		"Today's date is given in \\`referenceDate\\`",
+		'`, what should be taken up first?`',
+		'a tool laid over it would preserve that problem'
+	];
+
+	it('採用している質問文は契約モジュールにある', () => {
+		const source = readFileSync(CONTRACT, 'utf8');
+		for (const fragment of ADOPTED) {
+			expect(source, `${fragment} が契約モジュールに無い`).toContain(fragment);
+		}
+	});
+
+	it('使う側へ質問文を書き写していない', () => {
+		for (const file of CONSUMERS) {
+			const source = readFileSync(file, 'utf8');
+			for (const fragment of ADOPTED) {
+				expect(source, `${file} へ質問文が書き写されている: ${fragment}`).not.toContain(fragment);
+			}
+		}
+	});
+
+	it('比較用の別構造も criteria を共有している', () => {
+		// Pattern C は包み方（Choice か Noul か）だけを変える。criteria まで
+		// 別に書くと、比べているものが2つになる。
+		const source = readFileSync(CONSUMERS[0], 'utf8');
+		expect(source).toContain('DEADLINE_CRITERIA');
+		expect(source).toContain('DX_CRITERIA');
+	});
+});
+
 describe('buildBatchRequest', () => {
 	it('事例をオブジェクトのキーで置く', () => {
 		// 配列インデックス参照は候補が20件を超えると確率が隣へ滲む。

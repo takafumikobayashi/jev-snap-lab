@@ -661,6 +661,7 @@ BATCH JUDGE は新規モード、SPEC FIND v1 は既存モードの拡張。設�
 依存: Phase 12。
 
 - [ ] feature flagの既定無効で追加する
+- [ ] **質問定義は [batch-questions.server.ts](../src/lib/server/batch-questions.server.ts) から使う。書き写さない。** 書き写すと実測時と本番で質問文がずれる（契約テストが検査している）
 - [ ] 一括評価、順位表示、gold との一致、低confidence・不一致の確認
 - [ ] latency / tokens / cost を表示する。1件あたりの時間は参考値である旨を注記する
 - [ ] 精度は「このデモ用ケースに対する人手ラベルとの一致率」と表現する

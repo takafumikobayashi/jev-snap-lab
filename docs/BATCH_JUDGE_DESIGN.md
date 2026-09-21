@@ -363,7 +363,17 @@ DEADLINE のデータセットは `referenceDate` を持つ。**gold を決め�
 
 ## 5.5 Jevとの契約
 
-質問ID、primitive、instructions、criteria、stateの参照パスは [batch-questions.server.ts](../src/lib/server/batch-questions.server.ts) で決める。**評価用のコードへ質問文を書き写さない。** 書き写すと、片方だけ直したときに「測ったもの」と「動くもの」がずれる。§4.6 の実測はこのモジュールを通している。
+質問ID、primitive、instructions、criteria、stateの参照パスは [batch-questions.server.ts](../src/lib/server/batch-questions.server.ts) で決める。server-only モジュールで、次の3つが同じ定義を使う。
+
+```text
+benchmark（batch-judge.live.spec.ts）   -> AXES_BY_THEME を import
+契約テスト（batch-questions.spec.ts）   -> 同上
+本番API（Phase 13）                      -> 同上。**書き写さない**
+```
+
+**質問文を書き写さない。** 書き写すと、片方だけ直したときに「測ったもの」と「動くもの」がずれる。契約テストが、採用している質問文が契約モジュールにしか無いことを検査している。§4.6 の実測もこのモジュールを通している。
+
+Pattern C（比較用の別構造）は包み方（Choice か Noul か）だけを変え、criteria は `DEADLINE_CRITERIA` / `DX_CRITERIA` を共有する。criteria まで別に書くと、比べているものが2つになる。
 
 ### 5.5.1 質問ID
 
