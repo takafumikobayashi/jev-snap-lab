@@ -256,12 +256,72 @@ function chunksOf(section) {
 	return [first, cutAtSentence(rest, MAX_PASSAGE_CHARS)];
 }
 
-/** 上限以内で、最後の句点までを返す。文の途中で切らない。 */
+/**
+ * 上限以内の、区切りのよいところまでを返す。
+ *
+ * 区切りは2種類ある。
+ *
+ * - **括弧の外にある句点。** 仕様書には「◯◯（……をいう。以下同じ。）」という
+ *   定義の書き方が多い。括弧内の句点で切ると閉じ括弧と後続が失われる。
+ *   実際に §1.3 が「…者をいう。以下同じ。」で終わり、対応する閉じ括弧と
+ *   機能の一覧が落ちていた。
+ * - **箇条書きの項目の先頭。** §1.3 のように、節がほぼ箇条書きで句点が
+ *   冒頭に1つしか無いことがある。句点だけを頼りにすると上限で強制的に
+ *   切れ、項目の途中で終わる。
+ *
+ * どちらも見つからない、または前半すぎる場合だけ、上限で切る。
+ */
 function cutAtSentence(body, limit) {
 	if (body.length <= limit) return body;
 	const window = body.slice(0, limit);
-	const at = window.lastIndexOf('。');
-	return at > limit / 2 ? window.slice(0, at + 1) : window;
+
+	const sentence = lastSentenceEnd(window);
+	const keep = Math.max(sentence >= 0 ? sentence + 1 : -1, lastListMarkerStart(window));
+	// 前半で切ると抜粋として短すぎる。それなら上限まで使う。
+	return keep > limit / 2 ? window.slice(0, keep).trimEnd() : window;
+}
+
+/** 括弧の外にある最後の句点の位置。無ければ -1。 */
+function lastSentenceEnd(text) {
+	let found = -1;
+	walkOutsideParens(text, (char, at) => {
+		if (char === '。') found = at;
+	});
+	return found;
+}
+
+/** 括弧の外にある最後の箇条書き記号の開始位置。無ければ -1。 */
+function lastListMarkerStart(text) {
+	let found = -1;
+	walkOutsideParens(text, (char, at, rest) => {
+		// 「①」〜「⑳」と「(1)」形式の両方を見る。
+		if (/[①-⑳]/.test(char) || /^\([0-9０-９]+\)/.test(rest)) found = at;
+	});
+	return found;
+}
+
+/**
+ * 括弧の深さを追いながら1文字ずつ見る。
+ *
+ * `(1)` のような箇条書き記号は括弧として数えない。数えると以降の深さが
+ * ずれ、本物の括弧の中と外を取り違える。
+ */
+function walkOutsideParens(text, visit) {
+	let depth = 0;
+	for (let i = 0; i < text.length; i += 1) {
+		const char = text[i];
+		const rest = text.slice(i);
+		const isListMarker = /^[（(][0-9０-９]+[）)]/.test(rest);
+
+		if (depth === 0) visit(char, i, rest);
+
+		if (isListMarker) {
+			i += rest.match(/^[（(][0-9０-９]+[）)]/)[0].length - 1;
+			continue;
+		}
+		if (char === '（' || char === '(') depth += 1;
+		else if (char === '）' || char === ')') depth = Math.max(0, depth - 1);
+	}
 }
 
 function makePassage(section, chunk, at) {

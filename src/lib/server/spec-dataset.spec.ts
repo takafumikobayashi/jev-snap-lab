@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import {
 	attributionFor,
 	MAX_CORPUS_CHARS,
+	MAX_PASSAGE_CHARS,
 	MAX_PASSAGES,
 	stateCharsOf,
 	validateCorpus
@@ -77,6 +78,24 @@ describe('配布する SPEC コーパス', () => {
 			expect(passage.page, passage.passageId).toBeGreaterThan(0);
 			// 印字ページの最終は56。物理ページ（59）を入れてしまう取り違えを弾く。
 			expect(passage.page, passage.passageId).toBeLessThanOrEqual(56);
+		}
+	});
+
+	it('括弧が閉じている', () => {
+		// 仕様書には「◯◯（……をいう。以下同じ。）」という定義が多い。括弧内の
+		// 句点で切ると閉じ括弧と後続が失われ、Jevへ渡す候補としても抜粋
+		// としても壊れる。
+		for (const passage of corpus.passages) {
+			const open = (passage.text.match(/[（(]/g) ?? []).length;
+			const close = (passage.text.match(/[）)]/g) ?? []).length;
+			expect(open, `${passage.passageId} の括弧が閉じていない`).toBe(close);
+		}
+	});
+
+	it('上限ちょうどで打ち切られた抜粋が無い', () => {
+		// 区切りが見つからず上限で強制的に切ると、項目や文の途中で終わる。
+		for (const passage of corpus.passages) {
+			expect(passage.text.length, passage.passageId).toBeLessThan(MAX_PASSAGE_CHARS);
 		}
 	});
 
