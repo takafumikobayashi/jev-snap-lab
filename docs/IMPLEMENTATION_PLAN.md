@@ -7,7 +7,7 @@
 推奨ベースライン:
 
 - SvelteKit + TypeScript + Tailwind CSS
-- Node.js 20以上 / pnpm（開発環境の npm 10.9.3 でこの構成の依存をインストールできなかったため。詳細は README を参照）
+- Node.js 22.12以上 / pnpm（開発環境の npm 10.9.3 でこの構成の依存をインストールできなかったため。詳細は README を参照）
 - TypeSafe公式JavaScript SDK
 - Vercel
 - DBなし、入力永続化なし
@@ -23,7 +23,7 @@
 タスク:
 
 - TypeSafe ConsoleでAPIキーを取得し、開発用と本番用を分離
-- `@typesafe-ai/sdk`の現行インストールとNode.js 20 runtimeを確認
+- `@typesafe-ai/sdk`の現行インストールとNode.js runtimeを確認
 - JavaScript SDKのretry既定値の**実測確認**（既定値は [JEV_DESIGN.md](JEV_DESIGN.md) §9 に記載済み）。通常時に1試行3,500ms×3試行が12,000msに収まることと、`Retry-After` で待機が伸びた場合にtotal timeoutが待機ごと中断することの両方を確認する
 - Vercelの契約プランにおける関数 `maxDuration` の既定値と上限を確認する（設定先は `vite.config.ts` のアダプタ設定とルートの `export const config`。`vercel.json` の `functions` グロブは adapter-vercel では効かない）
 - `jev-latest`と`jev-1.13.0`の応答shapeを確認
@@ -355,6 +355,14 @@ latestの速度と更新を体験できる一方、回答が変わり得るた�
 
 全課を候補に含めることで「架空の自治体組織」を避けられる。教育委員会や消防本部などの詳細な個別分掌は、初回MVPの主要問い合わせカテゴリ外なら候補と注意表示に留め、後続で拡張する。
 
+### E. 次期Semantic拡張の範囲
+
+**推奨:** CITYは現行の課レベルChoiceを既定のまま残し、Semantic Fitは上位1課（必要時のみ2課）×代表分掌12件以内の限定実験にする。SPEC FINDはデジタル庁の共通機能標準仕様書第2.7版の公式PDFを20〜40件程度のbounded passageへ正規化し、1回のJev requestで評価する。
+
+機能要件Excel、項目定義書、API仕様書、ランタイムのWeb取得はSPEC FIND v0に含めない。Excelは後続で別データセットとして、セル・行locator、機能ID、版差分、PDFとの重複を設計してから追加する。
+
+Semantic Fit / SPEC FINDの設計根拠は [CITY_SEMANTIC_EXPERIMENT.md](CITY_SEMANTIC_EXPERIMENT.md) と [SPEC_FIND_DESIGN.md](SPEC_FIND_DESIGN.md) に分離する。どちらも本MVPのDefinition of Doneへ遡って追加しない。
+
 ## 7. 実装後の運用タスク
 
 - 月次: Jevのmodel、料金、rate limit、SDK changelogを確認
@@ -362,3 +370,205 @@ latestの速度と更新を体験できる一方、回答が変わり得るた�
 - リリースごと: question snapshotと受入テストの再実行
 - 障害時: requestId、status、model、latency、usageのみで原因を追跡
 - 誤判定報告時: 入力本文を自動収集せず、利用者の同意がある場合だけ手動で再現用fixtureを作る
+
+## 8. Semantic 拡張の実装計画（完了）
+
+Phase 6.5 から Phase 10 まで完了している。いずれもLOVE / SOCIAL / CITYの既定経路を変更していない。
+
+| Phase | 内容 | 結果 |
+|---|---|---|
+| 6.5 | Jevの前提を実測 | 40件まで1リクエストで成立。**候補はキー参照**（§8.1） |
+| 7 | 共通Semantic Matchのfixture | 完了 |
+| 8 | SPEC FIND PDF v0 | 完了。Recall@3 100% |
+| 9 | CITY Semantic Fit のshadow | 完了。本番では無効のまま |
+| 10 | 実機評価と採否 | SPEC FIND は採用、CITY は据え置き |
+
+### 8.0 合意事項
+
+着手前に固定する。ここを動かす場合は、この節を先に更新する。
+
+| 項目 | 決定 |
+|---|---|
+| CITYの既定経路 | 現行の課レベルChoiceを維持する。Semantic Fitはshadowから始める |
+| CITY Semantic Fitの候補 | 上位1課（必要時のみ2課）× 代表分掌12件以内 |
+| SPEC FINDのソース | デジタル庁 共通機能標準仕様書 第2.7版（2026-02-27公開）のPDFのみ |
+| SPEC FINDのコーパス | 固定passage 20〜40件程度を1リクエストで評価する（実測で成立、§8.1）。ランタイムのWeb取得はしない |
+| 後回しにするもの | 機能要件Excel、項目定義書、API仕様書、ランタイム取得 |
+| 出典の扱い | digital.go.jpは**PDL 1.0（公共データ利用規約 第1.0版）**。出典表示と加工表示を必須とする（[SPEC_FIND_DESIGN.md](SPEC_FIND_DESIGN.md) §2） |
+| 候補IDの復元 | 質問IDから候補IDを**文字列変換で復元しない**。連番の質問IDとサーバー側の対応表で引く |
+| 質問とstateの結び付き | 1リクエストの全質問は同じstateを見る。候補を**オブジェクト**としてstateへ置き、instructionsからキーのパス（`` `responsibilities.r12.text` ``）で対象を指す。配列インデックス参照は使わない（§8.1） |
+| Semantic Match Engineの境界 | `候補集合 -> Map<候補ID, probability>`。上流を何回呼ぶかはengineの内側の実装詳細にする |
+
+公式ドキュメントに1リクエストあたりの質問数上限の記載は無く、rerank cookbookは1ペア1コールで書かれている。そのためPhase 6.5で実測した。結果は下記のとおりで、**40件までは1リクエストで成立する**。ただし成立には次の条件が要る。
+
+| 条件 | 内容 |
+|---|---|
+| **候補はオブジェクトのキーで参照する** | `responsibilities.r12.text`。**配列インデックス（`responsibilities[12].text`）は使わない** |
+
+配列インデックス参照は、候補が20件を超えたあたりから確率が隣接インデックスへ滲み、無関係な候補が最上位に来る。実測で確認した（§8.1）。
+
+### Phase 6.5: Jevの前提を実測する（スパイク）— 完了
+
+- [x] 判定基準を測る前に決めた（成立とみなす件数24、Stage 2単体のp95 3000ms）
+- [x] N = 5 / 12 / 24 / 40 で実測した
+- [x] 参照の書き方（配列index / オブジェクトkey）を比較した
+- [x] 分割呼び出し（1候補1リクエスト）の代替コストを測った
+- [x] 結果を [CITY_SEMANTIC_EXPERIMENT.md](CITY_SEMANTIC_EXPERIMENT.md) と [SPEC_FIND_DESIGN.md](SPEC_FIND_DESIGN.md) へ反映した
+
+### 8.1 Phase 6.5 の実測結果
+
+測定日 2026-09-21、model `jev-1.13.0`（`jev-latest`）。入力は架空データセットの分掌事務、質問は「住民文がこの分掌に意味的に含まれるか」のNoul。正解の分掌を既知の位置へ置き、**それが最上位に来るか**まで確認した。200が返ることは、参照が効いた証明にならない。
+
+**1. 件数と所要時間**
+
+| 候補数 | 成功 | latency 中央値 / 最大 | 入力token | answer欠落 |
+|---|---|---|---|---|
+| 5 | 3/3 | 529 / 540 ms | 1,095 | 0 |
+| 12 | 3/3 | 227 / 229 ms | 2,281 | 0 |
+| 24 | 3/3 | 216 / 251 ms | 4,167 | 0 |
+| 40 | 3/3 | 245 / 266 ms | 6,765 | 0 |
+
+40件まで422もtoken上限も出ない。質問を増やしてもlatencyはほぼ変わらず、公式ドキュメントの「質問は並列に評価される」と一致する。判定基準の3000msに対して十分な余裕がある。候補1件あたりの入力tokenは約165で、40件でも$0.0003程度。
+
+**2. 参照の書き方が結果を左右する**
+
+配列インデックス参照では、候補が増えると確率が隣接インデックスへ滲む。正解の**位置だけ**を変えて比べると差が出る（N=40、他の条件は同じ）。
+
+| 正解の位置 | 上位3件 | 1位 |
+|---|---|---|
+| 3 | 0.95 / 0.48 / 0.32 | 正解 |
+| 12 | 0.94 / 0.65 / 0.51 | 正解 |
+| 20 | 0.95 / 0.89 / 0.85 | 正解（隣接が浮く） |
+| 33 | 0.95 / 0.94 / 0.94 | **別候補**（「市税等の滞納処分及び強制執行に関すること」） |
+
+滞納処分は予防接種と無関係なので、候補の似すぎではなく**参照の取り違え**である。コーパスが同じで位置だけ違うのに分布が変わることが、その裏付けになる。
+
+オブジェクトのキー参照（`responsibilities.r33.text`）へ変えると、同じN=40で分離が戻る。
+
+| 参照 | 2位との差 | 0.9以上の件数 | 1位 |
+|---|---|---|---|
+| 配列index | 0.00〜0.01 | 5〜7件 | 2回中1回外す |
+| **キー参照** | **0.77〜0.78** | **1件** | **2回とも正解** |
+
+位置を0 / 7 / 19 / 26 / 33 / 39 と振っても、キー参照は**6/6で正解が1位**、2位との差0.77〜0.81、0.9以上は常に1件だけだった。
+
+**3. 分割呼び出しは明確に不利**
+
+候補12件を1件ずつ12回に分けると、1回にまとめた場合と比べて**latencyが22倍、入力tokenが2.5倍**になる（stateを毎回送り直すため）。
+
+| 方式 | latency | 入力token |
+|---|---|---|
+| 1リクエストに12問 | 227 ms | 2,281 |
+| 12リクエストに1問ずつ | 5,008 ms | 5,808 |
+
+**4. トークン予算のどこにいるか**
+
+Jevの制限は **`state` と最長の質問で 32k tokens**、リクエスト全体で 64k tokens である（[models](https://docs.typesafe.ai/models)）。効いてくるのは前者で、質問は1問あたり113 tokensしか増えないのに対し、stateは候補の文字数に比例する。
+
+配布コーパス（39件・15,317字）での実測:
+
+| 測った値 | 結果 |
+|---|---|
+| state + 質問1問 | 16,651 tokens（32k の **52%**） |
+| 文字あたりの state token | 1.087 |
+| 質問1問あたりの増分 | 113 tokens |
+| リクエスト全体（39問） | 20,927 tokens（64k の 33%） |
+
+件数40件・1件600字の上限をすべて使うと約25,700字になり、state だけで32kの約88%に達する。件数と1件あたりの上限だけでは総量が決まらないため、**コーパス全体の文字数上限（20,000字）**も検証する。この値なら state + 質問1問が約68%に収まる。上げるときは先にトークンとレイテンシを測り直す。
+
+**5. abstainは成立する**
+
+対象外の入力（「株式の売買手数料の相場を知りたい」）をN=40へ与えると、0.9以上の候補は0件、正解位置の確率も0.01だった。閾値による足切りが機能する。
+
+**測定の限界**: クエリ1本、データセット1つ、セルあたり2〜3回。「40件は成立する」「配列indexは使えない」を判断するには足りるが、境界の正確な位置（何件から滲み始めるか）は詰めていない。モデル更新で変わりうるため、`model` を記録した数字として扱う。
+
+### Phase 7: 共通Semantic Matchのfixture — 完了
+
+- [x] `SpecDocument` / `SpecPassage` とCITY `responsibilityId` の安定ID設計を確定する
+- [x] passageの重複、文字数、版、取得日、hash、source URLを検証する
+- [x] Noul question builderをfixtureだけで実装する
+- [x] Choiceの比較分布とNoulの独立 `yesProbability` を別型で保持する
+- [x] アプリ側の順位付け、top-k、abstain、source joinを実装する
+- [x] Engineの境界を `候補集合 -> Map<候補ID, probability>` にし、上流の呼び出し回数を内側へ隠す
+- [x] 質問IDは連番にし、候補IDとの対応表をサーバー側に持つ（文字列変換で復元しない）
+- [x] Jevのmock responseでanswer欠落、未知ID、確率範囲外を検証する
+
+完了条件:
+
+- [x] 自由生成なしで候補IDから結果を再現できる
+- [x] 出典joinに失敗した候補を公式根拠付きで表示しない
+- [x] 既存LOVE / SOCIAL / CITYの型・APIレスポンスに影響しない（追加のみ、既存ファイルの変更なし）
+- [x] 上流を1回呼ぶか複数回呼ぶかを変えても、順位付け以降の層を書き換えずに済む
+
+追加したファイル:
+
+| ファイル | 役割 |
+|---|---|
+| `src/lib/types/semantic.ts` | 候補、スコア、順位付けの共通型 |
+| `src/lib/types/spec.ts` | `SpecDocument` / `SpecPassage` / `SpecCorpus` |
+| `src/lib/server/semantic-match.server.ts` | 評価エンジン。リクエスト組み立て、契約検証、順位付け、abstain |
+| `src/lib/server/semantic-policies.server.ts` | CITY / SPEC の質問文と閾値 |
+| `src/lib/server/spec-corpus.server.ts` | コーパス検証と PDL 1.0 の出典表示 |
+| `src/lib/server/spec-evidence.server.ts` | 候補IDから出典への join |
+
+### Phase 8: SPEC FIND PDF v0
+
+依存: Phase 6.5、Phase 7。CITYより先に行う。SPEC FINDは新モードの追加だけで、先日作り直したばかりの `city.candidates[]` の型とE2Eに触れない。上流呼び出しも1回なので、CITY固有のrequest-level deadlineの宿題を後ろへ回せる。
+
+- [x] デジタル庁公式の共通機能標準仕様書第2.7版を固定する
+- [x] 20〜40件程度の代表passageをオフライン抽出し、`data`配下のspec用ディレクトリへ追加する（39件）
+- [x] `maxPassages` / `maxChars`を超えないデータ検査を追加する
+- [x] 1回のbounded Jev requestでpassageごとの独立Noulを評価する
+- [x] top-3、abstain、章節・ページ・公式PDFリンクを表示する
+- [x] SPEC FINDをserver-side feature flagの既定無効で追加する（`SPEC_FIND_ENABLED`）
+- [x] Excel、項目定義書、API仕様書を混入させない検査を追加する
+- [x] gold caseでRecall@1 / Recall@3、source join、p95 latency、tokens、コストを測る（Recall@1 93% / Recall@3 100%、[SPEC_FIND_DESIGN.md](SPEC_FIND_DESIGN.md) §8）
+
+完了条件:
+
+- [x] 入力、候補、版、source locatorの対応がfixtureで再現できる
+- [x] 十分に近い候補がない場合に、無理な回答を出さずabstainできる
+- [x] 仕様適合、実装可否、行政・法的判断と誤認させない注意文が常時表示される
+- [x] 公式サイトへランタイムアクセスせず、固定データセットの版が結果へ残る
+- [x] 既存3モードのE2EとMVP Definition of Doneが変わらない
+
+### Phase 9: CITY Semantic Fitのshadow実験（任意）
+
+依存: Phase 6.5、Phase 7、Phase 8の実機評価、CITYの現行受入テスト。SPEC FINDで共通処理の有効性を確かめてから着手する。
+
+- [x] `CITY_SEMANTIC_EXPERIMENT=false` を既定にする
+- [x] 現行 `route_to` 上位1課から代表分掌を最大12件選ぶ
+- [x] 追加Jev呼び出しを最大1回に制限する
+- [x] 既存結果を返せるrequest-level deadlineとfallbackを実装する（`REQUEST_BUDGET_MS = 16,000`）
+- [x] base / semanticのlatency、tokens、推計コスト、hit@k、abstainを入力本文なしで記録する
+- [x] 直接語彙、言い換え、課境界、対象外、情報不足のFit / Gapケースを比較する（[CITY_SEMANTIC_EXPERIMENT.md](CITY_SEMANTIC_EXPERIMENT.md) §7.2）
+
+完了条件:
+
+- [x] Semantic Fit失敗時も現行CITY結果が返る
+- [x] 追加分がVercel `maxDuration`とコスト上限に収まる（合計約1,350ms、入力token約10,700）
+- [x] 根拠表示は既存の静的データjoinであり、Jev生成文を出典としていない
+- [x] 既定UIへ昇格するか、shadowのままにするかを評価記録へ残す（**本番は無効のまま据え置き**。[CITY_SEMANTIC_EXPERIMENT.md](CITY_SEMANTIC_EXPERIMENT.md) §7.3）
+
+### Phase 10: 実機評価と採否
+
+依存: Phase 8またはPhase 9の該当機能。SPEC FIND（Phase 8）の評価を先に行う。
+
+- [ ] `jev-latest`で日本語gold caseを実機評価する
+- [ ] versioned modelで再現性を確認する
+- [ ] p50 / p95、input token、推計コスト、429 / 529 / timeoutを比較する
+- [ ] 閾値を固定値として移植せず、採用した値と校正根拠を記録する
+- [x] 採用、shadow継続、撤回のいずれかを決定する
+  - SPEC FIND: **採用**。本番で有効にする（[SPEC_FIND_DESIGN.md](SPEC_FIND_DESIGN.md) §8.1）
+  - CITY Semantic Fit: **据え置き**。本番では無効のまま（[CITY_SEMANTIC_EXPERIMENT.md](CITY_SEMANTIC_EXPERIMENT.md) §7.3）
+
+### 次期拡張のDefinition of Done
+
+- [ ] CITY既定経路の候補・根拠・匿名化方針を壊さない
+- [ ] SPEC FINDはPDF v2.7の固定コーパスだけを使い、Excelを参照しない
+- [ ] リクエストへ渡す候補数・文字数に上限がある
+- [ ] Noulの適合度とChoiceの分布をUI・型・ログで混同しない
+- [ ] 順位、閾値、abstainがアプリ側で決定される
+- [ ] source locator、版、取得日、hashが再現可能である
+- [ ] Jev障害時にCITYはfallback、SPEC FINDは再試行または空振り表示となる
+- [ ] 実機測定で遅延・コスト・精度のトレードオフを確認している

@@ -137,3 +137,51 @@ describe('evaluate の総時間上限', () => {
 		throw new Error('エラーが投げられなかった');
 	});
 });
+
+describe('リクエスト全体の予算', () => {
+	it('総予算より短い budgetMs を渡すとそちらで打ち切る', async () => {
+		// 2回呼ぶ経路では、1回ぶんの予算をそのまま使うと maxDuration を超える。
+		vi.useFakeTimers();
+		resetJevClient();
+		systemOne.mockImplementation(
+			(_request: unknown, options: { signal: AbortSignal }) =>
+				new Promise((_resolve, reject) => {
+					options.signal.addEventListener('abort', () => reject(new Error('aborted')));
+				})
+		);
+
+		const pending = evaluate(
+			{ mode: 'love', text: 'x' },
+			{ q: noul('x', { true: 'a', false: 'b' }) },
+			1_000
+		);
+		const assertion = expect(pending).rejects.toThrow();
+
+		// 既定の総予算（12,000ms）より手前で切れる。
+		await vi.advanceTimersByTimeAsync(1_100);
+		await assertion;
+		vi.useRealTimers();
+	});
+
+	it('総予算より長い budgetMs を渡しても総予算で打ち切る', async () => {
+		vi.useFakeTimers();
+		resetJevClient();
+		systemOne.mockImplementation(
+			(_request: unknown, options: { signal: AbortSignal }) =>
+				new Promise((_resolve, reject) => {
+					options.signal.addEventListener('abort', () => reject(new Error('aborted')));
+				})
+		);
+
+		const pending = evaluate(
+			{ mode: 'love', text: 'x' },
+			{ q: noul('x', { true: 'a', false: 'b' }) },
+			60_000
+		);
+		const assertion = expect(pending).rejects.toThrow();
+
+		await vi.advanceTimersByTimeAsync(DEFAULTS.totalTimeoutMs + 100);
+		await assertion;
+		vi.useRealTimers();
+	});
+});

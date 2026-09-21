@@ -12,6 +12,7 @@
 
 import { cityChecks } from './lib/city-smoke.mjs';
 import { statusDetail, withRateLimitRetry } from './lib/rate-limit-retry.mjs';
+import { specChecks } from './lib/spec-smoke.mjs';
 
 const [, , rawUrl, ...flags] = process.argv;
 if (!rawUrl) {
@@ -50,6 +51,11 @@ async function main() {
 	const top = await fetch(base);
 	check('トップページが 200', top.status === 200, `status=${top.status}`);
 
+	const html = await top.text();
+	// SPEC FIND は feature flag で出し分ける。有効なときだけ判定も確認する。
+	const specEnabled = html.includes('id="mode-tab-spec"');
+	check('SPEC FIND の有効状態', true, specEnabled ? '有効' : '無効（タブなし）');
+
 	const csp = top.headers.get('content-security-policy') ?? '';
 	for (const directive of [
 		"default-src 'self'",
@@ -68,8 +74,6 @@ async function main() {
 		'Referrer-Policy',
 		top.headers.get('referrer-policy') === 'strict-origin-when-cross-origin'
 	);
-
-	const html = await top.text();
 
 	// --- OGP ---
 	const ogImage = html.match(/property="og:image" content="([^"]+)"/)?.[1];
@@ -131,6 +135,14 @@ async function main() {
 			}
 		} else {
 			check('判定のエラー内容', false, JSON.stringify(body).slice(0, 160));
+		}
+		if (specEnabled) {
+			const spec = await judge({ mode: 'spec', text: 'Excelにデータを出して職員が加工したい' });
+			const specBody = await spec.json();
+			check('SPEC FIND の判定が 200', spec.status === 200, statusDetail(spec));
+			if (spec.status === 200) {
+				for (const result of specChecks(specBody)) check(result.name, result.ok, result.detail);
+			}
 		}
 	} else {
 		console.log('\n  (判定の1往復は --smoke で実行。上流に課金が発生する)');

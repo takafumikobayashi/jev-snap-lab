@@ -269,6 +269,54 @@ other_or_unclear
 5. `confidence`が低い、`other_or_unclear`が上位、または出典がない場合は「候補を絞り切れない」と表示する。
 6. **絞り込み不能と出典未登録を混ぜない。** `other_or_unclear` は組織データに対応する課を持たない正規の候補であり、出典が空なのはデータ欠落ではない。ここで「出典データ未登録」と出すと、利用者に誤った原因を示す。レスポンスでは `kind: 'unroutable'` として型で区別し、候補自体は落とさない（落とすと、画面のChoiceには出ているのに根拠欄から消える）。「出典データ未登録」は実在の課で `sourceRefs` が空の場合だけに使う。
 
+## 7.5 Semantic Fit実験の共通方針
+
+CITYの分掌適合度とSPEC FINDのpassage検索は、どちらも「候補ごとの意味的な適合度をNoulで測り、根拠情報をアプリ側でjoinする」設計を共有する。実装は `src/lib/server/semantic-match.server.ts` にあり、**どちらもLOVE / SOCIAL / CITYの既定経路を変更しない。**
+
+### Jevにさせること・させないこと
+
+- Jevには、入力文と一つの候補文が意味的に適合するかを独立に評価させる。
+- 候補間の順位、採用候補、出典、URL、回答文はアプリ側で処理する。
+- 候補文の要約・言い換え・自由形式の理由は生成させない。
+- JEVの確率を公式な正解、担当確率、仕様適合率、confidenceと呼ばない。
+
+候補ごとの質問は、概念的には次の形にする。
+
+```json
+{
+  "semantic_fit_<stableId>": {
+    "type": "noul",
+    "instructions": "Does the input semantically fit this candidate for the stated finding task? Judge usefulness for locating a candidate, not official truth or implementation feasibility.",
+    "criteria": {
+      "true": "The input is directly or meaningfully covered by the candidate.",
+      "false": "The candidate is unrelated, only broadly related, or the input is insufficient to judge."
+    }
+  }
+}
+```
+
+`yesProbability`は独立したNoulの値で、Choiceの `probabilities` のように合計1になる分布ではない。画面では「適合度の実験値」などと明示し、複数候補が同時に高くなることを許容する。Noulを順位付けに使うのは公式のrerank cookbookと同じ使い方である（1つのquery-candidateペアにつき1つのNoulを立て、その値で並べる）。
+
+**1リクエストの全質問は同じstateを見る。** 質問は自前のデータを持てないため、候補はstateへ置き、instructionsからバックティックのパスで対象を指す。「この分掌は」とだけ書くと、どの候補を指すかが結び付かない。
+
+**候補はオブジェクトにし、キーで参照する（`` `responsibilities.r12.text` ``）。配列インデックス（`` `responsibilities[12].text` ``）は使わない。** 配列インデックス参照は候補が20件を超えたあたりから確率が隣接インデックスへ滲み、無関係な候補が最上位に来る。コーパスを固定して正解の位置だけを変えると分布が変わることから、候補の似すぎではなく参照の取り違えと分かる（[IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) §8.1）。
+
+### 呼び出し回数の扱い
+
+- 現行のLOVE / SOCIAL / CITYは、複数質問を1回のSystem One requestへfan-outする。
+- CITY Semantic Fitは現行Choice後の追加1回を許す実験案だが、既定では無効にし、request-level deadlineとコストを別途測る。
+- SPEC FIND v0は低遅延を優先し、限定したpassageを1回のbounded requestで評価する。Stage 1 Choiceを先に追加して2回呼ぶ案は、コーパス拡大時の代替案である。
+- 現在の `JEV_TOTAL_TIMEOUT_MS=12000` は1回の `evaluate` の総予算であり、2回の呼び出しを含む総予算ではない。2回ぶんの24000msは `maxDuration` の20000msを超えるため、追加呼び出しを実装する場合は外側のdeadlineを設けて両方を見直す。
+- 1リクエストへ入れられる独立Noulは、実測で**40件まで成立する**。質問を増やしてもlatencyはほぼ変わらない（40件で245ms、入力6,765token）。同じ件数を1問ずつ分けて送ると、latencyが22倍・入力tokenが2.5倍になる（[IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) §8.1）。
+
+### 順位、閾値、abstain
+
+順位付けはアプリ側で行い、最低適合度、候補間の差、表示件数は実験設定として校正する。TypeSafe/Jevの確率に、別の検索デモで使われた閾値をそのまま移植しない。十分な候補がない場合は `abstain` として「見つけられない」と表示できることを成功条件に含める。
+
+### 根拠join
+
+質問IDは連番にし、サーバー側が持つ `index -> stable ID` の対応表でCITYデータまたはSPECデータへjoinする。**質問IDの文字列からIDを復元しない。** 実データのIDは `accounting.u1.r1` の形で、セグメント自体が `social_welfare` のようにアンダースコアを含むため、区切りを一意に戻せない。joinできないJev answerは表示せず、データ不整合として扱う。出典URL・章節・ページ・取得日はJevに生成させず、バージョン管理した静的データからのみ返す。
+
 ## 8. レスポンスのアプリ内契約
 
 TypeSafeの生レスポンスはサーバーからブラウザへそのまま返さず、UIが必要とする最小形式へ正規化する。

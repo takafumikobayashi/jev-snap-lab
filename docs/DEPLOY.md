@@ -32,8 +32,21 @@ Vercelダッシュボードで **Add New → Project** から `takafumikobayashi
 | `PUBLIC_SITE_URL` | `https://<デプロイ先のドメイン>` | 推奨 | 未設定だとOGP画像のmetaを出力しない |
 | `TYPESAFE_DEFAULT_MODEL` | `jev-latest` | 任意 | 未設定でも既定値が同じ |
 | `JEV_TIMEOUT_MS` | `3500` | 任意 | 未設定でも既定値が同じ |
-| `JEV_TOTAL_TIMEOUT_MS` | `12000` | 任意 | 未設定でも既定値が同じ |
+| `JEV_TOTAL_TIMEOUT_MS` | `12000` | 任意 | 未設定でも既定値が同じ。**16,000msで頭打ち**（リクエスト全体の予算。`maxDuration` 20,000msから逆算） |
 | `APP_RATE_LIMIT_PER_MINUTE` | `10` | 任意 | 正の整数のみ。読めない値は既定値へ戻り、`RATE_LIMIT_INVALID` を警告に出す |
+| `SPEC_FIND_ENABLED` | `true` | **推奨** | SPEC FINDを有効にする。未設定なら無効で、タブも出ない。明示的な `true` だけを有効とする。1問あたり約0.13円と他モードより高い（[SPEC_FIND_DESIGN.md](SPEC_FIND_DESIGN.md) §8.1） |
+| `CITY_SEMANTIC_EXPERIMENT` | `true` | 任意 | CITY Stage 2 の shadow 実験を有効にする。**本番では設定しない**（下記） |
+
+### `CITY_SEMANTIC_EXPERIMENT` を本番へ設定しない理由
+
+有効にすると1リクエストで上流を2回呼ぶ。結果は**画面に出さず観測ログだけ残す**ため、利用者は待ち時間（約1.5〜1.8倍）とコスト（約1.25倍）を払って見返りが無い。
+
+| 状態 | Stage 2 | 利用者への影響 |
+|---|---|---|
+| 未設定（本番） | 呼ばれない | 追加コスト・待ち時間ゼロ |
+| `true`（shadow） | 呼ばれる | 待ち時間を払うが画面は変わらない |
+
+設定する意味があるのは、**Preview で一時的にデータを集めたいとき**だけである。実機の評価は `LIVE_JEV=1 pnpm vitest run src/lib/server/city-fitgap.live.spec.ts` で行えるため、常時有効にする必要はない。採否の判断は [CITY_SEMANTIC_EXPERIMENT.md](CITY_SEMANTIC_EXPERIMENT.md) §7.3 に記録している。
 
 **設定してはいけないもの**
 

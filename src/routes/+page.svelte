@@ -5,7 +5,7 @@
 	import JudgeForm from '$lib/components/JudgeForm.svelte';
 	import ModeTabs from '$lib/components/ModeTabs.svelte';
 	import ResultCard from '$lib/components/ResultCard.svelte';
-	import type { JudgeResponse, Mode } from '$lib/types/judge';
+	import { MODES, type JudgeResponse, type Mode } from '$lib/types/judge';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -18,6 +18,11 @@
 	 * 無視するが、出さなければ「設定漏れ」だと分かる。
 	 */
 	const ogImageUrl = $derived(data.siteUrl ? `${data.siteUrl}/og-image.jpg` : null);
+
+	/** SPEC FIND は実験機能。サーバーが無効にしていればタブを出さない。 */
+	const availableModes = $derived(
+		data.specEnabled ? MODES : MODES.filter((candidate) => candidate !== 'spec')
+	);
 
 	type Status = 'idle' | 'judging' | 'success' | 'error';
 
@@ -123,7 +128,7 @@
 	</header>
 
 	<div class="mt-8">
-		<ModeTabs value={mode} onchange={switchMode} />
+		<ModeTabs value={mode} onchange={switchMode} available={availableModes} />
 	</div>
 
 	<!--
@@ -163,6 +168,19 @@
 			</p>
 		{/if}
 
+		{#if mode === 'spec'}
+			<!--
+				仕様への適合や実装可否の判定と誤認させない
+				（docs/SPEC_FIND_DESIGN.md §3）。
+			-->
+			<p
+				class="mt-4 rounded-md border border-neutral-300 px-3 py-2 text-xs text-neutral-600 dark:border-neutral-700 dark:text-neutral-400"
+			>
+				仕様書内の<strong>関連箇所を探す技術検証</strong
+				>です。仕様への適合、実装可否、行政・法的な判断を示すものではありません。
+			</p>
+		{/if}
+
 		<!-- 結果の更新をスクリーンリーダーへ通知する。 -->
 		<section class="mt-10" aria-live="polite" aria-busy={status === 'judging'}>
 			{#if status === 'judging'}
@@ -191,6 +209,95 @@
 						<ResultCard {card} />
 					{/each}
 				</div>
+
+				{#if response.spec}
+					{@const spec = response.spec}
+					{#if spec.abstained}
+						<!--
+							閾値未満を無理に出して、関係の薄いpassageを回答のように
+							見せない（docs/SPEC_FIND_DESIGN.md §6.3）。
+						-->
+						<p
+							class="rounded-md border border-neutral-300 p-3 text-sm text-neutral-600 dark:border-neutral-700 dark:text-neutral-400"
+						>
+							十分に近い仕様箇所を見つけられませんでした。言い方を変えて試してください。
+						</p>
+					{:else}
+						<ol class="space-y-3">
+							{#each spec.hits as hit (hit.passageId)}
+								<li
+									class="rounded-md border border-neutral-300 p-3 text-sm dark:border-neutral-700"
+								>
+									<div class="flex items-baseline justify-between gap-2">
+										<p class="min-w-0 font-semibold break-words">
+											<span class="text-neutral-400">{hit.rank}.</span>
+											{hit.headingPath.join(' / ')}
+										</p>
+										<!--
+											色だけに頼らず数値を併記する（docs/PRODUCT_SPEC.md §10）。
+											Noul の独立した値なので、仕様適合率でも検索の正答率でもない。
+											実験値であることを数値の隣で示す（docs/JEV_DESIGN.md §7）。
+										-->
+										<span class="shrink-0 text-xs text-neutral-500 tabular-nums">
+											適合度（実験値） {toPercent(hit.fitProbability)}%
+										</span>
+									</div>
+
+									<div
+										class="mt-1 h-1.5 w-full rounded-full"
+										style="background-color: var(--viz-track)"
+										title="意味的な近さの実験値です。仕様への適合率でも、検索の正答率でもありません。"
+									>
+										<div
+											class="h-1.5 rounded-full"
+											style="width: {toPercent(
+												hit.fitProbability
+											)}%; background-color: {hit.rank === 1
+												? 'var(--viz-choice)'
+												: 'var(--viz-choice-soft)'}"
+										></div>
+									</div>
+
+									<p class="mt-2 text-neutral-600 dark:text-neutral-400">{hit.text}</p>
+
+									<p class="mt-2 text-xs text-neutral-500">
+										{hit.sourceLocator}{hit.page !== null ? ` / p.${hit.page}` : ''}
+										<!--
+											ページアンカーは表紙と目次のぶんずれるため付けない。
+											版が変わるとページも動く。PDF本体へ移動させる。
+										-->
+										<a
+											href={hit.sourceUrl}
+											target="_blank"
+											rel="noopener noreferrer"
+											class="ml-2 underline underline-offset-2">原文を見る</a
+										>
+									</p>
+									<!--
+										PDL 1.0 の出典表示。抜粋は pdftotext の出力を畳んでいるため
+										加工物にあたる（docs/SPEC_FIND_DESIGN.md §2）。
+									-->
+									<p class="mt-1 text-xs break-all text-neutral-400">{hit.attribution}</p>
+								</li>
+							{/each}
+						</ol>
+					{/if}
+
+					{#if !spec.abstained}
+						<!--
+							Choice の分布と取り違えさせない。各候補を独立に評価しているため
+							合計は100%にならず、複数が同時に高くてよい（docs/JEV_DESIGN.md §7）。
+						-->
+						<p class="mt-3 text-xs text-neutral-500">
+							適合度は仕様箇所ごとに<strong>独立して</strong
+							>評価した実験値です。合計は100%になりません。仕様への適合率や検索の正答率ではありません。
+						</p>
+					{/if}
+
+					<p class="mt-2 text-xs text-neutral-400">
+						{spec.documentTitle} 第{spec.version}版 / 取得日 {spec.retrievedAt}
+					</p>
+				{/if}
 
 				{#if response.city}
 					{@const city = response.city}

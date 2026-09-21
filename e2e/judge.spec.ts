@@ -638,6 +638,118 @@ test.describe('開示', () => {
 	});
 });
 
+test.describe('SPEC FIND', () => {
+	/** 仕様箇所1件ぶんのスタブ。 */
+	const hit = (n: number, probability: number) => ({
+		rank: n,
+		passageId: `common-feature-2.7.p${n}`,
+		fitProbability: probability,
+		headingPath: ['EUC 機能', `EUC 機能とは${n}`],
+		sourceLocator: `§2.5.${n}`,
+		page: 50 + n,
+		text: `職員自身が表計算ソフト等を用いてデータを抽出、分析、加工、出力する機能${n}。`,
+		normalized: true,
+		attribution: `「地方公共団体情報システム共通機能標準仕様書」（デジタル庁）（https://www.digital.go.jp/x.pdf）を加工して作成`,
+		sourceUrl: 'https://www.digital.go.jp/x.pdf'
+	});
+
+	const specBody = (overrides: Record<string, unknown> = {}) =>
+		judgeResponse({
+			mode: 'spec',
+			results: [],
+			spec: {
+				documentTitle: '地方公共団体情報システム共通機能標準仕様書',
+				version: '2.7',
+				retrievedAt: '2026-09-21',
+				sourceUrl: 'https://www.digital.go.jp/x.pdf',
+				abstained: false,
+				hits: [hit(1, 0.94), hit(2, 0.71)],
+				unresolved: [],
+				...overrides
+			}
+		});
+
+	test('タブから仕様箇所を探せる', async ({ page }) => {
+		await stubJudge(page, () => ({ status: 200, body: specBody() }));
+		await page.goto('/');
+		await page.getByRole('tab', { name: 'spec' }).click();
+		await textarea(page).fill('Excelにデータを出して職員が加工したい');
+		await judge(page).click();
+
+		// 順位、見出し、適合度、locator、原文への導線が揃う。
+		await expect(page.getByText('EUC 機能 / EUC 機能とは1')).toBeVisible();
+		await expect(page.getByText('適合度（実験値） 94%')).toBeVisible();
+		await expect(page.getByText('§2.5.1 / p.51')).toBeVisible();
+		await expect(page.getByRole('link', { name: '原文を見る' }).first()).toHaveAttribute(
+			'href',
+			'https://www.digital.go.jp/x.pdf'
+		);
+		// 版と取得日を残す。
+		await expect(page.getByText('第2.7版 / 取得日 2026-09-21')).toBeVisible();
+	});
+
+	test('ページを持たない仕様箇所はページ表記を出さない', async ({ page }) => {
+		// 複数の節をまとめたpassageは、どれが当たっても同じページを引用として
+		// 示すことになるためページを持たない。locator だけを出す。
+		await stubJudge(page, () => ({
+			status: 200,
+			body: specBody({ hits: [{ ...hit(1, 0.9), page: null, sourceLocator: '§2.1.5 / §2.2.3' }] })
+		}));
+		await page.goto('/');
+		await page.getByRole('tab', { name: 'spec' }).click();
+		await textarea(page).fill('機能要件の一覧はどこ');
+		await judge(page).click();
+
+		await expect(page.getByText('§2.1.5 / §2.2.3')).toBeVisible();
+		await expect(page.getByText(/\/ p\.\d/)).toHaveCount(0);
+	});
+
+	test('加工した抜粋には加工表示を出す', async ({ page }) => {
+		// PDL 1.0 は加工物を無加工の政府資料として見せることを禁じる。
+		await stubJudge(page, () => ({ status: 200, body: specBody() }));
+		await page.goto('/');
+		await page.getByRole('tab', { name: 'spec' }).click();
+		await textarea(page).fill('データを出したい');
+		await judge(page).click();
+
+		await expect(page.getByText('を加工して作成').first()).toBeVisible();
+	});
+
+	test('適合度が実験値であることを明示する', async ({ page }) => {
+		// Noul の独立した値で、仕様適合率でも検索の正答率でもない。
+		// Choice の分布と違い合計は100%にならない。
+		await stubJudge(page, () => ({ status: 200, body: specBody() }));
+		await page.goto('/');
+		await page.getByRole('tab', { name: 'spec' }).click();
+		await textarea(page).fill('データを出したい');
+		await judge(page).click();
+
+		await expect(page.getByText('適合度（実験値） 94%')).toBeVisible();
+		await expect(page.getByText('合計は100%になりません')).toBeVisible();
+		await expect(page.getByText('仕様への適合率や検索の正答率ではありません')).toBeVisible();
+	});
+
+	test('該当が無ければ無理に候補を出さない', async ({ page }) => {
+		await stubJudge(page, () => ({
+			status: 200,
+			body: specBody({ abstained: true, hits: [] })
+		}));
+		await page.goto('/');
+		await page.getByRole('tab', { name: 'spec' }).click();
+		await textarea(page).fill('株式の売買手数料の相場を知りたい');
+		await judge(page).click();
+
+		await expect(page.getByText('十分に近い仕様箇所を見つけられませんでした')).toBeVisible();
+		await expect(page.getByText('適合度（実験値）')).toHaveCount(0);
+	});
+
+	test('仕様への適合判定でないことを常時表示する', async ({ page }) => {
+		await page.goto('/');
+		await page.getByRole('tab', { name: 'spec' }).click();
+		await expect(page.getByText('仕様への適合、実装可否、行政・法的な判断')).toBeVisible();
+	});
+});
+
 test.describe('メタ情報', () => {
 	test('OGP の画像が絶対 URL になる', async ({ page }) => {
 		// 相対 URL だとクローラーが解決できず、カードに画像が出ない。

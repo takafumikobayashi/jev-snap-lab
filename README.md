@@ -14,11 +14,27 @@
 
 CITY は正式な行政案内サービスではなく、Jev と根拠付きルーティングの技術デモです。Jev の出力だけを正解とみなさず、公式の組織・分掌データを併記します。
 
+## 次期拡張（設計中）
+
+- **CITY Semantic Fit** — 現行の課レベルChoiceを既定経路として残し、候補を限定した分掌適合度の実験を行う。追加呼び出し、全分掌の送信、正式な担当確定はMVPに含めない。
+- **SPEC FIND** — デジタル庁の共通機能標準仕様書第2.7版の公式PDFだけを対象に、短い要望から関連passageと出典箇所を探す。回答生成、適合性判定、Excel対応は後続検討とする。
+
+設計と評価結果は [CITY Semantic Fit](docs/CITY_SEMANTIC_EXPERIMENT.md) と [SPEC FIND](docs/SPEC_FIND_DESIGN.md) を参照してください。
+
+| 機能              | 状態                                                                                       |
+| ----------------- | ------------------------------------------------------------------------------------------ |
+| SPEC FIND         | **実装済み**。`SPEC_FIND_ENABLED=true` で有効。本番で有効にする                            |
+| CITY Semantic Fit | **実装済み（shadow）**。`CITY_SEMANTIC_EXPERIMENT=true` で有効。本番では無効のまま据え置く |
+
+どちらも既定は無効で、既存のLOVE / SOCIAL / CITYの動作は変わりません。
+
 ## 設計ドキュメント
 
 - [プロダクト仕様](docs/PRODUCT_SPEC.md)
 - [Jev 設計](docs/JEV_DESIGN.md)
 - [CITY データ設計](docs/CITY_DATA.md)
+- [CITY Semantic Fit 実験設計](docs/CITY_SEMANTIC_EXPERIMENT.md)
+- [SPEC FIND 設計](docs/SPEC_FIND_DESIGN.md)
 - [アーキテクチャ](docs/ARCHITECTURE.md)
 - [実装計画](docs/IMPLEMENTATION_PLAN.md)
 - [デプロイ手順](docs/DEPLOY.md)
@@ -29,7 +45,7 @@ CITY は正式な行政案内サービスではなく、Jev と根拠付きル�
 
 - SvelteKit + TypeScript
 - Tailwind CSS
-- Node.js 20 以上 / pnpm
+- Node.js 22.12 以上 / pnpm
 - TypeSafe 公式 JavaScript SDK (`@typesafe-ai/sdk`)
 - Vercel (`@sveltejs/adapter-vercel`)
 - 永続データベースなし。CITY データはバージョン管理する静的 JSON
@@ -38,7 +54,9 @@ CITY は正式な行政案内サービスではなく、Jev と根拠付きル�
 
 ## ローカル実行方法
 
-パッケージマネージャは **pnpm** です。Node.js 20 以上が必要です。
+パッケージマネージャは **pnpm** です。**Node.js 22.12 以上**が必要で、`engine-strict=true` により満たさない環境では `pnpm install` が失敗します。
+
+Node 20 は 2026-04-30 にサポートが終了しています。加えて `pnpm spec:build` が TypeScript の型ストリップ（Node 22.6 以降）を使うため、下限を 22.12 にしています。CI と Vercel の実行環境もいずれも Node 22 です。
 
 pnpm を採用したのは、この構成の依存を npm でインストールできなかったためです。開発環境（macOS / Node 22.19.0 / npm 10.9.3）で `npm install` が arborist の peer 解決中に `Cannot read properties of null (reading 'edgesOut')` で異常終了しました。`--legacy-peer-deps` を付けると解決できたため依存の衝突ではありませんが、他のバージョンや環境での再現性は確認していません。pnpm では問題なくインストールできます。
 

@@ -17,6 +17,8 @@ import { estimateCostUsd } from '$lib/server/jev-config.server';
 import { normalizeAnswers } from '$lib/server/normalize-response.server';
 import { buildCatalog, buildState } from '$lib/server/question-catalog.server';
 import { buildCityBlock } from '$lib/server/city-evidence.server';
+import { findSpecPassages, isSpecFindEnabled } from '$lib/server/spec-find.server';
+import { runCitySemanticShadow } from '$lib/server/city-semantic.server';
 import { createRateLimiter, parseRateLimit } from '$lib/server/rate-limit.server';
 import { describeFailure, validateJudgeInput } from '$lib/validation/judge-input';
 import { readJsonBody } from '$lib/server/request-body.server';
@@ -33,6 +35,31 @@ export const config: Config = {
 	maxDuration: 20,
 	split: true
 };
+
+/**
+ * 1リクエスト全体で上流に使える時間。
+ *
+ * `JEV_TOTAL_TIMEOUT_MS`（既定12,000ms）は**1回の evaluate の予算**であり、
+ * 2回呼べることを意味しない。12,000 × 2 = 24,000ms は `maxDuration` の
+ * 20,000ms を超え、先にプラットフォームへ切られてアプリの504にも
+ * fallback にも到達しない。
+ *
+ * 応答の組み立てとネットワークのぶんを引いて16,000msを全体の上限とし、
+ * Stage 1 が使った残りを Stage 2 の予算にする。
+ */
+const REQUEST_BUDGET_MS = 16_000;
+
+/**
+ * この時点で上流に使える残り時間。
+ *
+ * **すべての `evaluate` 呼び出しへ渡す。** 渡さないと `JEV_TOTAL_TIMEOUT_MS`
+ * がそのまま使われ、16秒を超える値を設定したときに `maxDuration` の
+ * 20,000ms を先に踏む。そうなるとアプリの504にも fallback にも到達せず、
+ * HTML の500が返る。
+ */
+function remainingBudgetMs(startedAt: number): number {
+	return REQUEST_BUDGET_MS - (performance.now() - startedAt);
+}
 
 const JSON_HEADERS = {
 	'Content-Type': 'application/json; charset=utf-8'
@@ -101,6 +128,147 @@ function log(fields: Record<string, unknown>): void {
 	console.info(JSON.stringify({ route: 'api/judge', ...fields }));
 }
 
+/**
+ * SPEC FIND の応答。
+ *
+ * 典型的な質問は1回で収まるが、候補数が上限を超えると engine が分割する。
+ * usage は呼び出し回数ぶん合算する（docs/IMPLEMENTATION_PLAN.md §8.0）。
+ */
+async function respondSpecFind(
+	text: string,
+	requestId: string,
+	startedAt: number
+): Promise<Response> {
+	let inputTokens = 0;
+	let outputTokens = 0;
+	let model = '';
+	let upstreamLatencyMs = 0;
+	let calls = 0;
+	let pricePerMillion = 0;
+
+	try {
+		const spec = await findSpecPassages(text, async ({ state, questions }) => {
+			const { result, latencyMs, config } = await evaluate(
+				state,
+				questions,
+				remainingBudgetMs(startedAt)
+			);
+			calls += 1;
+			inputTokens += result.usage.input_tokens;
+			outputTokens += result.usage.output_tokens;
+			upstreamLatencyMs += latencyMs;
+			model = result.model;
+			pricePerMillion = config.inputPricePerMillionTokens;
+			return result.answers as Record<string, unknown>;
+		});
+
+		const response: JudgeResponse = {
+			requestId,
+			mode: 'spec',
+			model,
+			latencyMs: Math.round(performance.now() - startedAt),
+			usage: {
+				inputTokens,
+				outputTokens,
+				estimatedCostUsd: estimateCostUsd(inputTokens, pricePerMillion)
+			},
+			// SPEC FIND は typed judgment のカードを出さない。判定は passage ごとの
+			// 独立 Noul で、結果は spec.hits に入る。
+			results: [],
+			spec
+		};
+
+		log({
+			requestId,
+			mode: 'spec',
+			status: 200,
+			model,
+			calls,
+			upstreamLatencyMs: Math.round(upstreamLatencyMs),
+			latencyMs: response.latencyMs,
+			inputTokens,
+			hits: spec.hits.length,
+			abstained: spec.abstained,
+			// 出典を解決できなかった候補は画面に出さず、件数だけ残す。
+			unresolved: spec.unresolved.length
+		});
+
+		return jsonResponse(response, 200);
+	} catch (error) {
+		const code = error instanceof JudgeError ? error.code : 'INTERNAL_ERROR';
+		log({
+			requestId,
+			mode: 'spec',
+			status: errorStatus(code),
+			code,
+			latencyMs: Math.round(performance.now() - startedAt),
+			detail: error instanceof JudgeError ? error.logDetail : describeUnhandled(error)
+		});
+		return failure(code, requestId);
+	}
+}
+
+/**
+ * CITY Stage 2 を shadow で走らせ、観測値だけ残す。
+ *
+ * 画面には出さない。既定経路の結果を上書きしないことと、失敗しても既定の
+ * 結果が返ることを成功条件にする（docs/CITY_SEMANTIC_EXPERIMENT.md §4.4）。
+ * そのため例外はここで吸収し、呼び出し側へ伝播させない。
+ */
+async function observeCitySemantic(
+	response: JudgeResponse,
+	text: string,
+	requestId: string,
+	startedAt: number
+): Promise<void> {
+	const remaining = remainingBudgetMs(startedAt);
+	let pricePerMillion = 0;
+	try {
+		const metrics = await runCitySemanticShadow(response, text, remaining, async (request) => {
+			// Stage 1 の後にさらに時間が経っているため、その場で測り直す。
+			const { result, config } = await evaluate(
+				request.state,
+				request.questions,
+				remainingBudgetMs(startedAt)
+			);
+			pricePerMillion = config.inputPricePerMillionTokens;
+			return {
+				answers: result.answers as Record<string, unknown>,
+				inputTokens: result.usage.input_tokens,
+				outputTokens: result.usage.output_tokens
+			};
+		});
+		if (!metrics) return;
+
+		// 入力本文は残さない。IDと数値だけで比較できるようにする。
+		// base と semantic を1行の中で区別し、集計時に突き合わせ不要にする。
+		const { latencyMs, inputTokens, outputTokens, ...rest } = metrics;
+		log({
+			requestId,
+			mode: 'city',
+			experiment: 'city_semantic',
+			...rest,
+			baseLatencyMs: response.latencyMs,
+			baseInputTokens: response.usage?.inputTokens ?? null,
+			semanticLatencyMs: latencyMs,
+			semanticInputTokens: inputTokens,
+			semanticOutputTokens: outputTokens,
+			semanticCostUsd: estimateCostUsd(inputTokens, pricePerMillion),
+			// 利用者が待った時間。base + semantic + 組み立て。
+			totalLatencyMs: Math.round(performance.now() - startedAt)
+		});
+	} catch (error) {
+		// 実験の失敗で既定の結果を落とさない。原因だけ残す。
+		log({
+			requestId,
+			mode: 'city',
+			experiment: 'city_semantic',
+			failed: true,
+			detail: error instanceof JudgeError ? error.logDetail : describeUnhandled(error)
+		});
+	}
+}
+
 export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 	// requestId は入力本文から生成しない（docs/ARCHITECTURE.md §3）。
 	const requestId = `req_${crypto.randomUUID()}`;
@@ -143,6 +311,14 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 
 	const { mode, text } = validated.value;
 
+	// SPEC FIND は実験機能。無効なら未知のモードと同じ扱いにする。
+	if (mode === 'spec' && !isSpecFindEnabled()) {
+		log({ requestId, status: 400, code: 'INVALID_INPUT', detail: 'SPEC_FIND_DISABLED' });
+		return failure('INVALID_INPUT', requestId);
+	}
+
+	if (mode === 'spec') return await respondSpecFind(text, requestId, startedAt);
+
 	// catalog の生成は try の中で行う。CITY は候補データを読むため、
 	// データセットの設定ミスがここで例外になる。外に出すと未捕捉になり、
 	// クライアントが待っている JSON ではなく HTML の 500 が返る。
@@ -152,7 +328,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 			result,
 			latencyMs,
 			config: jevConfig
-		} = await evaluate(buildState(mode, text), catalog.questions);
+		} = await evaluate(buildState(mode, text), catalog.questions, remainingBudgetMs(startedAt));
 		const results = normalizeAnswers(catalog, result);
 
 		const response: JudgeResponse = {
@@ -172,6 +348,13 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 			results,
 			...(mode === 'city' ? { city: buildCityBlock(results, text) } : {})
 		};
+
+		if (mode === 'city') await observeCitySemantic(response, text, requestId, startedAt);
+
+		// shadow は応答を返す前に await する。利用者が待った時間を反映させるため、
+		// latencyMs はここで確定させる。実験を有効にしたときに、画面の表示だけ
+		// 実際より短くなるのを避ける。
+		response.latencyMs = Math.round(performance.now() - startedAt);
 
 		log({
 			requestId,

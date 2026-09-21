@@ -225,6 +225,69 @@ function representativeDuties(units: CityOrganizationUnit[]): string[] {
 	return picked;
 }
 
+/** Semantic Fit の候補1件。ID と条文、出典を持つ。 */
+export type ResponsibilityCandidate = {
+	responsibilityId: string;
+	/** 条文そのまま。Stage 2 は分掌との適合を測るため要約ではなく条文を使う。 */
+	officialText: string;
+	/** 属する課。候補の文脈として Jev へ渡す。 */
+	section: string;
+	sourceRefs: string[];
+};
+
+/**
+ * Semantic Fit へ渡す候補分掌。
+ *
+ * 候補説明に使う `representativeDuties` と同じ並べ方をするが、返すのは
+ * 表示用の文字列ではなくIDと条文を持つレコードである。順位付けの結果を
+ * ローカルの出典へ join し直すために、安定IDが要る。
+ *
+ * 同じ入力・同じデータバージョンでは同じ順序になる。実験の比較が読めなく
+ * なるため、並びを入力ごとに変えない。
+ */
+export function responsibilityCandidates(
+	candidateId: string,
+	limit = MAX_DUTIES_PER_CANDIDATE
+): ResponsibilityCandidate[] {
+	const units = activeUnits().filter((unit) => unit.routingCandidateId === candidateId);
+
+	const rows = units.flatMap((unit) =>
+		unit.responsibilities
+			.filter(
+				(responsibility) =>
+					!BOILERPLATE.some((pattern) => responsibility.officialText.includes(pattern))
+			)
+			.map((responsibility) => ({
+				responsibilityId: responsibility.responsibilityId,
+				officialText: responsibility.officialText,
+				section: unit.section,
+				sourceRefs: responsibility.sourceRefs,
+				rank: responsibility.keywords.length > 0 ? 0 : rankOfDuty(responsibility.publicSummary)
+			}))
+	);
+
+	// 同順位は**条文順のまま**にする。`Array.prototype.sort` は安定なので、
+	// rank だけで並べれば入力順が保たれる。IDで並べ直すと
+	// `…u1.r10` が `…u1.r4` より前に来て、災害援護や戦傷病者の援護が
+	// 上限で落ちる。Stage 1 の候補説明（representativeDuties）と選ばれる
+	// 分掌がずれ、実験が別物を測ることになる。
+	return rows
+		.sort((a, b) => a.rank - b.rank)
+		.slice(0, limit)
+		.map((row) => ({
+			responsibilityId: row.responsibilityId,
+			officialText: row.officialText,
+			section: row.section,
+			sourceRefs: row.sourceRefs
+		}));
+}
+
+/** 抽象的な分掌を後回しにする。候補説明と同じ基準を使う。 */
+function rankOfDuty(publicSummary: string): number {
+	const text = publicSummary.replace(/\([^)]*\)/g, '').trim();
+	return GENERIC_DUTY.test(text) ? 2 : 1;
+}
+
 /** `route_to` の criteria。`other_or_unclear` を必ず含める。 */
 export function routeCriteria(): Record<string, string> {
 	const criteria: Record<string, string> = {};

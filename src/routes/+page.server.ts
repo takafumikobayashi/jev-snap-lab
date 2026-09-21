@@ -1,6 +1,7 @@
 import type { PageServerLoad } from './$types';
 import { env } from '$env/dynamic/public';
 import { isFictional } from '$lib/server/city-directory.server';
+import { isSpecFindEnabled } from '$lib/server/spec-find.server';
 
 /** 同じ警告を毎リクエスト出さないための印。 */
 let warnedAboutSiteUrl = false;
@@ -27,5 +28,6 @@ export const load: PageServerLoad = () => {
 		);
 	}
 
-	return { cityFictional: isFictional(), siteUrl };
+	// SPEC FIND は実験機能。無効ならタブ自体を出さない。
+	return { cityFictional: isFictional(), siteUrl, specEnabled: isSpecFindEnabled() };
 };

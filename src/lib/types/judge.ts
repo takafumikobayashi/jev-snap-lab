@@ -5,7 +5,13 @@
  * 契約の出所は docs/JEV_DESIGN.md の §8 と docs/ARCHITECTURE.md の §7。
  */
 
-export const MODES = ['love', 'social', 'city'] as const;
+/**
+ * アプリが知っているモード。
+ *
+ * `spec` は実験機能で、サーバー側の `SPEC_FIND_ENABLED` が真のときだけ
+ * 受け付ける。無効なら画面にもタブを出さない。
+ */
+export const MODES = ['love', 'social', 'city', 'spec'] as const;
 
 export type Mode = (typeof MODES)[number];
 
@@ -104,6 +110,8 @@ export type JudgeResponse = {
 		estimatedCostUsd?: number;
 	};
 	results: ResultCard[];
+	/** SPEC FIND の結果。mode が `spec` のときだけ付く。 */
+	spec?: SpecFindResult;
 	city?: {
 		/** 候補生成に使った組織データのバージョン。観測ログと根拠表示に使う。 */
 		directoryVersion: string;
@@ -165,3 +173,36 @@ export type CityCandidateEvidence =
 			/** 画面に出す候補名。組織名ではないため officialName と分ける。 */
 			label: string;
 	  });
+
+/** 仕様箇所1件ぶんの根拠。出典はすべて静的データから解決する。 */
+export type SpecHit = {
+	rank: number;
+	passageId: string;
+	/** Noul の yesProbability。仕様適合率でも正答率でもない。 */
+	fitProbability: number;
+	headingPath: string[];
+	sourceLocator: string;
+	page: number | null;
+	text: string;
+	/** 原文のままか、抽出時に正規化したか。出典表示を切り替える。 */
+	normalized: boolean;
+	/** PDL 1.0 が求める出典文字列。 */
+	attribution: string;
+	sourceUrl: string;
+};
+
+export type SpecFindResult = {
+	documentTitle: string;
+	version: string;
+	retrievedAt: string;
+	sourceUrl: string;
+	/** 十分に近い候補が無かったか。無理に最上位を出して隠さない。 */
+	abstained: boolean;
+	hits: SpecHit[];
+	/**
+	 * 出典を解決できなかった候補ID。
+	 *
+	 * 画面には出さず、requestIdとデータセット版だけをログする。
+	 */
+	unresolved: string[];
+};

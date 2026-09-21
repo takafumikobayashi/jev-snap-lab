@@ -275,7 +275,22 @@ type CitySource = {
 
 ### 代替案: 全分掌事務をstateに入れる
 
-全課の全分掌事務をstateに入れると、候補説明の漏れは減るが、短文デモには過剰で、入力tokenと候補の紛らわしさが増す。MVPでは採用しない。候補が絞れないカテゴリだけ、将来の2段階判定で追加情報を送る。
+全課の全分掌事務をstateに入れると、候補説明の漏れは減るが、短文デモには過剰で、入力tokenと候補の紛らわしさが増す。既定経路では採用しない。2段階判定（Semantic Fit）は上位1課の代表分掌12件だけを追加で送る形で実装済みだが、本番では無効のまま据え置いている（[CITY_SEMANTIC_EXPERIMENT.md](CITY_SEMANTIC_EXPERIMENT.md) §7.3）。
+
+### Semantic Fit実験（実装済み・本番では無効）
+
+現行の「課レベルChoice + ローカルjoin」をCITYの既定経路として維持する。分掌事務の意味的な適合度をJevで追加評価する案は、精度比較のための限定実験であり、MVPの担当候補や根拠表示を置き換えない。
+
+最小実験の境界は次のとおり。
+
+1. 既存の `route_to` の上位1課を標準候補とし、候補差が小さい場合だけ設定で上位2課まで許可する。
+2. 1課あたり最大12件の代表分掌だけを事前選択する。分掌615件を全件fan-outしない。
+3. 各分掌に `responsibilityId` を付け、JevのNoul質問IDへ埋め込む。
+4. 追加のSemantic Fitは最大1回のserver-side呼び出しとし、失敗時は現行結果へfallbackする。
+5. `fitProbability`は「入力文がこの分掌に意味的に適合する読み」の独立Noul確率であり、Choiceの確率、公式な担当確率、confidenceではない。
+6. 順位付けと候補の採否はアプリ側で行い、出典・locator・取得日・有効日はローカルデータへjoinする。
+
+追加評価の結果を本番の既定UIへ出すか、どの閾値で `abstain` とするかは、受入fixtureと実機のlatency・token・コスト測定後に決める。詳細は [CITY_SEMANTIC_EXPERIMENT.md](CITY_SEMANTIC_EXPERIMENT.md) にまとめる。
 
 ## 6. 初期の受入テスト用問い合わせ
 

@@ -66,6 +66,38 @@ question catalog / labels ─────────┴─ server only
 7. CITYでは `route_to`の候補IDを静的データへjoinし、根拠情報を付加する。
 8. ブラウザは結果を表示する。入力文は保存せず、レスポンスにも不要なら再掲しない。
 
+### Semantic Fit の論理フロー（実装済み）
+
+#### CITY Semantic Fit
+
+```text
+Browser
+  -> /api/judge (mode=city, experimental flag)
+  -> 既存のCITY Choiceを1回評価
+  -> 上位1〜2課を決定、各課の代表分掌を最大12件へ絞る
+  -> Semantic Fit Noulを追加で最大1回評価
+  -> アプリ側で順位付け
+  -> responsibilityIdで静的CITYデータへjoin
+  -> 現行結果 + experimental block（任意）
+```
+
+既定のCITY経路はこの追加分岐を通らない。追加呼び出しの失敗、timeout、レート制限、answer欠落は、現行のChoiceと根拠joinを返すfallback条件とする。2回のJev呼び出しを許す場合は、既存の1回分 `JEV_TOTAL_TIMEOUT_MS` とは別にrequest-level deadlineを設ける。
+
+#### SPEC FIND PDF v0
+
+```text
+Browser
+  -> /api/judge (mode=spec-find)
+  -> server-onlyで固定済みのpassage JSONを読む
+  -> passage数・文字数の上限を検証
+  -> 1回のbounded Jev requestで各passageを独立Noul評価
+  -> アプリ側でfitProbability順に並べる
+  -> passageIdで文書版・章節・ページ・公式PDF URLへjoin
+  -> 上位候補またはabstainを表示
+```
+
+SPEC FIND v0はランタイムで公式サイトへアクセスしない。機能要件Excel、項目定義書、API仕様書もこのフローへ含めない。コーパスがbounded requestに収まらなくなった場合だけ、Stage 1 Choiceを含む二段階方式を再検討する。
+
 ### リクエスト相関
 
 - サーバーで `requestId` を発行し、レスポンスに含める。
@@ -129,6 +161,27 @@ question catalog / labels ─────────┴─ server only
 └── vite.config.ts       # SvelteKit + Tailwind + adapter-vercel + Vitest
 ```
 
+Semantic 拡張で追加した構成は次のとおり。
+
+```text
+data/spec/
+└── common-feature-2.7.json       # 公式PDFから正規化したbounded passage corpus
+                                  # 版・取得日・URL・content hash を同じファイルへ持つ
+
+src/lib/server/
+├── semantic-match.server.ts      # CITY / SPEC FIND共通のNoul評価・順位付け
+├── semantic-policies.server.ts   # ドメインごとの質問文と閾値
+├── spec-corpus.server.ts         # コーパス検証と PDL 1.0 の出典表示
+├── spec-evidence.server.ts       # passageIdから出典へのjoin
+├── spec-find.server.ts           # SPEC FINDの入口。feature flagとコーパス読み込み
+└── city-semantic.server.ts       # CITY Stage 2 の shadow 実験
+
+scripts/
+└── build-spec-corpus.mjs         # 公式PDFからコーパスを生成する（PDFは同梱しない）
+```
+
+`data/spec`のpassage JSONは静的・バージョン管理対象とし、公式サイトからのランタイム取得は行わない。PDF本体は1.6MBあり公式URLから常に取得できるため同梱せず、出力JSONだけをコミットする。メタデータは別ファイルに分けず同じJSONへ入れる。同じ事実を2箇所に持つと必ず片方が古くなるため（[SPEC_FIND_DESIGN.md](SPEC_FIND_DESIGN.md) §4）。
+
 本プロジェクトでは設定を `vite.config.ts` へ集約し、`svelte.config.js` を置かない。SvelteKit 2.62 以降は `sveltekit()` プラグインが `KitConfig` を直接受け取れるようになっており、その場合 `svelte.config.js` は無視される。`svelte.config.js` を使う方式も引き続きサポートされているため、必要になれば移せる。adapter、CSP、runes モード（Svelte 5）の強制はいずれも `vite.config.ts` に置く。
 
 `*.server.ts`はブラウザへバンドルされないserver-only境界を意図する。Jevキーを持つモジュールは `src/lib/server/` からしかimportしない。
@@ -141,14 +194,32 @@ question catalog / labels ─────────┴─ server only
 | `TYPESAFE_DEFAULT_MODEL` | No | 既定モデル。推奨 `jev-latest` | No |
 | `TYPESAFE_BASE_URL` | No | SDKのAPI root。通常は既定値を使う | No |
 | `JEV_TIMEOUT_MS` | No | 1試行timeout。推奨3500（§6の算出根拠を参照） | No |
-| `JEV_TOTAL_TIMEOUT_MS` | No | retryを含む総予算。推奨12000 | No |
+| `JEV_TOTAL_TIMEOUT_MS` | No | retryを含む1回ぶんの総予算。推奨12000。**16,000msで頭打ち** | No |
 | `JEV_INPUT_PRICE_PER_MILLION_TOKENS` | No | コスト推計。既定0.042 | No |
 | `APP_RATE_LIMIT_PER_MINUTE` | No | アプリ側のbest-effort上限 | No |
 | `CITY_DIRECTORY` | No | CITYのデータセット名。既定は架空データ `fictional-m-city`（[CITY_DATA.md](CITY_DATA.md) の §9） | No |
 | `CITY_SOURCE_HOSTS` | No | 出典URLに許可するホスト（カンマ区切り）。未設定ならURLを持つ出典を許さない | No |
 | `PUBLIC_SITE_URL` | No | サイトの起点URL。OGPの絶対URL生成に使う。未設定なら画像系のmetaを出さない | Yes |
-| `PUBLIC_SITE_URL` | No | OGP画像の絶対URL生成用。未設定時は相対URL | Yes |
 | `PUBLIC_APP_LABEL` | No | CITYのデモ注意文など公開可能な表示設定 | Yes可 |
+| `SPEC_FIND_ENABLED` | No | SPEC FINDを有効にする。明示的な `true` だけ | No |
+| `CITY_SEMANTIC_EXPERIMENT` | No | CITY Stage 2 のshadow実験を有効にする。明示的な `true` だけ | No |
+
+Semantic 拡張で追加した環境変数は次のとおり。どちらもfeature flagで、既定は安全側（無効）である。明示的な `true` だけを有効とし、`1` や `TRUE` では有効にならない。
+
+| 変数 | 既定 | 用途 |
+|---|---|---|
+| `SPEC_FIND_ENABLED` | 無効 | SPEC FIND の UI と API。**本番で有効にする** |
+| `CITY_SEMANTIC_EXPERIMENT` | 無効 | CITY Stage 2 の shadow 経路。**本番では無効のまま** |
+
+候補数や上限は環境変数にしていない。実測で決めた値をコードの定数として持ち、変更するときは測り直す前提にする。
+
+- `MAX_CANDIDATES_PER_REQUEST = 40`（`semantic-match.server.ts`）
+- `MAX_PASSAGES = 40` / `MAX_PASSAGE_CHARS = 600` / `MAX_CORPUS_CHARS = 20,000`（`spec-corpus.server.ts`）
+- `MAX_RESPONSIBILITIES = 12` / `MAX_SECTIONS = 1`（`city-semantic.server.ts`）
+
+データセットのIDも固定する。SPEC FIND は第2.7版のコーパスを直接importしており、環境変数で差し替えられない。差し替えを許すと、検証していないデータで公開する経路ができる。
+
+feature flagはクライアントから任意値を受け取らず、server route側で判定する。APIキー、データセット、source URLのallowlistは引き続きserver-onlyで扱う。
 
 `.env`はコミットしない。VercelではPreview / Productionごとに分離する。`PUBLIC_` prefix以外の秘密はSvelteのpublic env importへ渡さない。
 
@@ -157,6 +228,10 @@ question catalog / labels ─────────┴─ server only
 Vercelは関数に既定の最大実行時間を設定しており、超えるとプラットフォーム側が関数を終了させる。これは環境変数ではなくデプロイ設定で指定する。
 
 `JEV_TOTAL_TIMEOUT_MS` が既定値を超えていると、アプリのtimeout処理（504 / `UPSTREAM_TIMEOUT`）へ到達する前に関数が殺され、ユーザーにはプラットフォームのエラーが出る。**総予算より確実に大きい `maxDuration` を明示設定する。**
+
+そのうえで、`/api/judge` は**リクエスト全体の予算 `REQUEST_BUDGET_MS = 16,000ms`** を持ち、すべての `evaluate` 呼び出しへ残り時間を渡す。`evaluate` は1回ぶんの総予算と渡された残りの短い方を使うため、`JEV_TOTAL_TIMEOUT_MS` に16秒を超える値を設定しても16秒で頭打ちになる。設定が `maxDuration` を踏み抜くのを、環境変数の運用ではなくコードで防ぐ。
+
+渡し忘れるとこの上限が効かない。CITY Stage 2 と SPEC FIND を足したときに Stage 1 への受け渡しが漏れており、`JEV_TOTAL_TIMEOUT_MS` を大きくすると `maxDuration` を先に踏む状態になっていた。全モードの Stage 1 が予算を受け取ることをテストで固定している。
 
 **`vercel.json` の `functions` グロブは使えない。** adapter-vercelはBuild Output API v3を使い、`.vercel/output/functions/**/.vc-config.json` をアダプタ自身が書き出す。生成される関数名は `catchall.func` などであり、`src/routes/api/judge/+server.ts` のようなソースパスとは一致しないため、`vercel.json` に書いても適用されない。
 
@@ -423,12 +498,22 @@ upstreamから429 / 529が返ったときは、公式SDKのbackoffと`retry-afte
 - コスト推計は `input_tokens / 1_000_000 * 0.042` を初期式とし、「推計」とラベル付けする。
 - 監視・ログに入力本文を含めない。
 
+次期拡張では、既存の1回判定とSemantic Fit追加分を分けて計測する。
+
+- `baseUpstreamLatencyMs`: 現行のChoice / Score / Noul呼び出し
+- `semanticUpstreamLatencyMs`: CITY追加評価またはSPEC FINDのbounded request
+- `latencyMs`: request-level deadline内の総処理時間
+- `baseInputTokens` / `semanticInputTokens`: それぞれの推計コストの元になる値
+- `passageCount`、`responsibilityCount`、`datasetVersion`
+
+入力本文、passage全文、CITYの分掌全文はログへ出さない。候補数・データセット版・token数だけで、token増加と精度差を追えるようにする。CITYの追加呼び出しを導入する場合は、既存の `JEV_TOTAL_TIMEOUT_MS` をそのまま2回適用せず、外側のdeadline、fallback、Vercel `maxDuration`を一組で設定する。
+
 ## 11. デプロイ
 
 - Vercel projectへ接続し、framework presetをSvelteKitにする。
 - PreviewとProductionの環境変数を分離する。
 - `maxDuration` が `JEV_TOTAL_TIMEOUT_MS` より大きいことを `.vercel/output/**/.vc-config.json` で確認し、Previewで実際にtimeoutを踏んで504が返ることを確認する。
-- Node.js runtimeはTypeSafe JavaScript SDKの要件であるNode.js 20以上に合わせる。[JavaScript SDK](https://docs.typesafe.ai/sdk/javascript)
+- Node.js runtimeは **22.12以上**とする。TypeSafe JavaScript SDK が要求するのは `>=20` だが（[JavaScript SDK](https://docs.typesafe.ai/sdk/javascript)）、Node 20 系は 2026-04-30 にサポートが終了しており、`pnpm spec:build` が型ストリップ（Node 22.6以降）を使う。CI と Vercel（`nodejs22.x`）も 22 系である。`package.json` の `engines` と `.npmrc` の `engine-strict=true` で強制する。
 - 最初のProduction deploy前に、Previewで以下を確認する。
   - APIキーがクライアントbundleに存在しない
   - `POST /api/judge`がJevへ到達する

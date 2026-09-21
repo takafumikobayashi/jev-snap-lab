@@ -1,0 +1,358 @@
+/**
+ * デジタル庁の公式PDFから SPEC FIND のコーパスを作る。
+ *
+ *   pnpm spec:build <path/to/common-2.7.pdf>
+ *
+ * PDF本体はリポジトリへ置かない（1.6MBあり、公式URLから常に取得できる）。
+ * 手元でPDFを取得してこのスクリプトへ渡す。出力のJSONだけをコミットする。
+ *
+ * 全ての検査を通ってから出力する。city:build と同じ理由で、途中で失敗した
+ * 未検証のデータを追跡対象のファイルへ書かない。
+ */
+
+import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { verifySource } from './lib/spec-source.mjs';
+// 検証はアプリと同じ実装を使う。スクリプト側へ写すと必ず片方が古くなる。
+// 型だけのimportなので、Nodeの型ストリップでそのまま読める。
+import {
+	validateCorpus,
+	MAX_CORPUS_CHARS,
+	MAX_PASSAGE_CHARS,
+	stateCharsOf
+} from '../src/lib/server/spec-corpus.server.ts';
+
+const DEFAULT_OUT = 'data/spec/common-feature-2.7.json';
+
+const [, , pdfPath, outPath = DEFAULT_OUT] = process.argv;
+if (!pdfPath) {
+	console.error('usage: build-spec-corpus.mjs <spec.pdf> [out.json]');
+	console.error(`  out の既定: ${DEFAULT_OUT}`);
+	console.error('  PDF はリポジトリに置かないため既定値を持たない。公式URLから取得して渡すこと。');
+	process.exit(1);
+}
+if (!existsSync(pdfPath)) {
+	console.error(`PDF が見つからない: ${pdfPath}`);
+	process.exit(1);
+}
+
+/** 固定して扱う版。別の文書を誤って取り込まないための錠。 */
+const DOCUMENT = {
+	documentId: 'common-feature-2.7',
+	title: '地方公共団体情報システム共通機能標準仕様書',
+	version: '2.7',
+	publishedAt: '2026-02-27',
+	/**
+	 * 固定した公式PDFの content hash。
+	 *
+	 * 別のPDFを渡してもこのメタデータで名乗ってしまうため、生成の前に照合する。
+	 * 改版で差し替えるときは、公式ページで版・公開日・URLを確認したうえで、
+	 * この値と `version` / `publishedAt` / `sourceUrl` を同時に更新する。
+	 */
+	contentHash: 'sha256-41d7fe7a96d5bcee527bd7caa21ac565a21d8d98a9fdc72431171ec93fad346d',
+	sourceUrl:
+		'https://www.digital.go.jp/assets/contents/node/basic_page/field_ref_resources/4d056a04-6eba-4109-9850-a786d3e71971/023dffea/20260227_policies_local_governments_common_02.pdf'
+};
+
+/** 表紙と目次。本文はここから後ろ。 */
+const FRONT_MATTER_PAGES = 3;
+/** 印字ページ番号 = 物理ページ - この値。 */
+const PAGE_OFFSET = 3;
+/** これを超える節は2つ目のpassageを作る。 */
+const LONG_SECTION_CHARS = 2000;
+/** 「別紙1のとおり」の一文だけかどうかの目安。 */
+const BOILERPLATE_CHARS = 100;
+
+const HEADING = /^\s*(\d+(?:\.\d+){0,2})\.\s+(\S.*)$/;
+/** 章見出し（`1.` など）は本文中の番号付き箇条書きと紛れる。短い行だけ拾う。 */
+const CHAPTER_TITLE_MAX = 30;
+
+const text = execFileSync('pdftotext', ['-layout', pdfPath, '-'], {
+	encoding: 'utf8',
+	maxBuffer: 64 * 1024 * 1024
+});
+const pages = text.split('\f');
+const contentHash = `sha256-${createHash('sha256').update(readFileSync(pdfPath)).digest('hex')}`;
+
+// 固定した出典と同じPDFか、抽出の前に確かめる。
+const mismatches = verifySource({ contentHash, text, pinned: DOCUMENT });
+if (mismatches.length > 0) {
+	console.error('入力PDFが固定した出典と一致しない:');
+	for (const problem of mismatches) console.error(`  - ${problem}`);
+	console.error('\n公式ページで版・公開日・URLを確認し、');
+	console.error('scripts/build-spec-corpus.mjs の DOCUMENT を更新してから実行すること。');
+	console.error(`${outPath} は更新しなかった。`);
+	process.exit(1);
+}
+
+// --- 見出しを拾う ---
+const sections = [];
+pages.forEach((page, i) => {
+	if (i < FRONT_MATTER_PAGES) return;
+	const lines = page.split('\n');
+	lines.forEach((line, at) => {
+		const match = line.match(HEADING);
+		// 目次行はリーダー（...）を持つ。
+		if (!match || line.includes('...')) return;
+		// 章見出しは短い。長ければ本文中の箇条書きなので拾わない。
+		if (!match[1].includes('.') && match[2].trim().length > CHAPTER_TITLE_MAX) return;
+
+		// 見出しが版面の幅で折り返されることがある。続きは見出しの直後に
+		// 空行なしで現れ、本文は必ず空行を挟む（全48見出しで確認）。つないで
+		// おかないと、見出しが途中で切れ（「…共通機能の関」）、続き（「係性」）が
+		// 本文の先頭へ混ざる。Jev へ渡す文脈も画面のパンくずも壊れる。
+		const wrapped = [];
+		let tail = at + 1;
+		while (lines[tail] !== undefined && lines[tail].trim() !== '') {
+			wrapped.push(lines[tail].trim());
+			tail += 1;
+		}
+
+		sections.push({
+			number: match[1],
+			title: normalizeInline([match[2], ...wrapped].join('')),
+			page: i + 1,
+			// 見出しがある行。次の節の開始を判定するために使う。
+			at,
+			// 本文の収集を始める行。折り返した見出しの続きを本文へ入れない。
+			bodyFrom: tail,
+			lines: []
+		});
+	});
+});
+
+// --- 各見出しの本文を集める ---
+let cursor = 0;
+pages.forEach((page, i) => {
+	if (i < FRONT_MATTER_PAGES) return;
+	page.split('\n').forEach((line, at) => {
+		while (
+			cursor + 1 < sections.length &&
+			(sections[cursor + 1].page < i + 1 ||
+				(sections[cursor + 1].page === i + 1 && sections[cursor + 1].at <= at))
+		) {
+			cursor += 1;
+		}
+		const current = sections[cursor];
+		// 折り返した見出しの続きは本文へ入れない（`bodyFrom` は見出しの次の行）。
+		if (current && (i + 1 > current.page || at >= current.bodyFrom)) current.lines.push(line);
+	});
+});
+
+for (const section of sections) section.body = cleanBody(section.lines);
+
+// --- passage を組み立てる ---
+const passages = [];
+const merged = [];
+
+for (const section of sections) {
+	// 章見出し（2.1 など）は直後に項が続くだけで本文を持たない。
+	if (section.body.length === 0) continue;
+
+	// 「求められる機能」の節は「別紙1_機能要件のとおりである」の一文だけのものが
+	// 多く、6件並べても候補が薄まる。定型文だけの節を1件へまとめる。
+	// §2.6.3 のように帳票要件などを追記している節は、独立したpassageとして残す。
+	if (/求められる機能$/.test(section.title) && section.body.length < BOILERPLATE_CHARS) {
+		merged.push(section);
+		continue;
+	}
+
+	for (const [at, chunk] of chunksOf(section).entries()) {
+		passages.push(makePassage(section, chunk, at));
+	}
+}
+
+if (merged.length > 0) {
+	passages.push({
+		passageId: `${DOCUMENT.documentId}.required-functions`,
+		documentId: DOCUMENT.documentId,
+		sectionId: merged.map((s) => s.number).join(', '),
+		headingPath: ['共通機能の要件の標準について', '各機能に求められる機能'],
+		text: `各共通機能の具体的な機能要件は、本文ではなく別紙「別紙1_機能要件」に定められている。対象は${merged
+			.map((s) => s.title.replace(/に求められる機能$/, ''))
+			.join('、')}。`,
+		// 統合した節は別々のページにある。1つを代表に選ぶと、他のどれが
+		// 当たっても同じページを引用として示すことになる。ページは持たせず、
+		// locator に全節を並べる。
+		page: null,
+		sourceLocator: `§${merged.map((s) => s.number).join(' / §')}`,
+		normalized: true,
+		tags: ['機能要件', '別紙']
+	});
+}
+
+// --- 検査してから書く ---
+const corpus = {
+	schemaVersion: '1',
+	document: { ...DOCUMENT, retrievedAt: today(), contentHash },
+	passages
+};
+
+console.log(`見出し ${sections.length} 件 -> passage ${passages.length} 件`);
+const stateChars = passages.reduce((n, p) => n + stateCharsOf(p), 0);
+console.log(
+	`state の文字数 ${stateChars} / 上限 ${MAX_CORPUS_CHARS}（${Math.round((stateChars / MAX_CORPUS_CHARS) * 100)}%）`
+);
+
+try {
+	validateCorpus(corpus, { allowedHosts: ['www.digital.go.jp'] });
+} catch (error) {
+	console.error(`\n検査に失敗した: ${error.message}`);
+	console.error(`${outPath} は更新しなかった。`);
+	process.exit(1);
+}
+console.log('コーパスの検査: 問題なし');
+
+const tmpPath = `${outPath}.tmp-${process.pid}`;
+try {
+	writeFileSync(tmpPath, `${JSON.stringify(corpus, null, '\t')}\n`);
+	renameSync(tmpPath, outPath);
+} catch (error) {
+	rmSync(tmpPath, { force: true });
+	throw error;
+}
+console.log(`${outPath} を更新した。`);
+
+// ---------------------------------------------------------------------------
+
+function normalizeInline(value) {
+	return value.replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * ページ番号だけの行と空行を落とし、1行へ畳む。
+ *
+ * PDFの改行は版面の都合であって文の区切りではない。畳んだ時点で加工物に
+ * あたるため、passageは `normalized: true` になる（PDL 1.0）。
+ */
+function cleanBody(lines) {
+	return (
+		lines
+			.filter((line) => !/^\s*\d{1,3}\s*$/.test(line))
+			.map((line) => line.replace(/\s+/g, ' ').trim())
+			.filter(Boolean)
+			// 日本語の行は空白なしで繋ぐが、箇条書きの記号だけは前に空白を入れる。
+			// 入れないと「認証方式client_secret_jwt」のように見出しと地の文が
+			// くっつき、抜粋としても読みにくい。
+			.map((line, at) => (at > 0 && /^[（(]?[0-9０-９①-⑳][)）]?/.test(line) ? ` ${line}` : line))
+			.join('')
+			.replace(/\s+/g, ' ')
+			.trim()
+	);
+}
+
+/**
+ * 節から抜粋を切り出す。
+ *
+ * v0は全文検索ではなく代表passageの索引である。長い節は先頭の抜粋で代表し、
+ * 続きは `sourceLocator` を辿って原文で読む前提にする。2,000字を超える節
+ * だけ、2つ目の抜粋を作る。
+ */
+function chunksOf(section) {
+	const first = cutAtSentence(section.body, MAX_PASSAGE_CHARS);
+	if (section.body.length <= LONG_SECTION_CHARS) return [first];
+	const rest = section.body.slice(first.length);
+	return [first, cutAtSentence(rest, MAX_PASSAGE_CHARS)];
+}
+
+/**
+ * 上限以内の、区切りのよいところまでを返す。
+ *
+ * 区切りは2種類ある。
+ *
+ * - **括弧の外にある句点。** 仕様書には「◯◯（……をいう。以下同じ。）」という
+ *   定義の書き方が多い。括弧内の句点で切ると閉じ括弧と後続が失われる。
+ *   実際に §1.3 が「…者をいう。以下同じ。」で終わり、対応する閉じ括弧と
+ *   機能の一覧が落ちていた。
+ * - **箇条書きの項目の先頭。** §1.3 のように、節がほぼ箇条書きで句点が
+ *   冒頭に1つしか無いことがある。句点だけを頼りにすると上限で強制的に
+ *   切れ、項目の途中で終わる。
+ *
+ * どちらも見つからない、または前半すぎる場合だけ、上限で切る。
+ */
+function cutAtSentence(body, limit) {
+	if (body.length <= limit) return body;
+	const window = body.slice(0, limit);
+
+	const sentence = lastSentenceEnd(window);
+	const keep = Math.max(sentence >= 0 ? sentence + 1 : -1, lastListMarkerStart(window));
+	// 前半で切ると抜粋として短すぎる。それなら上限まで使う。
+	return keep > limit / 2 ? window.slice(0, keep).trimEnd() : window;
+}
+
+/** 括弧の外にある最後の句点の位置。無ければ -1。 */
+function lastSentenceEnd(text) {
+	let found = -1;
+	walkOutsideParens(text, (char, at) => {
+		if (char === '。') found = at;
+	});
+	return found;
+}
+
+/** 括弧の外にある最後の箇条書き記号の開始位置。無ければ -1。 */
+function lastListMarkerStart(text) {
+	let found = -1;
+	walkOutsideParens(text, (char, at, rest) => {
+		// 「①」〜「⑳」と「(1)」形式の両方を見る。
+		if (/[①-⑳]/.test(char) || /^\([0-9０-９]+\)/.test(rest)) found = at;
+	});
+	return found;
+}
+
+/**
+ * 括弧の深さを追いながら1文字ずつ見る。
+ *
+ * `(1)` のような箇条書き記号は括弧として数えない。数えると以降の深さが
+ * ずれ、本物の括弧の中と外を取り違える。
+ */
+function walkOutsideParens(text, visit) {
+	let depth = 0;
+	for (let i = 0; i < text.length; i += 1) {
+		const char = text[i];
+		const rest = text.slice(i);
+		const isListMarker = /^[（(][0-9０-９]+[）)]/.test(rest);
+
+		if (depth === 0) visit(char, i, rest);
+
+		if (isListMarker) {
+			i += rest.match(/^[（(][0-9０-９]+[）)]/)[0].length - 1;
+			continue;
+		}
+		if (char === '（' || char === '(') depth += 1;
+		else if (char === '）' || char === ')') depth = Math.max(0, depth - 1);
+	}
+}
+
+function makePassage(section, chunk, at) {
+	const suffix = at === 0 ? '' : `-${at + 1}`;
+	return {
+		passageId: `${DOCUMENT.documentId}.s${section.number.replace(/\./g, '-')}${suffix}`,
+		documentId: DOCUMENT.documentId,
+		sectionId: section.number,
+		headingPath: headingPathFor(section),
+		text: chunk,
+		page: section.page - PAGE_OFFSET,
+		sourceLocator: `§${section.number}${suffix ? `（${at + 1}つ目の抜粋）` : ''}`,
+		// pdftotext の出力を1行へ畳んでいる。原文そのままではない。
+		normalized: true,
+		tags: []
+	};
+}
+
+/** 上位の見出しを辿ってパンくずにする。 */
+function headingPathFor(section) {
+	const path = [];
+	const parts = section.number.split('.');
+	for (let depth = 1; depth < parts.length; depth += 1) {
+		const prefix = parts.slice(0, depth).join('.');
+		const parent = sections.find((s) => s.number === prefix);
+		if (parent) path.push(parent.title);
+	}
+	path.push(section.title);
+	return path;
+}
+
+function today() {
+	return new Date().toISOString().slice(0, 10);
+}

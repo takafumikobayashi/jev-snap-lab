@@ -8,8 +8,10 @@ import {
 } from './judge';
 
 describe('isMode', () => {
-	it('3つのモードだけを受け付ける', () => {
-		expect(MODES).toEqual(['love', 'social', 'city']);
+	it('既知のモードだけを受け付ける', () => {
+		// spec は実験機能。型としては既知だが、サーバーが
+		// SPEC_FIND_ENABLED を見て受理を決める（spec-find-flag.spec.ts）。
+		expect(MODES).toEqual(['love', 'social', 'city', 'spec']);
 		for (const mode of MODES) expect(isMode(mode)).toBe(true);
 	});
 
