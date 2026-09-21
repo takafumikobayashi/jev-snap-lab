@@ -9,13 +9,16 @@
  * しない（docs/SPEC_FIND_DESIGN.md §8）。
  */
 
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { TypeSafeClient } from '@typesafe-ai/sdk';
 import { validateCorpus } from './spec-corpus.server';
-import { toSemanticCandidates, joinSpecEvidence } from './spec-evidence.server';
-import { evaluateSemanticFit, rankCandidates } from './semantic-match.server';
-import { SPEC_POLICY, SPEC_RANKING } from './semantic-policies.server';
+
+// 評価は**本番と同じ入口**を通す。候補の作り方、state、policy、閾値、
+// 出典joinを評価側で組み直すと、片方だけ変わっても気付けない。
+// mode 文字列もJevの判断入力なので、ここがずれると測るものが変わる。
+vi.mock('$env/dynamic/private', () => ({ env: { SPEC_FIND_ENABLED: 'true' } }));
+const { findSpecPassages } = await import('./spec-find.server');
 
 const LIVE = process.env.LIVE_JEV === '1';
 
@@ -168,30 +171,22 @@ describe.skipIf(!LIVE)('SPEC FIND 実機評価', () => {
 				defaultModel: process.env.TYPESAFE_DEFAULT_MODEL || 'jev-latest',
 				timeout: 30_000
 			});
-			const candidates = toSemanticCandidates(corpus);
-			const order = corpus.passages.map((p) => p.passageId);
-
 			const rows: Row[] = [];
 			let model = '';
 
 			for (const gold of GOLD) {
 				const startedAt = performance.now();
 				let inputTokens = 0;
-				const scores = await evaluateSemanticFit(
-					candidates,
-					SPEC_POLICY,
-					{ mode: 'spec', text: gold.query },
-					async ({ state, questions }) => {
-						const result = await client.systemOne({ state, questions });
-						inputTokens += result.usage.input_tokens;
-						model = result.model;
-						return result.answers as Record<string, unknown>;
-					}
-				);
+				const spec = await findSpecPassages(gold.query, async ({ state, questions }) => {
+					// 本番が組み立てた state をそのまま送る。ここで作り替えない。
+					expect(state.mode, 'state の mode が本番と違う').toBe('spec');
+					const result = await client.systemOne({ state, questions });
+					inputTokens += result.usage.input_tokens;
+					model = result.model;
+					return result.answers as Record<string, unknown>;
+				});
 				const latency = Math.round(performance.now() - startedAt);
-				const ranked = rankCandidates(scores, order, SPEC_RANKING);
-				const { hits, unresolved } = joinSpecEvidence(corpus, ranked.ranked);
-				const top = hits.map((hit) => hit.passageId);
+				const top = spec.hits.map((hit) => hit.passageId);
 
 				rows.push({
 					kind: gold.kind,
@@ -199,10 +194,10 @@ describe.skipIf(!LIVE)('SPEC FIND 実機評価', () => {
 					accept: gold.accept,
 					at1: top.length > 0 && gold.accept.includes(top[0]),
 					at3: top.some((passageId) => gold.accept.includes(passageId)),
-					abstained: ranked.abstained || hits.length === 0,
+					abstained: spec.abstained,
 					top,
-					topProb: hits[0]?.fitProbability ?? null,
-					unresolved,
+					topProb: spec.hits[0]?.fitProbability ?? null,
+					unresolved: spec.unresolved,
 					latency,
 					inputTokens
 				});

@@ -132,7 +132,7 @@ describe('SPEC FIND の一連の流れ（Jevはmock）', () => {
 		const scores = await evaluateSemanticFit(
 			toSemanticCandidates(data),
 			SPEC_POLICY,
-			{ mode: 'spec_find', text: 'Excelにデータを出して職員が加工したい' },
+			{ mode: 'spec', text: 'Excelにデータを出して職員が加工したい' },
 			sender({
 				'データを抽出し、職員が利用可能な形式で出力できること。': 0.94,
 				'庁内の他業務システムとデータを連携できること。': 0.11
@@ -157,7 +157,7 @@ describe('SPEC FIND の一連の流れ（Jevはmock）', () => {
 		const scores = await evaluateSemanticFit(
 			toSemanticCandidates(data),
 			SPEC_POLICY,
-			{ mode: 'spec_find', text: '株式の売買手数料の相場を知りたい' },
+			{ mode: 'spec', text: '株式の売買手数料の相場を知りたい' },
 			sender({})
 		);
 		const ranked = rankCandidates(

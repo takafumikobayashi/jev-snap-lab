@@ -194,7 +194,7 @@ v0ではStage 1のカテゴリChoiceを別呼び出しにしない。コーパ�
 ```json
 {
   "state": {
-    "mode": "spec_find",
+    "mode": "spec",
     "request": "システム同士をAPIでつなぎたい",
     "passages": {
       "p0": {

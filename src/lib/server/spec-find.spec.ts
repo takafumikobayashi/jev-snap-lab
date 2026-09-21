@@ -25,6 +25,16 @@ describe('findSpecPassages', () => {
 		expect(isSpecFindEnabled()).toBe(true);
 	});
 
+	it('state の mode は本番の文字列で固定する', async () => {
+		// mode 文字列も Jev の判断入力になる。評価やテストで別の値を使うと、
+		// 測っているものが本番と変わる。
+		const send = sender({});
+		await findSpecPassages('x', send);
+		const [request] = send.mock.calls[0];
+		expect(request.state.mode).toBe('spec');
+		expect(request.state.text).toBe('x');
+	});
+
 	it('上流を1回だけ呼ぶ', async () => {
 		// 配布コーパスは39件で、1リクエストの上限40件の内側にある。
 		const send = sender({});
