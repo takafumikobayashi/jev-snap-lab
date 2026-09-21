@@ -147,7 +147,6 @@ for (const section of sections) {
 }
 
 if (merged.length > 0) {
-	const first = merged[0];
 	passages.push({
 		passageId: `${DOCUMENT.documentId}.required-functions`,
 		documentId: DOCUMENT.documentId,
@@ -156,7 +155,10 @@ if (merged.length > 0) {
 		text: `各共通機能の具体的な機能要件は、本文ではなく別紙「別紙1_機能要件」に定められている。対象は${merged
 			.map((s) => s.title.replace(/に求められる機能$/, ''))
 			.join('、')}。`,
-		page: first.page,
+		// 統合した節は別々のページにある。1つを代表に選ぶと、他のどれが
+		// 当たっても同じページを引用として示すことになる。ページは持たせず、
+		// locator に全節を並べる。
+		page: null,
 		sourceLocator: `§${merged.map((s) => s.number).join(' / §')}`,
 		normalized: true,
 		tags: ['機能要件', '別紙']

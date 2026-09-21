@@ -73,9 +73,23 @@ describe('配布する SPEC コーパス', () => {
 
 	it('ページ番号が文書の印字ページに収まる', () => {
 		for (const passage of corpus.passages) {
-			expect(passage.page, passage.passageId).not.toBeNull();
-			expect(passage.page).toBeGreaterThan(0);
-			expect(passage.page).toBeLessThanOrEqual(56);
+			if (passage.page === null) continue;
+			expect(passage.page, passage.passageId).toBeGreaterThan(0);
+			// 印字ページの最終は56。物理ページ（59）を入れてしまう取り違えを弾く。
+			expect(passage.page, passage.passageId).toBeLessThanOrEqual(56);
+		}
+	});
+
+	it('複数の節をまとめたpassageはページを持たない', () => {
+		// 統合元は別々のページにある。1つを代表に選ぶと、どれが当たっても
+		// 同じページを引用として示すことになる。locator に全節を並べる。
+		const merged = corpus.passages.filter((passage) => passage.sectionId.includes(','));
+		expect(merged.length).toBeGreaterThan(0);
+		for (const passage of merged) {
+			expect(passage.page, passage.passageId).toBeNull();
+			for (const sectionId of passage.sectionId.split(', ')) {
+				expect(passage.sourceLocator).toContain(`§${sectionId}`);
+			}
 		}
 	});
 });

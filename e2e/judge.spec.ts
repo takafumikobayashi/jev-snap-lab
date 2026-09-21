@@ -688,6 +688,22 @@ test.describe('SPEC FIND', () => {
 		await expect(page.getByText('第2.7版 / 取得日 2026-09-21')).toBeVisible();
 	});
 
+	test('ページを持たない仕様箇所はページ表記を出さない', async ({ page }) => {
+		// 複数の節をまとめたpassageは、どれが当たっても同じページを引用として
+		// 示すことになるためページを持たない。locator だけを出す。
+		await stubJudge(page, () => ({
+			status: 200,
+			body: specBody({ hits: [{ ...hit(1, 0.9), page: null, sourceLocator: '§2.1.5 / §2.2.3' }] })
+		}));
+		await page.goto('/');
+		await page.getByRole('tab', { name: 'spec' }).click();
+		await textarea(page).fill('機能要件の一覧はどこ');
+		await judge(page).click();
+
+		await expect(page.getByText('§2.1.5 / §2.2.3')).toBeVisible();
+		await expect(page.getByText(/\/ p\.\d/)).toHaveCount(0);
+	});
+
 	test('加工した抜粋には加工表示を出す', async ({ page }) => {
 		// PDL 1.0 は加工物を無加工の政府資料として見せることを禁じる。
 		await stubJudge(page, () => ({ status: 200, body: specBody() }));
