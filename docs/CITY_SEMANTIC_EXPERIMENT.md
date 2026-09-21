@@ -76,7 +76,9 @@ Semantic Fitの評価では、次の値をベースラインとして保存す�
 
 CITY v0では、既存のChoiceを置き換えず、限定した候補について独立したNoulを追加評価する。
 
-1リクエストの全質問は**同じstateを見る**。質問は自前のデータを持てないため、候補分掌はstateの配列へ置き、instructionsからバックティックのパスで対象を指す。
+1リクエストの全質問は**同じstateを見る**。質問は自前のデータを持てないため、候補分掌はstateへ置き、instructionsからバックティックのパスで対象を指す。
+
+**候補はオブジェクトにし、キーで参照する。配列インデックスは使わない。** 配列インデックス参照は候補が20件を超えたあたりから確率が隣接インデックスへ滲み、無関係な候補が最上位に来る。実測で確認した（[IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) §8.1）。
 
 ```json
 {
@@ -84,24 +86,26 @@ CITY v0では、既存のChoiceを置き換えず、限定した候補につい�
     "mode": "city",
     "text": "家の前の防犯灯が切れてます",
     "jurisdiction": "M市",
-    "responsibilities": [
-      { "section": "危機管理課", "text": "防犯施設の設置及び管理に関すること。" },
-      { "section": "危機管理課", "text": "災害対策に関すること。" }
-    ]
+    "responsibilities": {
+      "r0": { "section": "危機管理課", "text": "防犯施設の設置及び管理に関すること。" },
+      "r1": { "section": "危機管理課", "text": "災害対策に関すること。" }
+    }
   },
   "questions": {
     "fit_0": {
       "type": "noul",
-      "instructions": "Is the resident's `text` directly or meaningfully covered by `responsibilities[0].text`, handled by `responsibilities[0].section`? Judge the wording, not the official truth of the request.",
+      "instructions": "Is the resident's `text` directly or meaningfully covered by `responsibilities.r0.text`, which is handled by `responsibilities.r0.section`? Judge the wording of the request, not the official truth of who must handle it.",
       "criteria": {
-        "true": "The resident's text is directly or meaningfully covered by this responsibility.",
-        "false": "The text is not covered, is too weakly related, or cannot be judged from the text."
+        "true": "The resident text is directly or meaningfully covered by this responsibility.",
+        "false": "The text is not covered, is only weakly related, or cannot be judged."
       }
     },
-    "fit_1": { "type": "noul", "instructions": "Is the resident's `text` … `responsibilities[1].text` … " }
+    "fit_1": { "type": "noul", "instructions": "Is the resident's `text` … `responsibilities.r1.text` … " }
   }
 }
 ```
+
+Noulの回答は `{ "type": "noul", "noul": 0.85 }` の形で返る。既存の `normalizeAnswers` が `answer.noul` を読むのと同じである。
 
 **質問IDは連番にし、`responsibilityId` を埋め込まない。** 実データのIDは `accounting.u1.r1` の形で、`routingCandidateId` 自体が `social_welfare` のようにアンダースコアを含む。ドットをアンダースコアへ変換すると `social_welfare_u2_r15` となり、どこが区切りか一意に戻せない。サーバー側で `index -> responsibilityId` の対応表を持つ（既存の `normalizeAnswers` がcatalogのmapで引くのと同じ流儀）。
 
@@ -109,7 +113,7 @@ CITY v0では、既存のChoiceを置き換えず、限定した候補につい�
 
 Jevへ送るテキストは **`publicSummary` ではなく `officialText`** とする。現行Stage 1のChoice descriptionは `publicSummary` に代表分掌（`officialText` 由来）を添える形だが、Stage 2は分掌そのものとの適合を測るため、条文の文言を直接使う。実データの長さは `officialText` 最長102字 / `publicSummary` 最長96字で、どちらでもtoken予算に差は出ない。
 
-**「1回のリクエストでN件の独立Noulを評価できる」は仮説であり、合意事項ではない。** 実測は [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) の Phase 6.5 で行う。上位2課×12件で最大24件になるため、CITYはSPEC FINDより候補数が多い。仮説が外れた場合は分割呼び出しへ切り替えるが、順位付け・abstain・source joinの層は変更しない。
+**候補数は実測で裏が取れている。** 40件まで1リクエストで成立し、latencyは候補数にほとんど依存しない（[IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) §8.1）。CITYの上位2課×12件＝最大24件は余裕の内側にある。分割呼び出しは同じ12件でlatency 22倍・入力token 2.5倍になるため、まとめて送る方式を既定とする。
 
 Noulの `yesProbability` は「この分掌に意味的に適合するという読み」の確率である。Choiceの `route_to.probabilities` とは別物であり、候補間で合計1になる分布ではない。`confidence` や公式な担当確率として表示しない。
 

@@ -148,32 +148,34 @@ v0は、公式PDFから手作業または再現可能なオフラインスクリ
 
 v0ではStage 1のカテゴリChoiceを別呼び出しにしない。コーパスが20〜40件なら候補の絞り込みなしで足り、呼び出しを1回に保てるためである。**当初の要件はStage 1の機能領域Choiceを求めていたが、v0では意図的に省いている。** 「Stage 1 → Stage 2で全文総当たりを避ける」という目的は、SPEC FINDでは「コーパス自体を有界に保つ」ことで満たす。コーパスが増えて一回のbounded requestに収まらなくなった場合だけ、カテゴリChoice → 上位passage評価の二段階案を再検討する。
 
-**「1回のリクエストでN件の独立Noulを評価できる」は仮説であり、合意事項ではない。** TypeSafeの公式ドキュメントに1リクエストあたりの質問数上限の記載は無く、rerank cookbookは1ペア1コール（1,200コール）で書かれている。fan-outパターンも「同じ文書に複数の質問」であり、配列要素ごとに質問を割り当てる例は無い。実測は [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) の Phase 6.5 で行う。仮説が外れた場合は分割呼び出しへ切り替えるが、順位付け・abstain・source joinの層は変更しない。
+**40件までは1リクエストで成立することを実測で確認した。** 422もtoken上限も出ず、answerの欠落も無く、latencyは候補数にほとんど依存しない（40件で245ms、入力6,765token）。対象外の入力では0.9以上の候補が0件になり、abstainも成立する（[IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) §8.1）。分割呼び出しは同じ件数でlatency 22倍・入力token 2.5倍になるため採らない。
 
 ### 6.2 Noulの意味
 
-1リクエストの全質問は**同じstateを見る**。質問は自前のデータを持てないため、候補passageはstateの配列へ置き、instructionsからバックティックのパスで対象を指す。「この仕様記述は」とだけ書いても、どのpassageを指すかは結び付かない。
+1リクエストの全質問は**同じstateを見る**。質問は自前のデータを持てないため、候補passageはstateへ置き、instructionsからバックティックのパスで対象を指す。「この仕様記述は」とだけ書いても、どのpassageを指すかは結び付かない。
+
+**passageはオブジェクトにし、キーで参照する。配列インデックスは使わない。** 配列インデックス参照は候補が20件を超えたあたりから確率が隣接インデックスへ滲む。実測では、コーパスが同じで正解の位置だけを変えたときに無関係なpassageが最上位に来た（[IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) §8.1）。
 
 ```json
 {
   "state": {
     "mode": "spec_find",
     "request": "Excelにデータを出して職員が加工したい",
-    "passages": [
-      { "heading": "EUC機能 / データ抽出", "text": "……を抽出し、職員が利用可能な形式で出力できること。" },
-      { "heading": "庁内データ連携機能 / 連携方式", "text": "……" }
-    ]
+    "passages": {
+      "p0": { "heading": "EUC機能 / データ抽出", "text": "……を抽出し、職員が利用可能な形式で出力できること。" },
+      "p1": { "heading": "庁内データ連携機能 / 連携方式", "text": "……" }
+    }
   },
   "questions": {
     "fit_0": {
       "type": "noul",
-      "instructions": "Does `passages[0].text`, under the heading `passages[0].heading`, help locate a relevant part of the specification for `request`? Judge semantic usefulness for finding a passage, not compliance, legal meaning, or implementation feasibility.",
+      "instructions": "Does `passages.p0.text`, under the heading `passages.p0.heading`, help locate a relevant part of the specification for `request`? Judge semantic usefulness for finding a passage, not compliance, legal meaning, or implementation feasibility.",
       "criteria": {
         "true": "The passage is directly or meaningfully useful for finding the requested topic or operation.",
         "false": "The passage is not useful, is only broadly related, or the relevance cannot be determined."
       }
     },
-    "fit_1": { "type": "noul", "instructions": "Does `passages[1].text` … " }
+    "fit_1": { "type": "noul", "instructions": "Does `passages.p1.text` … " }
   }
 }
 ```
