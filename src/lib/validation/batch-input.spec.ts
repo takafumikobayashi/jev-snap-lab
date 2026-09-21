@@ -10,8 +10,11 @@ const failureOf = (body: unknown) => {
 };
 
 describe('validateBatchInput', () => {
-	it('theme だけなら例文を判定する', () => {
-		expect(ok({ theme: 'privacy' })).toEqual({ ok: true, value: { theme: 'privacy' } });
+	it('cases を省いたリクエストを拒む', () => {
+		// この API は渡された文章を判定するだけで、同梱データを判定する経路を
+		// 持たない。持たせると「貼った文章がたまたま例文と同じだったときだけ
+		// 一致率が出る」という不可解な挙動になる。
+		expect(failureOf({ theme: 'privacy' })).toBe('CASES_NOT_ARRAY');
 	});
 
 	it('cases を渡すと利用者の文章を判定する', () => {

@@ -160,9 +160,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 			latencyMs: response.latencyMs,
 			inputTokens,
 			caseCount: response.caseCount,
-			questionCount: response.questionCount,
-			userProvided: response.userProvided,
-			labelStatus: response.labelStatus
+			questionCount: response.questionCount
 		});
 
 		return jsonResponse(response, 200);

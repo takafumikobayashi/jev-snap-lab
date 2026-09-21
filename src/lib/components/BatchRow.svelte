@@ -15,7 +15,7 @@
 	const style = $derived(verdictStyle(result.verdict));
 </script>
 
-<li class="grid grid-cols-[2.5rem_1fr] gap-x-3 py-2 sm:grid-cols-[2.5rem_1fr_8rem_5rem_3.5rem]">
+<li class="grid grid-cols-[2.5rem_1fr] gap-x-3 py-2 sm:grid-cols-[2.5rem_1fr_9rem_5rem]">
 	<span class="font-mono text-xs text-neutral-500 tabular-nums"
 		>{String(index + 1).padStart(2, '0')}</span
 	>
@@ -43,19 +43,5 @@
 			</span>
 			<span class="font-mono text-xs text-neutral-500 tabular-nums">{toPercent(top)}%</span>
 		</span>
-	</span>
-
-	<!--
-		「不一致」は3文字ある。列が狭いと折り返す。実際に折り返した。
-
-		**正解ラベルが無いときは何も出さない。** `agrees` が undefined のとき
-		else へ落として「不一致」と出していた。利用者が書いた文章に正解は無い。
-	-->
-	<span class="col-start-2 text-xs whitespace-nowrap sm:col-start-5">
-		{#if result.agrees === true}
-			<span class="text-emerald-700 dark:text-emerald-400">一致</span>
-		{:else if result.agrees === false}
-			<span class="font-medium text-amber-700 dark:text-amber-400">不一致</span>
-		{/if}
 	</span>
 </li>

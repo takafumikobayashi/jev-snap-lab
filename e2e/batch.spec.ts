@@ -65,18 +65,18 @@ test.describe('BATCH JUDGE', () => {
 		}
 	});
 
-	test('一致率を「精度」と呼ばず、暫定ラベルであることを出す', async ({ page }) => {
+	test('評価の概念を画面へ持ち込まない', async ({ page }) => {
+		// **自由に貼った50件に正解は無い。** 一致率・ラベル・データセットの
+		// 指紋はいずれも評価用の概念で、benchmark の仕事である。
 		await stubBatch(page, () => ({ status: 200, body: batchResponse() }));
 		await page.goto('/batch');
 		await fillAndRun(page);
 
 		const body = await screenText(page);
-		// **「3 / 4」とだけ出さない。** 判定した件数と読まれた（実際は一致数）。
-		expect(body).toContain('4件のうち、ラベルと同じ判定が3件、違う判定が1件');
-		expect(body).not.toContain('一致3/4');
-		expect(body).toContain('暫定ラベル（人手確認前）');
-		expect(body).toContain('Jevの精度ではありません');
-		// 同じ入力で結果が揺れることも伝える（§4.6）。
+		for (const forbidden of ['ラベル', '一致', '不一致', '精度', 'datasetsha256']) {
+			expect(body, `${forbidden} が画面に出ている`).not.toContain(forbidden);
+		}
+		// 同じ入力で結果が揺れることは伝える（§4.6）。
 		expect(body).toContain('同じ入力でも毎回同じとは限りません');
 	});
 
@@ -176,20 +176,6 @@ test.describe('BATCH JUDGE', () => {
 		expect(body).toContain('処理の進捗ではありません');
 	});
 
-	test('開示の途中で「正解ラベルがない」と出さない', async ({ page }) => {
-		// ラベルの有無は全件で決める。開示済みだけで見ると、まだ0件のあいだ
-		// 「正解ラベルがない」と出る。実際に出た。
-		await stubBatch(page, () => ({ status: 200, body: batchResponse() }));
-		await page.goto('/batch');
-		await page.getByRole('button', { name: /例文を入れる/ }).click();
-		await page.getByRole('button', { name: /件をまとめて判定/ }).click();
-
-		await expect(page.getByRole('heading', { name: '4 CASES' })).toBeVisible();
-		expect(await screenText(page)).not.toContain('正解ラベルがないため');
-		await expect(page.getByText('4 / 4', { exact: true })).toBeVisible();
-		expect(await screenText(page)).not.toContain('正解ラベルがないため');
-	});
-
 	test('処理の流れを実測値で出す', async ({ page }) => {
 		await stubBatch(page, () => ({ status: 200, body: batchResponse() }));
 		await page.goto('/batch');
@@ -220,53 +206,12 @@ test.describe('BATCH JUDGE', () => {
 		// 揺れやすい帯を出す（§4.6）。
 		expect(body).toContain('0.4〜0.7（揺れやすい）');
 
-		// **矢印だけで書かない。** `要確認シグナルなし→要確認1件` と出したら
-		// 「要確認が1件」と読まれた。列に分けて向きを示す。
-		expect(body).toContain('違った1件の内訳');
-		expect(body).toContain('ラベルjudgeの判定件数');
-		// まとめの中に矢印を使わない。処理の流れの矢印は別物なので範囲を絞る。
+		// まとめは judge の判定だけを見せる。評価の概念を持ち込まない。
 		const summary = (
 			await page.locator('section', { hasText: '結果のまとめ' }).last().innerText()
 		).replace(/\s+/g, '');
-		expect(summary).not.toContain('→');
-	});
-
-	test('正解の無い文章に一致率を出さない', async ({ page }) => {
-		await stubBatch(page, () => ({
-			status: 200,
-			body: batchResponse({
-				results: [
-					{
-						caseId: 'privacy_input_001',
-						text: '自分で書いた文章',
-						verdict: 'no_signal',
-						signals: [
-							{ key: 'identifies', probability: 0.04 },
-							{ key: 'personal', probability: 0.04 },
-							{ key: 'sensitive', probability: 0.04 }
-						]
-					}
-				],
-				caseCount: 1,
-				questionCount: 3,
-				stateChars: 8,
-				userProvided: true
-			})
-		}));
-		await page.goto('/batch');
-		await page.locator('#batch-input').fill('自分で書いた文章');
-		await runAndWait(page, 1);
-
-		const body = await screenText(page);
-		expect(body).toContain('正解ラベルがないため、一致率は出していません');
-		// 指紋は例文データセットのもの。利用者の文章には出さない。
-		expect(body).not.toContain('dataset sha256');
-
-		// **正解が無いのに「不一致」と出さない。** 実際に出ていた。行だけを見る。
-		// 全文で見ると「一致率は出していません」に当たって空振りする。
-		const row = page.getByRole('listitem').filter({ hasText: '自分で書いた文章' });
-		await expect(row).toContainText('要確認シグナルなし');
-		await expect(row).not.toContainText('一致');
+		expect(summary).not.toContain('ラベル');
+		expect(summary).not.toContain('一致');
 	});
 
 	test('画面に残す注意書きは送信の告知だけにする', async ({ page }) => {
@@ -277,18 +222,6 @@ test.describe('BATCH JUDGE', () => {
 		expect(body).toContain('TypeSafeAIへ送信されます');
 		expect(body).not.toContain('個人情報に該当しないという判定でも');
 		expect(body).not.toContain('Jevを唯一の制御にしないでください');
-	});
-
-	test('不一致の中身を確認できる', async ({ page }) => {
-		await stubBatch(page, () => ({ status: 200, body: batchResponse() }));
-		await page.goto('/batch');
-		await fillAndRun(page);
-
-		await page.getByText('不一致の 1 件を見る').click();
-		const body = await screenText(page);
-		expect(body).toContain('判定要確認/ラベル要確認シグナルなし');
-		// 判定に使わない sensitive も理由として出す。
-		expect(body).toContain('慎重に扱う情報37%');
 	});
 
 	test('失敗したら再試行できる', async ({ page }) => {

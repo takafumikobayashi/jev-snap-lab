@@ -24,7 +24,7 @@ import {
 	type BatchJudgeResult,
 	type BatchTheme
 } from '$lib/types/batch';
-import { datasetFingerprint, summarizeDataset, validateDataset } from './batch-dataset.server';
+import { validateDataset } from './batch-dataset.server';
 import { countCodePoints } from '$lib/types/judge';
 import {
 	AXES_BY_THEME,
@@ -90,24 +90,22 @@ export function batchCatalog(): {
 }
 
 /**
- * 利用者の文章を事例にする。
+ * 渡された文章を事例にする。
  *
- * **本文が例文と一致したときだけ gold を付ける。** 例文をそのまま判定した
- * ときは一致率が出せるし、自分の文章なら正解が無いので出さない。無い gold を
- * でっち上げない。
+ * **gold を引き当てない。** 自由に貼った50件に正解は無い。以前は本文が例文と
+ * 完全一致したときだけ gold を付けていたが、そのせいで「貼った文章がたまたま
+ * 例文と同じだったときだけ一致率が出る」という不可解な挙動になっていた。
+ * 評価は benchmark の仕事である（`batch-judge.live.spec.ts`）。
  */
-function toCases(dataset: BatchDataset, texts: readonly string[]): BatchDataset['cases'] {
-	const goldByText = new Map(dataset.cases.map((item) => [item.text, item.gold]));
-	return texts.map((text, at) => {
-		const gold = goldByText.get(text);
-		return {
-			id: `${dataset.theme}_input_${String(at + 1).padStart(3, '0')}`,
-			text,
-			difficulty: 'medium' as const,
-			// gold は Jev へ送らない（`BatchJevCase`）。付けても送信物は変わらない。
-			...(gold === undefined ? {} : { gold })
-		} as BatchDataset['cases'][number];
-	});
+function toCases(theme: BatchTheme, texts: readonly string[]): BatchDataset['cases'] {
+	return texts.map(
+		(text, at) =>
+			({
+				id: `${theme}_input_${String(at + 1).padStart(3, '0')}`,
+				text,
+				difficulty: 'medium' as const
+			}) as BatchDataset['cases'][number]
+	);
 }
 
 /** テストと benchmark から差し替える上流。 */
@@ -124,7 +122,7 @@ export type BatchSender = (
 export async function runBatchJudge(
 	theme: BatchTheme,
 	send: BatchSender,
-	texts?: readonly string[]
+	texts: readonly string[]
 ): Promise<
 	Omit<BatchJudgeResponse, 'requestId' | 'model' | 'latencyMs' | 'usage'> & {
 		inputTokens: number;
@@ -136,7 +134,7 @@ export async function runBatchJudge(
 	// 段階ごとに計る。**画面の「処理の流れ」はこの値を出す。** 計らずに段階を
 	// 見せると、名前だけが本物で進み方は演出になる。
 	const buildStartedAt = performance.now();
-	const cases = texts === undefined ? dataset.cases : toCases(dataset, texts);
+	const cases = toCases(theme, texts);
 	const request = buildBatchRequest(dataset, cases);
 	const buildMs = performance.now() - buildStartedAt;
 
@@ -156,7 +154,6 @@ export async function runBatchJudge(
 	return {
 		mode: 'batch',
 		theme,
-		datasetFingerprint: datasetFingerprint(dataset),
 		...(dataset.referenceDate ? { referenceDate: dataset.referenceDate } : {}),
 		caseCount: request.caseCount,
 		questionCount: request.questionCount,
@@ -169,8 +166,6 @@ export async function runBatchJudge(
 		},
 		// 分割していない。画面で示すために数として返す。
 		upstreamCalls: 1,
-		userProvided: texts !== undefined,
-		labelStatus: dataset.labelStatus,
 		results,
 		inputTokens: raw.inputTokens,
 		outputTokens: raw.outputTokens
@@ -190,7 +185,6 @@ function toResult(
 	answers: Map<string, BatchAnswer>
 ): BatchJudgeResult {
 	const caseId = item.id;
-	const gold = item.gold as string | undefined;
 	const signals = AXES_BY_THEME[theme].flatMap((axis) => {
 		const answer = answers.get(questionIdOf(caseId, axis.key));
 		if (answer?.type === 'noul' && typeof answer.noul === 'number') {
@@ -208,27 +202,5 @@ function toResult(
 			? privacyVerdict(answers, caseId)
 			: (answers.get(questionIdOf(caseId, AXES_BY_THEME[theme][0].key))?.choice ?? '');
 
-	return {
-		caseId,
-		text: item.text,
-		verdict,
-		signals,
-		// 正解が無い文章に一致を出さない。
-		...(gold === undefined ? {} : { gold, agrees: verdict === gold })
-	};
-}
-
-/** 画面の要約。**暫定ラベルに対する一致であることを呼び出し側が消せない形にする。** */
-export function summarizeResults(response: BatchJudgeResponse): {
-	agreed: number;
-	total: number;
-	labelStatus: BatchJudgeResponse['labelStatus'];
-	perGold: Record<string, number>;
-} {
-	return {
-		agreed: response.results.filter((result) => result.agrees).length,
-		total: response.results.length,
-		labelStatus: response.labelStatus,
-		perGold: summarizeDataset(loadDataset(response.theme)).gold
-	};
+	return { caseId, text: item.text, verdict, signals };
 }

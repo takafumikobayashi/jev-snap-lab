@@ -1,8 +1,9 @@
 /**
  * `POST /api/batch` のリクエスト検証。
  *
- * `theme` は必須、`cases` は任意である。`cases` を省くと同梱した例文を
- * 判定する。渡すと**利用者の文章**を判定する。
+ * `theme` と `cases` の両方が必須である。**この API は渡された文章を判定する
+ * だけで、同梱データを判定する経路を持たない。** 持たせると「貼った文章が
+ * たまたま例文と同じだったときだけ一致率が出る」という不可解な挙動になる。
  *
  * 利用者の文章を受け付ける以上、画面には送信する旨を入力欄の手前へ常時出し、
  * デモ用の例文をワンクリックで入れられるようにする
@@ -27,7 +28,7 @@ export type BatchValidationFailure =
 	| 'CASE_CONTROL_CHARACTER';
 
 export type BatchValidationResult =
-	| { ok: true; value: { theme: BatchTheme; cases?: string[] } }
+	| { ok: true; value: { theme: BatchTheme; cases: string[] } }
 	| { ok: false; failure: BatchValidationFailure };
 
 /** リクエストボディで受け付ける唯一のキー集合。 */
@@ -46,8 +47,6 @@ export function validateBatchInput(body: unknown): BatchValidationResult {
 	if (typeof theme !== 'string' || !BATCH_THEMES.includes(theme as BatchTheme)) {
 		return { ok: false, failure: 'INVALID_THEME' };
 	}
-	if (cases === undefined) return { ok: true, value: { theme: theme as BatchTheme } };
-
 	if (!Array.isArray(cases)) return { ok: false, failure: 'CASES_NOT_ARRAY' };
 	if (cases.length === 0) return { ok: false, failure: 'CASES_EMPTY' };
 	if (cases.length > MAX_CASES) return { ok: false, failure: 'TOO_MANY_CASES' };

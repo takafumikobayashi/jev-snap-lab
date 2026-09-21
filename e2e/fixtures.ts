@@ -81,14 +81,11 @@ export function batchResponse(overrides: Record<string, unknown> = {}) {
 		mode: 'batch',
 		theme: 'privacy',
 		model: 'jev-1.13.0',
-		datasetFingerprint: 'sha256-0123456789abcdef',
 		caseCount: 4,
 		questionCount: 12,
 		stateChars: 92,
 		upstreamCalls: 1,
-		userProvided: true,
 		stages: { buildMs: 0.4, upstreamMs: 1018.2, readMs: 0.3, decideMs: 0.2 },
-		labelStatus: 'draft',
 		latencyMs: 1024,
 		usage: { inputTokens: 18_125, outputTokens: 3_404, estimatedCostUsd: 0.00076125 },
 		results: [
@@ -100,9 +97,7 @@ export function batchResponse(overrides: Record<string, unknown> = {}) {
 					{ key: 'identifies', probability: 0.02 },
 					{ key: 'personal', probability: 0.02 },
 					{ key: 'sensitive', probability: 0.02 }
-				],
-				gold: 'no_signal',
-				agrees: true
+				]
 			},
 			{
 				caseId: 'privacy_022',
@@ -112,9 +107,7 @@ export function batchResponse(overrides: Record<string, unknown> = {}) {
 					{ key: 'identifies', probability: 0.99 },
 					{ key: 'personal', probability: 0.96 },
 					{ key: 'sensitive', probability: 0.45 }
-				],
-				gold: 'review',
-				agrees: true
+				]
 			},
 			{
 				// 判定に使わない sensitive だけが高い。全軸の最大値を出すと
@@ -127,9 +120,7 @@ export function batchResponse(overrides: Record<string, unknown> = {}) {
 					{ key: 'identifies', probability: 0.06 },
 					{ key: 'personal', probability: 0.08 },
 					{ key: 'sensitive', probability: 0.97 }
-				],
-				gold: 'no_signal',
-				agrees: true
+				]
 			},
 			{
 				caseId: 'privacy_043',
@@ -139,9 +130,7 @@ export function batchResponse(overrides: Record<string, unknown> = {}) {
 					{ key: 'identifies', probability: 0.53 },
 					{ key: 'personal', probability: 0.28 },
 					{ key: 'sensitive', probability: 0.37 }
-				],
-				gold: 'no_signal',
-				agrees: false
+				]
 			}
 		],
 		...overrides

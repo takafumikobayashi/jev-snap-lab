@@ -139,6 +139,11 @@ export type BatchDataset = {
  * `signals` は判定に使った確率をそのまま持つ。**閾値を変えるために再実行
  * しなくてよいようにする。** PRIVACY の `sensitive` のように判定には使わない
  * が理由として出すものも含む（docs/BATCH_JUDGE_DESIGN.md §3.1）。
+ *
+ * **gold を持たない。** 利用者が自由に貼った50件に正解は無い。同梱の例文と
+ * 突き合わせられるのは fixture を評価するときだけで、それは benchmark の
+ * 仕事である（`batch-judge.live.spec.ts`）。画面へ持ち込むと、貼った文章が
+ * たまたま例文と一致したときだけ一致率が出る、という不可解な挙動になる。
  */
 export type BatchJudgeResult = {
 	caseId: string;
@@ -152,9 +157,6 @@ export type BatchJudgeResult = {
 	text: string;
 	verdict: string;
 	signals: { key: string; probability: number }[];
-	/** fixture を評価したときだけ入る。利用者の入力には gold が無い。 */
-	gold?: string;
-	agrees?: boolean;
 };
 
 /**
@@ -163,17 +165,14 @@ export type BatchJudgeResult = {
  * 既存の `JudgeResponse` と `usage` の形を揃える。新しい計測の仕組みを作らず、
  * LOVE / SOCIAL / CITY / SPEC FIND と横並びで比較できるようにする（§8）。
  *
- * `datasetFingerprint`、`caseCount`、`questionCount` を持つのは、**表示した
- * 数値がどのデータに対するものか後から辿れるようにする**ためである。fixture を
- * 1件でも直せば fingerprint が変わる。
+ * **評価の概念を持たない。** 一致率も gold もここには無い。この API は
+ * 「渡された文章をどう判定したか」だけを返す（`BatchJudgeResult`）。
  */
 export type BatchJudgeResponse = {
 	requestId: string;
 	mode: 'batch';
 	theme: BatchTheme;
 	model: string;
-	/** fixture の内容から計算する。手で書くバージョン番号は必ず古くなる。 */
-	datasetFingerprint: string;
 	/** DEADLINE のときだけ入る。判定の基準になった日（§3.2）。 */
 	referenceDate?: string;
 	caseCount: number;
@@ -204,15 +203,6 @@ export type BatchJudgeResponse = {
 	 * 読めば分かるが、利用者には分からない（docs/BATCH_JUDGE_DESIGN.md §4.6）。
 	 */
 	upstreamCalls: number;
-	/** 利用者が入力した文章を判定したか。例文なら false。 */
-	userProvided: boolean;
-	/**
-	 * gold の確認状態。
-	 *
-	 * **一致率を出すなら必ず一緒に出す。** `draft` のまま「精度96%」と書くと、
-	 * 人が確認していないラベルに対する値を性能として見せることになる。
-	 */
-	labelStatus: LabelStatus;
 	latencyMs: number;
 	usage: { inputTokens: number; outputTokens: number; estimatedCostUsd: number };
 	results: BatchJudgeResult[];

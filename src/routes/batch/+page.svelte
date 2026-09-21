@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { requestBatch } from '$lib/client/batch-api';
-	import { formatCostUsd, toPercent } from '$lib/display';
-	import { THEME_NOTES, revealIntervalMs, verdictLabel, signalLabel } from '$lib/batch-display';
+	import { formatCostUsd } from '$lib/display';
+	import { THEME_NOTES, revealIntervalMs, verdictLabel } from '$lib/batch-display';
 	import BatchRow from '$lib/components/BatchRow.svelte';
 	import BatchProcess from '$lib/components/BatchProcess.svelte';
 	import BatchSummary from '$lib/components/BatchSummary.svelte';
@@ -395,51 +395,9 @@
 				>であり、各判断が逐次実行された意味ではありません。
 			</p>
 
-			<!--
-				`draft` のあいだ「精度」と呼ばない。人が確認していないラベルに
-				対する値を性能として見せることになる（§7）。
-			-->
 			<p class="mt-2 text-xs text-neutral-500">
-				{#if response.results.some((result) => result.gold !== undefined)}
-					一致率は、{response.labelStatus === 'draft' ? '暫定ラベル（人手確認前）' : '正解ラベル'}
-					との一致です。Jevの精度ではありません。
-				{/if}
 				判定は<strong>同じ入力でも毎回同じとは限りません</strong
 				>。実測では50件中0〜1件が変わりました。
-			</p>
-
-			{#if response.results.some((result) => result.agrees === false)}
-				<details class="mt-4">
-					<summary class="cursor-pointer text-xs text-neutral-500">
-						不一致の {response.results.filter((result) => result.agrees === false).length} 件を見る
-					</summary>
-					<ul class="mt-2 space-y-2">
-						{#each response.results.filter((result) => result.agrees === false) as result (result.caseId)}
-							<li class="text-xs text-neutral-600 dark:text-neutral-400">
-								<p>{result.text}</p>
-								<p class="mt-0.5 font-mono">
-									判定 {verdictLabel(result.verdict)} / ラベル {verdictLabel(result.gold ?? '')}
-									{#each result.signals as signal (signal.key)}
-										<span class="ml-2"
-											>{signalLabel(signal.key)} {toPercent(signal.probability)}%</span
-										>
-									{/each}
-								</p>
-							</li>
-						{/each}
-					</ul>
-				</details>
-			{/if}
-
-			<!--
-				指紋は例文データセットのものである。利用者の文章にはデータセットが
-				無いので、ラベルを使ったときだけ出す。
-			-->
-			<p class="mt-4 font-mono text-[10px] break-all text-neutral-400">
-				{#if response.results.some((result) => result.gold !== undefined)}
-					dataset {response.datasetFingerprint}
-				{/if}
-				{#if response.referenceDate}／基準日 {response.referenceDate}{/if}
 			</p>
 		{/if}
 	</section>
