@@ -60,6 +60,35 @@ describe('runCitySemanticShadow', () => {
 		expect(metrics?.candidateId).toBe('social_welfare');
 	});
 
+	it('同順位は条文順のまま切る', () => {
+		// IDで並べ直すと `…u1.r10` が `…u1.r4` より前に来て、災害援護や
+		// 戦傷病者の援護が上限で落ちる。Stage 1 の候補説明と選ばれる分掌が
+		// ずれ、実験が別物を測ることになる。
+		const picked = responsibilityCandidates('social_welfare', 12);
+		const numbers = picked.map((candidate) =>
+			Number(candidate.responsibilityId.match(/r(\d+)$/)?.[1])
+		);
+
+		// 条文順＝番号の昇順。抽象的な分掌（計画・統計）は後回しになるため飛ぶ。
+		expect(numbers).toEqual([...numbers].sort((a, b) => a - b));
+		expect(picked.some((candidate) => candidate.officialText.includes('災害援護'))).toBe(true);
+	});
+
+	it('上限を外せば後回しにした分掌も入る', () => {
+		// 落ちているのは「計画」「統計」のような抽象的な分掌で、順序の
+		// 取りこぼしではない。
+		const all = responsibilityCandidates('social_welfare', 999);
+		expect(all.some((candidate) => candidate.officialText.includes('地域福祉計画'))).toBe(true);
+		expect(all.some((candidate) => candidate.officialText.includes('福祉統計'))).toBe(true);
+	});
+
+	it('同じ入力なら毎回同じ並びになる', () => {
+		// 実験の比較が読めなくなるため、並びを揺らさない。
+		const first = responsibilityCandidates('social_welfare', 12);
+		const second = responsibilityCandidates('social_welfare', 12);
+		expect(first.map((c) => c.responsibilityId)).toEqual(second.map((c) => c.responsibilityId));
+	});
+
 	it('条文を送る（要約ではない）', async () => {
 		// Stage 2 は分掌そのものとの適合を測る。
 		const send = sender({});

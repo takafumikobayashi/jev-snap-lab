@@ -266,8 +266,13 @@ export function responsibilityCandidates(
 			}))
 	);
 
+	// 同順位は**条文順のまま**にする。`Array.prototype.sort` は安定なので、
+	// rank だけで並べれば入力順が保たれる。IDで並べ直すと
+	// `…u1.r10` が `…u1.r4` より前に来て、災害援護や戦傷病者の援護が
+	// 上限で落ちる。Stage 1 の候補説明（representativeDuties）と選ばれる
+	// 分掌がずれ、実験が別物を測ることになる。
 	return rows
-		.sort((a, b) => a.rank - b.rank || a.responsibilityId.localeCompare(b.responsibilityId))
+		.sort((a, b) => a.rank - b.rank)
 		.slice(0, limit)
 		.map((row) => ({
 			responsibilityId: row.responsibilityId,
