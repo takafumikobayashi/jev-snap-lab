@@ -198,7 +198,8 @@ describe.skipIf(!LIVE)('CITY Fit / Gap 実機評価', () => {
 						const { result: stage2 } = await evaluate(state, questions, remaining);
 						return {
 							answers: stage2.answers as Record<string, unknown>,
-							inputTokens: stage2.usage.input_tokens
+							inputTokens: stage2.usage.input_tokens,
+							outputTokens: stage2.usage.output_tokens
 						};
 					}
 				);

@@ -37,7 +37,7 @@ const MAX_SECTIONS = 1;
 export type CitySemanticSender = (request: {
 	state: Record<string, JsonValue>;
 	questions: Questions;
-}) => Promise<{ answers: Record<string, unknown>; inputTokens: number }>;
+}) => Promise<{ answers: Record<string, unknown>; inputTokens: number; outputTokens: number }>;
 
 /** 実験機能。既定では無効にし、明示的な `true` だけを有効とする。 */
 export function isCitySemanticEnabled(): boolean {
@@ -55,8 +55,11 @@ export type CitySemanticMetrics = {
 	/** 最上位の適合度。候補が無ければ null。 */
 	topFit: number | null;
 	abstained: boolean;
+	/** Stage 2 だけの所要時間。Stage 1 とリクエスト全体は呼び出し側が持つ。 */
 	latencyMs: number;
 	inputTokens: number;
+	/** 料金はinput側だけだが、比較のため記録する。 */
+	outputTokens: number;
 };
 
 /**
@@ -87,6 +90,7 @@ export async function runCitySemanticShadow(
 
 	const startedAt = performance.now();
 	let inputTokens = 0;
+	let outputTokens = 0;
 
 	const scores = await evaluateSemanticFit(
 		responsibilities.map((responsibility) => ({
@@ -99,9 +103,10 @@ export async function runCitySemanticShadow(
 		CITY_POLICY,
 		{ mode: 'city', text, jurisdiction: jurisdictionName() },
 		async (request) => {
-			const { answers, inputTokens: used } = await send(request);
-			inputTokens += used;
-			return answers;
+			const result = await send(request);
+			inputTokens += result.inputTokens;
+			outputTokens += result.outputTokens;
+			return result.answers;
 		}
 	);
 
@@ -118,7 +123,8 @@ export async function runCitySemanticShadow(
 		topFit: ranked.ranked[0]?.probability ?? null,
 		abstained: ranked.abstained,
 		latencyMs: Math.round(performance.now() - startedAt),
-		inputTokens
+		inputTokens,
+		outputTokens
 	};
 }
 

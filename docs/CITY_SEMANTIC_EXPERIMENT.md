@@ -230,6 +230,27 @@ Stage 2 の入力tokenは Stage 1 の約4分の1にとどまる。分掌事務�
 
 `other_or_unclear` が選ばれた入力では Stage 2 を実行しない。組織に紐づく課が無く、送る候補が作れないためで、実機でも意図どおり呼び出しが発生しなかった。
 
+### 観測ログ
+
+Stage 2 を走らせたリクエストは、次の1行を残す。集計で別の行と突き合わせなくて済むよう、base と semantic を同じ行へ入れる。
+
+```json
+{
+  "route": "api/judge", "requestId": "…", "mode": "city", "experiment": "city_semantic",
+  "candidateId": "crisis_management", "sent": 12,
+  "hits": ["crisis_management.u1.r4", "crisis_management.u1.r1", "crisis_management.u1.r2"],
+  "topFit": 0.74, "abstained": false,
+  "baseLatencyMs": 743, "baseInputTokens": 8396,
+  "semanticLatencyMs": 548, "semanticInputTokens": 2194,
+  "semanticOutputTokens": 222, "semanticCostUsd": 0.00009214,
+  "totalLatencyMs": 1292
+}
+```
+
+入力本文は残さない。IDと数値だけで比較できるようにする。
+
+**レスポンスの `latencyMs` は Stage 2 の時間を含む。** shadow は応答を返す前に await するため、含めないと実験を有効にしたときに画面の表示だけ実際より短くなる。上の例では利用者は1,292ms待っており、その値を返す。
+
 ## 7.2 Fit / Gap の実機評価（2026-09-21、model `jev-1.13.0`）
 
 評価ハーネスは `src/lib/server/city-fitgap.live.spec.ts`。既定ではスキップし、`LIVE_JEV=1` のときだけ上流を呼ぶ。

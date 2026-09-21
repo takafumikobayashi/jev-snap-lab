@@ -222,23 +222,41 @@ async function observeCitySemantic(
 	startedAt: number
 ): Promise<void> {
 	const remaining = remainingBudgetMs(startedAt);
+	let pricePerMillion = 0;
 	try {
 		const metrics = await runCitySemanticShadow(response, text, remaining, async (request) => {
 			// Stage 1 の後にさらに時間が経っているため、その場で測り直す。
-			const { result } = await evaluate(
+			const { result, config } = await evaluate(
 				request.state,
 				request.questions,
 				remainingBudgetMs(startedAt)
 			);
+			pricePerMillion = config.inputPricePerMillionTokens;
 			return {
 				answers: result.answers as Record<string, unknown>,
-				inputTokens: result.usage.input_tokens
+				inputTokens: result.usage.input_tokens,
+				outputTokens: result.usage.output_tokens
 			};
 		});
 		if (!metrics) return;
 
 		// 入力本文は残さない。IDと数値だけで比較できるようにする。
-		log({ requestId, mode: 'city', experiment: 'city_semantic', ...metrics });
+		// base と semantic を1行の中で区別し、集計時に突き合わせ不要にする。
+		const { latencyMs, inputTokens, outputTokens, ...rest } = metrics;
+		log({
+			requestId,
+			mode: 'city',
+			experiment: 'city_semantic',
+			...rest,
+			baseLatencyMs: response.latencyMs,
+			baseInputTokens: response.usage?.inputTokens ?? null,
+			semanticLatencyMs: latencyMs,
+			semanticInputTokens: inputTokens,
+			semanticOutputTokens: outputTokens,
+			semanticCostUsd: estimateCostUsd(inputTokens, pricePerMillion),
+			// 利用者が待った時間。base + semantic + 組み立て。
+			totalLatencyMs: Math.round(performance.now() - startedAt)
+		});
 	} catch (error) {
 		// 実験の失敗で既定の結果を落とさない。原因だけ残す。
 		log({
@@ -331,6 +349,13 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 			...(mode === 'city' ? { city: buildCityBlock(results, text) } : {})
 		};
 
+		if (mode === 'city') await observeCitySemantic(response, text, requestId, startedAt);
+
+		// shadow は応答を返す前に await する。利用者が待った時間を反映させるため、
+		// latencyMs はここで確定させる。実験を有効にしたときに、画面の表示だけ
+		// 実際より短くなるのを避ける。
+		response.latencyMs = Math.round(performance.now() - startedAt);
+
 		log({
 			requestId,
 			mode,
@@ -341,8 +366,6 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 			inputTokens: result.usage.input_tokens,
 			questionCount: Object.keys(catalog.questions).length
 		});
-
-		if (mode === 'city') await observeCitySemantic(response, text, requestId, startedAt);
 
 		return jsonResponse(response, 200);
 	} catch (error) {

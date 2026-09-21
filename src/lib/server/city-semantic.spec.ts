@@ -31,7 +31,7 @@ function baseResponse(selected: string): JudgeResponse {
 }
 
 /** 分掌テキストごとに確率を決める sender。 */
-const sender = (byText: Record<string, number>, usage = 1500) =>
+const sender = (byText: Record<string, number>, usage = 1500, output = 90) =>
 	vi.fn(async (request: { state: Record<string, unknown>; questions: Record<string, unknown> }) => {
 		const bag = request.state.responsibilities as Record<string, { text: string }>;
 		return {
@@ -41,7 +41,8 @@ const sender = (byText: Record<string, number>, usage = 1500) =>
 					return [id, { type: 'noul', noul: byText[bag[`c${position}`].text] ?? 0.05 }];
 				})
 			),
-			inputTokens: usage
+			inputTokens: usage,
+			outputTokens: output
 		};
 	});
 
@@ -88,6 +89,7 @@ describe('runCitySemanticShadow', () => {
 		expect(metrics?.topFit).toBe(0.93);
 		expect(metrics?.abstained).toBe(false);
 		expect(metrics?.inputTokens).toBe(1500);
+		expect(metrics?.outputTokens).toBe(90);
 	});
 
 	it('全部が閾値未満なら abstain を記録する', async () => {
@@ -139,7 +141,8 @@ describe('runCitySemanticShadow', () => {
 		await expect(
 			runCitySemanticShadow(baseResponse(candidateIds[0]), 'x', 5000, async () => ({
 				answers: {},
-				inputTokens: 0
+				inputTokens: 0,
+				outputTokens: 0
 			}))
 		).rejects.toThrow(JudgeError);
 	});

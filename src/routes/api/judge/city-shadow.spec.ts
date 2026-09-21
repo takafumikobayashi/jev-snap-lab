@@ -145,6 +145,49 @@ describe('CITY Semantic Fit の shadow 実験', () => {
 		expect(logs).not.toContain('防犯灯が切れてます');
 	});
 
+	it('観測ログで base と semantic を区別できる', async () => {
+		// 集計時に別の行と突き合わせなくて済むよう、1行に揃える。
+		const info = vi.spyOn(console, 'info').mockImplementation(() => {});
+		evaluate
+			.mockImplementationOnce(stage1)
+			.mockImplementationOnce((_s, questions) => stage2(questions as Record<string, unknown>));
+		await judge();
+
+		const line = info.mock.calls
+			.map(([entry]) => JSON.parse(String(entry)))
+			.find((entry) => entry.experiment === 'city_semantic');
+
+		expect(line).toBeDefined();
+		for (const key of [
+			'baseLatencyMs',
+			'baseInputTokens',
+			'semanticLatencyMs',
+			'semanticInputTokens',
+			'semanticOutputTokens',
+			'semanticCostUsd',
+			'totalLatencyMs'
+		]) {
+			expect(line, key).toHaveProperty(key);
+		}
+		expect(line.semanticInputTokens).toBe(900);
+		expect(line.semanticOutputTokens).toBe(40);
+		expect(line.semanticCostUsd).toBeGreaterThan(0);
+		// 総時間は Stage 2 単体より短くならない。
+		expect(line.totalLatencyMs).toBeGreaterThanOrEqual(line.semanticLatencyMs);
+	});
+
+	it('レスポンスの latencyMs が Stage 2 の時間を含む', async () => {
+		// shadow は応答前に await する。含めないと、実験を有効にしたときに
+		// 画面の表示だけ実際より短くなる。
+		evaluate.mockImplementationOnce(stage1).mockImplementationOnce(async (_s, questions) => {
+			await new Promise((resolve) => setTimeout(resolve, 60));
+			return stage2(questions as Record<string, unknown>);
+		});
+		const body = (await (await judge()).json()) as JudgeResponse;
+
+		expect(body.latencyMs).toBeGreaterThanOrEqual(60);
+	});
+
 	it('Stage 2 の予算が Stage 1 の残りに収まる', async () => {
 		// 12,000ms × 2 は maxDuration 20,000ms を超える。残りを渡す。
 		evaluate
