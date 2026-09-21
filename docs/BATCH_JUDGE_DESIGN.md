@@ -356,6 +356,18 @@ DEADLINE のデータセットは `referenceDate` を持つ。**gold を決め�
 
 事例は**オブジェクトのキー**で置く（§4.3）。`referenceDate` は持つテーマだけ入れる。判定に寄与しない値をstateへ入れない。
 
+**stateへ入れるのは `id` と `text` だけである。**
+
+```ts
+type BatchJevCase = Pick<BatchCase, 'id' | 'text'>;
+```
+
+`gold` は答えそのもの、`note` は「属性の組み合わせで個人が絞られうる」のような根拠で、どちらも渡せば一致率が測れなくなる。`difficulty` も人手の評価であって判断材料ではない。
+
+**dataset を丸ごと state へ渡す書き方に変えると静かに漏れる。** 型だけでは守れないので、組み立てた state を `id` と `text` だけから作った期待値と**完全一致**で比べている（[batch-questions.spec.ts](../src/lib/server/batch-questions.spec.ts)）。
+
+部分一致では検査にならない。実際に `privacy_023` の note「氏名と連絡先」が `privacy_043` の本文「…所有者の氏名と連絡先を調べたい。」の一部と一致し、正しい実装が漏えいとして落ちた。
+
 ### 5.5.3 テーマごとの質問
 
 **PRIVACY** — Noul 3問／件。`identifies` と `personal` が判定、`sensitive` は理由の内訳（§3.1）。

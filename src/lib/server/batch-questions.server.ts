@@ -14,6 +14,7 @@ import { JudgeError } from './errors.server';
 import {
 	DX_CLASSES,
 	type BatchCase,
+	type BatchJevCase,
 	type BatchDataset,
 	type BatchTheme,
 	type DxClass
@@ -150,6 +151,9 @@ export type BatchRequest = {
  * 並び順を変えてもキーは動かないため、混線の検査はこの形のままできる。
  *
  * `referenceDate` は持つテーマだけ入れる。判定に寄与しない値をstateへ入れない。
+ *
+ * **stateへ入れるのは `id` と `text` だけである**（`BatchJevCase`）。`gold`、
+ * `note`、`difficulty` は人手の評価であって判断材料ではない。
  */
 export function buildBatchRequest(
 	dataset: BatchDataset,
@@ -161,7 +165,9 @@ export function buildBatchRequest(
 		throw new JudgeError('QUESTION_DEFINITION_ERROR', 'BATCH JUDGE の事例が空である');
 	}
 
-	const bag: Record<string, { text: string }> = {};
+	// **gold と note を入れない。** 答えと根拠を渡せば一致率が測れなくなる。
+	// 形を `BatchJevCase` に固定し、事例を展開してコピーしない。
+	const bag: Record<string, Omit<BatchJevCase, 'id'>> = {};
 	const questions: Questions = {};
 	const index = new Map<string, string>();
 	for (const item of cases) {

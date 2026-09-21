@@ -78,6 +78,59 @@ describe('buildBatchRequest', () => {
 	});
 });
 
+describe('Jevへ送るもの', () => {
+	// dataset を丸ごと state へ渡す書き方に変えると、gold とヒントが静かに
+	// 漏れる。**送信するオブジェクトそのものを見る。** 型だけでは守れない。
+	const themes = [privacy, deadline, dx];
+
+	it('state の事例が id と text だけでできている', () => {
+		// 部分一致では検査にならない。note の文言が別の事例の本文に含まれる
+		// ことが実際にあった（privacy_023 の note が privacy_043 の本文の一部）。
+		// **期待する形を組み立てて完全一致で比べる。** 余分なものが1つでも
+		// 入れば落ちる。
+		for (const dataset of themes) {
+			const request = buildBatchRequest(dataset);
+			expect(request.state[CASES_KEY], dataset.theme).toEqual(
+				Object.fromEntries(dataset.cases.map((item) => [item.id, { text: item.text }]))
+			);
+		}
+	});
+
+	it('リクエスト全体に gold / note / difficulty のキーが無い', () => {
+		// state の外（questions や将来足す項目）へ漏れる経路も塞ぐ。
+		for (const dataset of themes) {
+			const sent = JSON.stringify(buildBatchRequest(dataset));
+			for (const key of ['gold', 'note', 'difficulty']) {
+				expect(sent, `${dataset.theme} に ${key} がある`).not.toContain(`"${key}"`);
+			}
+		}
+	});
+
+	it('fixture に note と difficulty が実在する', () => {
+		// 元データに無ければ、漏れないことを確かめたことにならない。
+		for (const dataset of themes) {
+			expect(
+				dataset.cases.some((item) => item.note !== undefined),
+				dataset.theme
+			).toBe(true);
+			expect(
+				dataset.cases.every((item) => item.difficulty !== undefined),
+				dataset.theme
+			).toBe(true);
+		}
+	});
+
+	it('事例を展開してコピーすると落ちる', () => {
+		// `{ ...item }` へ書き換えたときにこの検査が効くことを示す。検査自体が
+		// 空振りしていないことの確認である。
+		const leaked = Object.fromEntries(privacy.cases.map((item) => [item.id, { ...item }]));
+		expect(JSON.stringify({ cases: leaked })).toContain('"gold"');
+		expect(leaked).not.toEqual(
+			Object.fromEntries(privacy.cases.map((item) => [item.id, { text: item.text }]))
+		);
+	});
+});
+
 describe('readBatchAnswers', () => {
 	const request = buildBatchRequest(privacy, privacy.cases.slice(0, 2));
 

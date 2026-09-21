@@ -73,6 +73,20 @@ export type DxCase = BaseCase & { gold: DxClass };
 
 export type BatchCase = PrivacyCase | DeadlineCase | DxCase;
 
+/**
+ * Jevへ送ってよい部分。
+ *
+ * **`gold` と `note` を送らない。** `gold` は答えそのもの、`note` は
+ * 「属性の組み合わせで個人が絞られうる」のような根拠であり、どちらも
+ * 渡せば一致率が測れなくなる。`difficulty` も人手の評価であって判断材料
+ * ではない。
+ *
+ * `BatchCase` をそのまま state へ入れないこと。dataset を丸ごと渡す書き方に
+ * 変えると静かに漏れるため、[batch-questions.spec.ts](../server/batch-questions.spec.ts)
+ * で state の中身を検査している。
+ */
+export type BatchJevCase = Pick<BatchCase, 'id' | 'text'>;
+
 export type BatchDataset = {
 	schemaVersion: '1';
 	theme: BatchTheme;
