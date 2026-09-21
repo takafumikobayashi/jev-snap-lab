@@ -8,11 +8,13 @@ const { JudgeError } = await import('./errors.server');
 
 /** 契約どおりに答える上流。テストごとにここから1点だけ壊す。 */
 function sender(answerFor: (questionId: string) => unknown) {
-	return vi.fn(async (request: { questions: Record<string, unknown> }) => ({
-		answers: Object.fromEntries(Object.keys(request.questions).map((id) => [id, answerFor(id)])),
-		inputTokens: 18_000,
-		outputTokens: 3_000
-	}));
+	return vi.fn(
+		async (request: { state: Record<string, unknown>; questions: Record<string, unknown> }) => ({
+			answers: Object.fromEntries(Object.keys(request.questions).map((id) => [id, answerFor(id)])),
+			inputTokens: 18_000,
+			outputTokens: 3_000
+		})
+	);
 }
 
 const noul = (value: number) => ({ type: 'noul', noul: value });
@@ -27,11 +29,19 @@ describe('isBatchJudgeEnabled', () => {
 describe('batchCatalog', () => {
 	it('件数をデータから作る', () => {
 		// 画面に出す件数を手で書かない。fixture を増減したら追随する。
-		expect(batchCatalog()).toEqual([
-			{ theme: 'privacy', label: expect.any(String), cases: 50 },
-			{ theme: 'deadline', label: expect.any(String), cases: 50 },
-			{ theme: 'dx', label: expect.any(String), cases: 50 }
+		expect(
+			batchCatalog().map(({ theme, cases, samples }) => ({
+				theme,
+				cases,
+				samples: samples.length
+			}))
+		).toEqual([
+			{ theme: 'privacy', cases: 50, samples: 50 },
+			{ theme: 'deadline', cases: 50, samples: 50 },
+			{ theme: 'dx', cases: 50, samples: 50 }
 		]);
+		// 例文そのものを渡す。自分の文章を貼らずに確認できるようにするため。
+		expect(batchCatalog()[0].samples[0]).toBe(loadDataset('privacy').cases[0].text);
 	});
 });
 
@@ -111,6 +121,76 @@ describe('runBatchJudge', () => {
 		const sent = JSON.stringify(send.mock.calls[0][0]);
 		expect(sent).not.toContain('"gold"');
 		expect(sent).not.toContain('"note"');
+	});
+});
+
+describe('利用者の文章を判定する', () => {
+	it('渡した文章をそのまま事例にする', async () => {
+		const send = sender(() => noul(0.1));
+		const outcome = await runBatchJudge('privacy', send, [
+			'明日の会議室を予約したい',
+			'来客用の駐車場'
+		]);
+
+		expect(outcome.caseCount).toBe(2);
+		expect(outcome.questionCount).toBe(6);
+		expect(outcome.userProvided).toBe(true);
+		expect(outcome.results.map((result) => result.text)).toEqual([
+			'明日の会議室を予約したい',
+			'来客用の駐車場'
+		]);
+	});
+
+	it('正解の無い文章に一致を出さない', async () => {
+		// 無い gold をでっち上げない。
+		const send = sender(() => noul(0.1));
+		const outcome = await runBatchJudge('privacy', send, ['これは例文ではない文章']);
+		expect(outcome.results[0].gold).toBeUndefined();
+		expect(outcome.results[0].agrees).toBeUndefined();
+	});
+
+	it('本文が例文と一致すれば gold を付ける', async () => {
+		// 例文をそのまま貼れば一致率が出る。
+		const sample = loadDataset('privacy').cases[0];
+		const send = sender(() => noul(0.1));
+		const outcome = await runBatchJudge('privacy', send, [sample.text]);
+		expect(outcome.results[0].gold).toBe(sample.gold);
+		expect(outcome.results[0].agrees).toBe(true);
+	});
+
+	it('同じ文章を2度渡しても並びが決まる', async () => {
+		// 本文のハッシュで並べるため、同じ本文はIDで決着させる。
+		const send = sender(() => noul(0.1));
+		const first = await runBatchJudge('dx', send, ['同じ文', '同じ文', '別の文']);
+		const second = await runBatchJudge('dx', send, ['同じ文', '同じ文', '別の文']);
+		const order = (request: { state: Record<string, unknown> }) =>
+			Object.keys(request.state.cases as Record<string, unknown>);
+		expect(order(send.mock.calls[send.mock.calls.length - 1][0])).toEqual(
+			order(send.mock.calls[send.mock.calls.length - 2][0])
+		);
+		expect(first.caseCount).toBe(3);
+		expect(second.caseCount).toBe(3);
+	});
+
+	it('利用者の文章でも gold を上流へ送らない', async () => {
+		const sample = loadDataset('privacy').cases[1];
+		const send = sender(() => noul(0.1));
+		await runBatchJudge('privacy', send, [sample.text]);
+		expect(JSON.stringify(send.mock.calls[0][0])).not.toContain('"gold"');
+	});
+
+	it('例文を判定したときは userProvided を立てない', async () => {
+		const send = sender(() => noul(0.1));
+		const outcome = await runBatchJudge('privacy', send);
+		expect(outcome.userProvided).toBe(false);
+	});
+
+	it('処理の内訳を返す', async () => {
+		// 画面の「処理の流れ」はこの値を出す。手で書かない。
+		const send = sender(() => noul(0.1));
+		const outcome = await runBatchJudge('privacy', send, ['あいう', 'かきくけこ']);
+		expect(outcome.stateChars).toBe(8);
+		expect(outcome.upstreamCalls).toBe(1);
 	});
 });
 

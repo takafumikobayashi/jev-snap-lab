@@ -316,7 +316,7 @@ BATCH JUDGE  多数のInput  × 少数の判断基準    -> 大量の意味判�
 
 - **BATCH JUDGE** — 短文を数十件まとめて判定する新モード（[BATCH_JUDGE_DESIGN.md](BATCH_JUDGE_DESIGN.md)）。**実装済み。既定は無効**で、`BATCH_JUDGE_ENABLED=true` のとき `/batch` が開く
 
-  判定するのは**同梱した例文**で、**入力欄を置かない。** 「AIにそのまま入れてよい？」を判定するモードが利用者の文章をAIへ送ってしまうためである。入力を受け付けるなら、注意文とデモ用例文を先に用意する（[BATCH_JUDGE_DESIGN.md](BATCH_JUDGE_DESIGN.md) §3.1）
+  1行1件で最大50件を受け取る。「AIにそのまま入れてよい？」を判定するモードが利用者の文章をAIへ送るため、**入力欄の手前に送信する旨を常時出し**、「例文を入れる」で自分の文章を貼らずに試せるようにする（[BATCH_JUDGE_DESIGN.md](BATCH_JUDGE_DESIGN.md) §3.1）
 - **SPEC FIND v1** — 機能要件Excelを第2の層として足し、「この資料には答えが無い」を区別できるようにする（[SPEC_FIND_DESIGN.md](SPEC_FIND_DESIGN.md) の §10）。着手前
 
 BATCH JUDGE の実測で分かったことのうち、製品の作りに効くものは次のとおり（[BATCH_JUDGE_DESIGN.md](BATCH_JUDGE_DESIGN.md) §4.6）。

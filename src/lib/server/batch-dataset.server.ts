@@ -12,16 +12,24 @@ import {
 	BATCH_THEMES,
 	DEADLINE_CLASSES,
 	DX_CLASSES,
+	MAX_BATCH_CASES,
+	MAX_BATCH_CASE_CHARS,
 	PRIVACY_VERDICTS,
 	type BatchCase,
 	type BatchDataset,
 	type BatchDifficulty,
 	type BatchTheme
 } from '$lib/types/batch';
-import { countCodePoints, MAX_INPUT_CODE_POINTS } from '$lib/types/judge';
+import { countCodePoints } from '$lib/types/judge';
 
-/** 1リクエストへ入れる事例の上限。benchmark の「件数」側の上限。 */
-export const MAX_CASES = 50;
+/**
+ * 1リクエストへ入れる事例の上限。benchmark の「件数」側の上限。
+ *
+ * 画面も同じ値を使う。`$lib/server` はクライアントへバンドルできないため、
+ * 実体は [batch.ts](../types/batch.ts) に置いてここから参照する。**同じ値を
+ * 2箇所に書かない。**
+ */
+export const MAX_CASES = MAX_BATCH_CASES;
 
 /**
  * 1事例の文字数上限。
@@ -31,7 +39,7 @@ export const MAX_CASES = 50;
  * `String.prototype.length` は UTF-16 の code unit 数なので、サロゲートペアの
  * 漢字や絵文字で実際より大きい値を返す（[judge.ts](../types/judge.ts)）。
  */
-export const MAX_CASE_CHARS = MAX_INPUT_CODE_POINTS;
+export const MAX_CASE_CHARS = MAX_BATCH_CASE_CHARS;
 
 /**
  * 件数と1件あたりの上限から決まる、state 本文の最大文字数。

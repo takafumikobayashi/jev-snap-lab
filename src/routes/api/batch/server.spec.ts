@@ -21,8 +21,17 @@ const { POST } = await import('./+server');
 const { buildBatchRequest } = await import('$lib/server/batch-questions.server');
 const { loadDataset } = await import('$lib/server/batch-judge.server');
 
-function mockSuccess(theme: 'privacy' | 'deadline' | 'dx') {
-	const request = buildBatchRequest(loadDataset(theme));
+function mockSuccess(theme: 'privacy' | 'deadline' | 'dx', cases?: string[]) {
+	const dataset = loadDataset(theme);
+	const request = buildBatchRequest(
+		dataset,
+		cases?.map((text, at) => ({
+			id: `${theme}_input_${String(at + 1).padStart(3, '0')}`,
+			text,
+			difficulty: 'medium' as const,
+			gold: dataset.cases[0].gold
+		})) ?? dataset.cases
+	);
 	evaluate.mockResolvedValue({
 		result: {
 			model: 'jev-1.13.0',
@@ -149,6 +158,29 @@ describe('POST /api/batch', () => {
 			config: { inputPricePerMillionTokens: 0.042 }
 		});
 		expect((await post({ theme: 'privacy' })).status).toBe(503);
+	});
+
+	it('利用者の文章を判定する', async () => {
+		const cases = ['明日の会議室を予約したい', '来客用の駐車場を確保したい'];
+		mockSuccess('privacy', cases);
+		const body = (await (await post({ theme: 'privacy', cases })).json()) as BatchJudgeResponse;
+
+		expect(body.caseCount).toBe(2);
+		expect(body.questionCount).toBe(6);
+		expect(body.userProvided).toBe(true);
+		expect(body.results.map((result) => result.text)).toEqual(cases);
+		// 処理の流れに出す値。
+		expect(body.stateChars).toBe(25);
+		expect(body.upstreamCalls).toBe(1);
+	});
+
+	it('利用者の文章をログへ出さない', async () => {
+		const info = vi.spyOn(console, 'info').mockImplementation(() => {});
+		const cases = ['山田花子さんの相談記録'];
+		mockSuccess('privacy', cases);
+		await post({ theme: 'privacy', cases });
+		const logged = info.mock.calls.map((call) => String(call[0])).join('\n');
+		expect(logged).not.toContain('山田花子');
 	});
 
 	it('入力本文をログへ出さない', async () => {

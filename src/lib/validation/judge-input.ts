@@ -39,7 +39,7 @@ const ALLOWED_CONTROL = new Set([0x09, 0x0a, 0x0d]); // TAB / LF / CR
  * 正規表現ではなくコードポイントで判定するのは、意図が読み取れる形にして
  * `no-control-regex` の抑制コメントを避けるため。
  */
-function hasForbiddenControlCharacter(text: string): boolean {
+export function hasForbiddenControlCharacter(text: string): boolean {
 	for (const character of text) {
 		const code = character.codePointAt(0) ?? 0;
 		if (ALLOWED_CONTROL.has(code)) continue;

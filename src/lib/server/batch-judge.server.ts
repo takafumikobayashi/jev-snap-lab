@@ -5,16 +5,12 @@
  * すると、データの不備がルートの import 失敗になり、SvelteKit は JSON の
  * エラー封筒ではなく HTML の 500 を返す（SPEC FIND と同じ理由）。
  *
- * v0 は**同梱した fixture を判定するだけ**で、利用者の入力を受け付けない。
- * 理由は2つある。
+ * 同梱した例文と、利用者が入力した文章のどちらも判定する。
  *
- * 1. このモードの見せ場は「数十件を一度に」であり、利用者が50件を打ち込む
- *    使い方は現実的でない
- * 2. PRIVACY は「AIにそのまま入れてよい？」を判定するために入力文をAIへ
- *    送る。利用者が実際の個人情報を貼ると、判定より先に送信が起きる
- *    （docs/BATCH_JUDGE_DESIGN.md §3.1）
- *
- * 入力を受け付けるなら、§3.1 の注意文とデモ用例文を先に用意すること。
+ * **PRIVACY は「AIにそのまま入れてよい？」を判定するために入力文をAIへ送る。**
+ * 利用者が実際の個人情報を貼ると、判定より先に送信が起きる。画面は入力欄の
+ * 手前に送信する旨を常時出し、デモ用の例文をワンクリックで入れられるように
+ * している（docs/BATCH_JUDGE_DESIGN.md §3.1）。この前提を外さないこと。
  */
 
 import { env } from '$env/dynamic/private';
@@ -29,6 +25,7 @@ import {
 	type BatchTheme
 } from '$lib/types/batch';
 import { datasetFingerprint, summarizeDataset, validateDataset } from './batch-dataset.server';
+import { countCodePoints } from '$lib/types/judge';
 import {
 	AXES_BY_THEME,
 	buildBatchRequest,
@@ -64,11 +61,47 @@ export function loadDataset(theme: BatchTheme): BatchDataset {
 	return dataset;
 }
 
-/** 画面のタブに出す一覧。件数まで出すのでデータから作る。 */
-export function batchCatalog(): { theme: BatchTheme; label: string; cases: number }[] {
+/**
+ * 画面のタブに出す一覧。
+ *
+ * 例文そのものを渡す。**自分の文章を貼らなくても動きを確認できる**ように
+ * するのは受入条件である（docs/BATCH_JUDGE_DESIGN.md §11）。
+ */
+export function batchCatalog(): {
+	theme: BatchTheme;
+	label: string;
+	cases: number;
+	samples: string[];
+}[] {
 	return BATCH_THEMES.map((theme) => {
 		const dataset = loadDataset(theme);
-		return { theme, label: dataset.label, cases: dataset.cases.length };
+		return {
+			theme,
+			label: dataset.label,
+			cases: dataset.cases.length,
+			samples: dataset.cases.map((item) => item.text)
+		};
+	});
+}
+
+/**
+ * 利用者の文章を事例にする。
+ *
+ * **本文が例文と一致したときだけ gold を付ける。** 例文をそのまま判定した
+ * ときは一致率が出せるし、自分の文章なら正解が無いので出さない。無い gold を
+ * でっち上げない。
+ */
+function toCases(dataset: BatchDataset, texts: readonly string[]): BatchDataset['cases'] {
+	const goldByText = new Map(dataset.cases.map((item) => [item.text, item.gold]));
+	return texts.map((text, at) => {
+		const gold = goldByText.get(text);
+		return {
+			id: `${dataset.theme}_input_${String(at + 1).padStart(3, '0')}`,
+			text,
+			difficulty: 'medium' as const,
+			// gold は Jev へ送らない（`BatchJevCase`）。付けても送信物は変わらない。
+			...(gold === undefined ? {} : { gold })
+		} as BatchDataset['cases'][number];
 	});
 }
 
@@ -85,7 +118,8 @@ export type BatchSender = (
  */
 export async function runBatchJudge(
 	theme: BatchTheme,
-	send: BatchSender
+	send: BatchSender,
+	texts?: readonly string[]
 ): Promise<
 	Omit<BatchJudgeResponse, 'requestId' | 'model' | 'latencyMs' | 'usage'> & {
 		inputTokens: number;
@@ -93,7 +127,8 @@ export async function runBatchJudge(
 	}
 > {
 	const dataset = loadDataset(theme);
-	const request = buildBatchRequest(dataset);
+	const cases = texts === undefined ? dataset.cases : toCases(dataset, texts);
+	const request = buildBatchRequest(dataset, cases);
 	const raw = await send(request);
 	// 欠落と契約違反はここで弾く。**見ていない事例を安全に見せない**（§5.5.4）。
 	const answers = readBatchAnswers(raw.answers, request);
@@ -105,8 +140,12 @@ export async function runBatchJudge(
 		...(dataset.referenceDate ? { referenceDate: dataset.referenceDate } : {}),
 		caseCount: request.caseCount,
 		questionCount: request.questionCount,
+		stateChars: cases.reduce((sum, item) => sum + countCodePoints(item.text), 0),
+		// 分割していない。画面で示すために数として返す。
+		upstreamCalls: 1,
+		userProvided: texts !== undefined,
 		labelStatus: dataset.labelStatus,
-		results: dataset.cases.map((item) => toResult(theme, item, answers)),
+		results: cases.map((item) => toResult(theme, item, answers)),
 		inputTokens: raw.inputTokens,
 		outputTokens: raw.outputTokens
 	};
@@ -125,7 +164,7 @@ function toResult(
 	answers: Map<string, BatchAnswer>
 ): BatchJudgeResult {
 	const caseId = item.id;
-	const gold = item.gold as string;
+	const gold = item.gold as string | undefined;
 	const signals = AXES_BY_THEME[theme].flatMap((axis) => {
 		const answer = answers.get(questionIdOf(caseId, axis.key));
 		if (answer?.type === 'noul' && typeof answer.noul === 'number') {
@@ -143,7 +182,14 @@ function toResult(
 			? privacyVerdict(answers, caseId)
 			: (answers.get(questionIdOf(caseId, AXES_BY_THEME[theme][0].key))?.choice ?? '');
 
-	return { caseId, text: item.text, verdict, signals, gold, agrees: verdict === gold };
+	return {
+		caseId,
+		text: item.text,
+		verdict,
+		signals,
+		// 正解が無い文章に一致を出さない。
+		...(gold === undefined ? {} : { gold, agrees: verdict === gold })
+	};
 }
 
 /** 画面の要約。**暫定ラベルに対する一致であることを呼び出し側が消せない形にする。** */

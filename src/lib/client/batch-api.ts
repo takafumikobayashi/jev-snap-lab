@@ -16,13 +16,17 @@ const NETWORK_FAILURE: Omit<Extract<BatchOutcome, { ok: false }>, 'ok'> = {
 	retryable: true
 };
 
-export async function requestBatch(theme: BatchTheme, signal: AbortSignal): Promise<BatchOutcome> {
+export async function requestBatch(
+	theme: BatchTheme,
+	cases: string[] | undefined,
+	signal: AbortSignal
+): Promise<BatchOutcome> {
 	let response: Response;
 	try {
 		response = await fetch('/api/batch', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ theme }),
+			body: JSON.stringify(cases === undefined ? { theme } : { theme, cases }),
 			signal
 		});
 	} catch (error) {

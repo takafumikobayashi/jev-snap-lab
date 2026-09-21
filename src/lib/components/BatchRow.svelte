@@ -38,11 +38,16 @@
 		</span>
 	</span>
 
-	<!-- 「不一致」は3文字ある。列が狭いと折り返す。実際に折り返した。 -->
+	<!--
+		「不一致」は3文字ある。列が狭いと折り返す。実際に折り返した。
+
+		**正解ラベルが無いときは何も出さない。** `agrees` が undefined のとき
+		else へ落として「不一致」と出していた。利用者が書いた文章に正解は無い。
+	-->
 	<span class="col-start-2 text-xs whitespace-nowrap sm:col-start-5">
-		{#if result.agrees}
+		{#if result.agrees === true}
 			<span class="text-neutral-500">一致</span>
-		{:else}
+		{:else if result.agrees === false}
 			<span class="font-medium text-amber-700 dark:text-amber-500">不一致</span>
 		{/if}
 	</span>

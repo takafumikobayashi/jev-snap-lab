@@ -18,7 +18,8 @@ import { estimateCostUsd } from '$lib/server/jev-config.server';
 import { isBatchJudgeEnabled, runBatchJudge } from '$lib/server/batch-judge.server';
 import { createRateLimiter, parseRateLimit } from '$lib/server/rate-limit.server';
 import { readJsonBody } from '$lib/server/request-body.server';
-import { validateBatchInput } from '$lib/validation/batch-input';
+import { describeBatchFailure, validateBatchInput } from '$lib/validation/batch-input';
+import { MAX_CASES, MAX_CASE_CHARS } from '$lib/server/batch-dataset.server';
 import { env } from '$env/dynamic/private';
 
 /**
@@ -33,6 +34,15 @@ export const config: Config = {
 
 /** 1リクエスト全体で上流に使える時間。`/api/judge` と同じ根拠。 */
 const REQUEST_BUDGET_MS = 16_000;
+
+/**
+ * 受け付けるボディの上限（バイト）。
+ *
+ * `/api/judge` の 8KB では足りない。50件 × 280 code points の日本語は UTF-8
+ * で最大 42,000 バイト、絵文字だけなら 56,000 バイトになる。JSON の配列構文と
+ * キー名を足しても 64KB に収まるため、正当な入力を拒まない。
+ */
+const MAX_BATCH_BODY_BYTES = Math.max(64 * 1024, MAX_CASES * MAX_CASE_CHARS * 4);
 
 const JSON_HEADERS = { 'Content-Type': 'application/json; charset=utf-8' };
 
@@ -84,7 +94,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 		return failure('INVALID_INPUT', requestId);
 	}
 
-	const parsed = await readJsonBody(request);
+	const parsed = await readJsonBody(request, MAX_BATCH_BODY_BYTES);
 	if (!parsed.ok) {
 		log({ requestId, status: 400, code: 'INVALID_INPUT', detail: parsed.reason });
 		return failure('INVALID_INPUT', requestId);
@@ -92,27 +102,42 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 
 	const validated = validateBatchInput(parsed.value);
 	if (!validated.ok) {
+		// 失敗の理由だけをログへ出す。入力本文は含めない。
 		log({ requestId, status: 400, code: 'INVALID_INPUT', detail: validated.failure });
-		return failure('INVALID_INPUT', requestId);
+		return jsonResponse(
+			{
+				error: {
+					code: 'INVALID_INPUT',
+					message: describeBatchFailure(validated.failure),
+					requestId,
+					retryable: false
+				}
+			},
+			400
+		);
 	}
 
 	try {
 		let model = '';
 		let pricePerMillion = 0;
-		const outcome = await runBatchJudge(validated.value.theme, async (built) => {
-			const { result, config: jevConfig } = await evaluate(
-				built.state,
-				built.questions,
-				REQUEST_BUDGET_MS - (performance.now() - startedAt)
-			);
-			model = result.model;
-			pricePerMillion = jevConfig.inputPricePerMillionTokens;
-			return {
-				answers: result.answers as Record<string, unknown>,
-				inputTokens: result.usage.input_tokens,
-				outputTokens: result.usage.output_tokens
-			};
-		});
+		const outcome = await runBatchJudge(
+			validated.value.theme,
+			async (built) => {
+				const { result, config: jevConfig } = await evaluate(
+					built.state,
+					built.questions,
+					REQUEST_BUDGET_MS - (performance.now() - startedAt)
+				);
+				model = result.model;
+				pricePerMillion = jevConfig.inputPricePerMillionTokens;
+				return {
+					answers: result.answers as Record<string, unknown>,
+					inputTokens: result.usage.input_tokens,
+					outputTokens: result.usage.output_tokens
+				};
+			},
+			validated.value.cases
+		);
 
 		const { inputTokens, outputTokens, ...rest } = outcome;
 		const response: BatchJudgeResponse = {
@@ -136,6 +161,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 			inputTokens,
 			caseCount: response.caseCount,
 			questionCount: response.questionCount,
+			userProvided: response.userProvided,
 			labelStatus: response.labelStatus
 		});
 

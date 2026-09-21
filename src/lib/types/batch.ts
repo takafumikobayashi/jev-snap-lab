@@ -71,6 +71,16 @@ export type DxClass = (typeof DX_CLASSES)[number];
  */
 export type LabelStatus = 'draft' | 'reviewed';
 
+/**
+ * 画面が使う上限。
+ *
+ * サーバー側の定数（`batch-dataset.server.ts`）と同じ値をここへ再掲する。
+ * `$lib/server` はクライアントへバンドルできないためで、**値を二重に持つ
+ * のではなく、サーバー側がここを参照する。**
+ */
+export const MAX_BATCH_CASES = 50;
+export const MAX_BATCH_CASE_CHARS = 280;
+
 /** 難易度。曖昧なケースを意図的に入れるため、評価時に分けて見る。 */
 export type BatchDifficulty = 'easy' | 'medium' | 'hard';
 
@@ -168,6 +178,17 @@ export type BatchJudgeResponse = {
 	referenceDate?: string;
 	caseCount: number;
 	questionCount: number;
+	/** state に入れた本文の文字数。処理の内訳として画面へ出す。 */
+	stateChars: number;
+	/**
+	 * 上流を呼んだ回数。
+	 *
+	 * **1であることを画面で示すために返す。** 分割していないことはコードを
+	 * 読めば分かるが、利用者には分からない（docs/BATCH_JUDGE_DESIGN.md §4.6）。
+	 */
+	upstreamCalls: number;
+	/** 利用者が入力した文章を判定したか。例文なら false。 */
+	userProvided: boolean;
 	/**
 	 * gold の確認状態。
 	 *

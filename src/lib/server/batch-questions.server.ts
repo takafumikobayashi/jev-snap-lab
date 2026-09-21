@@ -174,9 +174,14 @@ export type BuildOptions = {
 	canonicalOrder?: boolean;
 };
 
-/** 内容から決まる並び順のキー。入力順にもIDにも依らない。 */
+/**
+ * 内容から決まる並び順のキー。入力順に依らない。
+ *
+ * 同じ本文が2件あるとハッシュが並ぶ。**利用者は同じ行を2度貼れる。**
+ * IDで決着させないと、並びが実行ごとに変わりうる。
+ */
 function orderKey(item: BatchCase): string {
-	return createHash('sha256').update(item.text).digest('hex');
+	return `${createHash('sha256').update(item.text).digest('hex')}:${item.id}`;
 }
 
 export function buildBatchRequest(

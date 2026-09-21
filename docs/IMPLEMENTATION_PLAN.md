@@ -667,7 +667,7 @@ BATCH JUDGE は新規モード、SPEC FIND v1 は既存モードの拡張。設�
 - [x] 精度は「このデモ用ケースに対する**暫定ラベル**との一致率」と表現する
 - [x] PRIVACYは断定せず、Jevを唯一の制御にしない旨を画面へ常時出す
 - [x] **PRIVACYの結論に「安全」と書かない。** `要確認シグナルなし` / `要確認` の二値
-- [x] **入力欄を置かない。** 例文がTypeSafe AIへ送信されることを先に出す
+- [x] **入力欄の手前に**、入力文がTypeSafe AIへ送信されることを出す
 - [x] デモ用の例文だけで動きを確認できる
 
 成果物: `src/lib/server/batch-judge.server.ts`、`src/routes/api/batch/+server.ts`、`src/routes/batch/`、`src/lib/client/batch-api.ts`、`src/lib/batch-display.ts`、`src/lib/components/BatchRow.svelte`
