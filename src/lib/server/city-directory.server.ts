@@ -269,7 +269,12 @@ export function responsibilityCandidates(
 	return rows
 		.sort((a, b) => a.rank - b.rank || a.responsibilityId.localeCompare(b.responsibilityId))
 		.slice(0, limit)
-		.map(({ rank: _rank, ...candidate }) => candidate);
+		.map((row) => ({
+			responsibilityId: row.responsibilityId,
+			officialText: row.officialText,
+			section: row.section,
+			sourceRefs: row.sourceRefs
+		}));
 }
 
 /** 抽象的な分掌を後回しにする。候補説明と同じ基準を使う。 */

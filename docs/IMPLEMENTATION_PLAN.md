@@ -540,7 +540,7 @@ Jevの制限は **`state` と最長の質問で 32k tokens**、リクエスト�
 - [x] Semantic Fit失敗時も現行CITY結果が返る
 - [x] 追加分がVercel `maxDuration`とコスト上限に収まる（合計約1,350ms、入力token約10,700）
 - [x] 根拠表示は既存の静的データjoinであり、Jev生成文を出典としていない
-- [ ] 既定UIへ昇格するか、shadowのままにするかを評価記録へ残す
+- [x] 既定UIへ昇格するか、shadowのままにするかを評価記録へ残す（**本番は無効のまま据え置き**。[CITY_SEMANTIC_EXPERIMENT.md](CITY_SEMANTIC_EXPERIMENT.md) §7.3）
 
 ### Phase 10: 実機評価と採否
 

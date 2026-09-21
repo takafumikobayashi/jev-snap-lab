@@ -14,6 +14,7 @@
  */
 
 import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { TypeSafeClient } from '@typesafe-ai/sdk';
 
 const LIVE = process.env.LIVE_JEV === '1';
@@ -279,9 +280,9 @@ describe.skipIf(!LIVE)('CITY Fit / Gap 実機評価', () => {
 
 function allResponsibilityIds(): string[] {
 	// データセットのIDをそのまま使う。join できない結果を通さない。
-	const corpus = JSON.parse(
-		require('node:fs').readFileSync('data/city/fictional-m-city.json', 'utf8')
-	) as { organizations: { responsibilities: { responsibilityId: string }[] }[] };
+	const corpus = JSON.parse(readFileSync('data/city/fictional-m-city.json', 'utf8')) as {
+		organizations: { responsibilities: { responsibilityId: string }[] }[];
+	};
 	return corpus.organizations.flatMap((unit) =>
 		unit.responsibilities.map((responsibility) => responsibility.responsibilityId)
 	);
