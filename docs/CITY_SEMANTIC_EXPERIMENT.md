@@ -232,7 +232,9 @@ Stage 2 の入力tokenは Stage 1 の約4分の1にとどまる。分掌事務�
 
 ## 7.2 Fit / Gap の実機評価（2026-09-21、model `jev-1.13.0`）
 
-評価ハーネスは `src/lib/server/city-fitgap.live.spec.ts`。既定ではスキップし、`LIVE_JEV=1` のときだけ上流を呼ぶ。Stage 1 は既定経路と同じ質問、Stage 2 は本番の shadow 経路をそのまま使う。
+評価ハーネスは `src/lib/server/city-fitgap.live.spec.ts`。既定ではスキップし、`LIVE_JEV=1` のときだけ上流を呼ぶ。
+
+**上流は本番のラッパー `evaluate()` を通す。** `TypeSafeClient` を直接叩くと、`JEV_TIMEOUT_MS`（1試行3,500ms）、総予算の `AbortSignal`、retryの中断、SDKエラーのマッピング、送信前の criteria 検査がすべて評価の対象外になる。Stage 1 は既定経路と同じ質問、Stage 2 は本番の shadow 経路をそのまま使い、残り予算も本番と同じ形で渡す。
 
 | ケース | 入力 | Stage 1 の課 | Stage 2 が拾った分掌 |
 |---|---|---|---|
@@ -253,7 +255,7 @@ Stage 2 の入力tokenは Stage 1 の約4分の1にとどまる。分掌事務�
 |---|---|---|
 | Stage 1 の課の一致 | 100% | 70% |
 | Stage 2 の分掌 hit@1 | 86% | — |
-| Stage 2 の分掌 hit@3 | 100%（1回の実行で71%） | 70% |
+| Stage 2 の分掌 hit@3 | 86〜100%（実行により揺れる） | 70% |
 | p95 latency（Stage 1 + 2） | 1,304ms | 4,000ms |
 | 入力token 平均 | 9,767 | — |
 

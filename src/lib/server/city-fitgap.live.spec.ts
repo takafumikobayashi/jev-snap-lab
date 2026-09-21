@@ -15,15 +15,20 @@
 
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { TypeSafeClient } from '@typesafe-ai/sdk';
 
 const LIVE = process.env.LIVE_JEV === '1';
 
 // 評価は**本番と同じ入口**を通す。候補の選び方、state、policy、閾値を
 // 評価側で組み直すと、片方だけ変わっても気付けない。
+// 実際の env を土台にし、実験のフラグだけ上書きする。API キーとタイムアウトは
+// 本番と同じ値を evaluate() へ渡す必要がある。
 vi.mock('$env/dynamic/private', () => ({
-	env: { CITY_SEMANTIC_EXPERIMENT: 'true', CITY_DIRECTORY: 'fictional-m-city' }
+	env: { ...process.env, CITY_SEMANTIC_EXPERIMENT: 'true', CITY_DIRECTORY: 'fictional-m-city' }
 }));
+// 上流は**本番のラッパー**を通す。直接 TypeSafeClient を叩くと、
+// JEV_TIMEOUT_MS、総予算の AbortSignal、retry の中断、SDKエラーの
+// マッピング、送信前の criteria 検査がすべて評価の対象外になる。
+const { evaluate } = await import('./jev-client.server');
 const { runCitySemanticShadow } = await import('./city-semantic.server');
 const { buildCatalog, buildState } = await import('./question-catalog.server');
 const { normalizeAnswers } = await import('./normalize-response.server');
@@ -157,11 +162,6 @@ describe.skipIf(!LIVE)('CITY Fit / Gap 実機評価', () => {
 
 	beforeAll(
 		async () => {
-			const client = new TypeSafeClient({
-				apiKey: process.env.TYPESAFE_API_KEY,
-				defaultModel: process.env.TYPESAFE_DEFAULT_MODEL || 'jev-latest',
-				timeout: 30_000
-			});
 			const catalog = buildCatalog('city');
 			const rows: Row[] = [];
 			let model = '';
@@ -169,11 +169,11 @@ describe.skipIf(!LIVE)('CITY Fit / Gap 実機評価', () => {
 			for (const gold of GOLD) {
 				const startedAt = performance.now();
 
-				// Stage 1: 既定経路と同じ質問・同じ state。
-				const stage1 = await client.systemOne({
-					state: buildState('city', gold.query),
-					questions: catalog.questions
-				});
+				// Stage 1: 既定経路と同じ質問・同じ state・同じラッパー。
+				const { result: stage1 } = await evaluate(
+					buildState('city', gold.query),
+					catalog.questions
+				);
 				model = stage1.model;
 				let inputTokens = stage1.usage.input_tokens;
 				const results = normalizeAnswers(catalog, stage1);
@@ -193,7 +193,9 @@ describe.skipIf(!LIVE)('CITY Fit / Gap 実機評価', () => {
 					gold.query,
 					16_000,
 					async ({ state, questions }) => {
-						const stage2 = await client.systemOne({ state, questions });
+						// 本番と同じく残り予算を渡す。
+						const remaining = 16_000 - (performance.now() - startedAt);
+						const { result: stage2 } = await evaluate(state, questions, remaining);
 						return {
 							answers: stage2.answers as Record<string, unknown>,
 							inputTokens: stage2.usage.input_tokens

@@ -11,13 +11,18 @@
 
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { TypeSafeClient } from '@typesafe-ai/sdk';
 import { validateCorpus } from './spec-corpus.server';
 
 // 評価は**本番と同じ入口**を通す。候補の作り方、state、policy、閾値、
 // 出典joinを評価側で組み直すと、片方だけ変わっても気付けない。
 // mode 文字列もJevの判断入力なので、ここがずれると測るものが変わる。
-vi.mock('$env/dynamic/private', () => ({ env: { SPEC_FIND_ENABLED: 'true' } }));
+// 実際の env を土台にし、フラグだけ上書きする。API キーとタイムアウトは
+// 本番と同じ値を evaluate() へ渡す必要がある。
+vi.mock('$env/dynamic/private', () => ({ env: { ...process.env, SPEC_FIND_ENABLED: 'true' } }));
+// 上流は**本番のラッパー**を通す。直接 TypeSafeClient を叩くと、
+// JEV_TIMEOUT_MS、総予算の AbortSignal、retry の中断、SDKエラーの
+// マッピング、送信前の criteria 検査がすべて評価の対象外になる。
+const { evaluate } = await import('./jev-client.server');
 const { findSpecPassages } = await import('./spec-find.server');
 
 const LIVE = process.env.LIVE_JEV === '1';
@@ -163,14 +168,6 @@ describe.skipIf(!LIVE)('SPEC FIND 実機評価', () => {
 	// いないかがそのまま出るようにする。
 	beforeAll(
 		async () => {
-			// クライアントの生成は hook の中で行う。describe.skipIf でも
-			// コールバック本体は収集時に評価されるため、外に置くと API キーの
-			// 無い環境（CI）でファイル全体が失敗する。
-			const client = new TypeSafeClient({
-				apiKey: process.env.TYPESAFE_API_KEY,
-				defaultModel: process.env.TYPESAFE_DEFAULT_MODEL || 'jev-latest',
-				timeout: 30_000
-			});
 			const rows: Row[] = [];
 			let model = '';
 
@@ -180,7 +177,7 @@ describe.skipIf(!LIVE)('SPEC FIND 実機評価', () => {
 				const spec = await findSpecPassages(gold.query, async ({ state, questions }) => {
 					// 本番が組み立てた state をそのまま送る。ここで作り替えない。
 					expect(state.mode, 'state の mode が本番と違う').toBe('spec');
-					const result = await client.systemOne({ state, questions });
+					const { result } = await evaluate(state, questions);
 					inputTokens += result.usage.input_tokens;
 					model = result.model;
 					return result.answers as Record<string, unknown>;

@@ -307,6 +307,8 @@ v0の採用条件は、Recallだけでなく、根拠locatorの正しさ、空�
 LIVE_JEV=1 pnpm vitest run --reporter=verbose src/lib/server/spec-recall.live.spec.ts
 ```
 
+**上流は本番のラッパー `evaluate()` を通す。** `TypeSafeClient` を直接叩くと、`JEV_TIMEOUT_MS`、総予算の `AbortSignal`、retryの中断、SDKエラーのマッピング、送信前の criteria 検査が評価の対象外になり、測っている経路が本番と変わる。
+
 **採否の基準はログではなくassertで判定する。** 上流は1回だけ回し、基準ごとに別々のテストで判定するので、どれを満たせていないかがそのまま出る。
 
 | 基準 | 下限 | 根拠 |
