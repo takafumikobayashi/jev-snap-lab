@@ -19,6 +19,8 @@ async function screenText(page: Page): Promise<string> {
 async function runAndWait(page: Page, cases = 4) {
 	await page.getByRole('button', { name: /件をまとめて判定/ }).click();
 	await expect(page.getByRole('heading', { name: `${cases} CASES` })).toBeVisible();
+	// 1件ずつ開示する。**途中で本文を読むと数字が揃っていない。** 実際に踏んだ。
+	await expect(page.getByText(`${cases} / ${cases}`, { exact: true })).toBeVisible();
 }
 
 /** 例文を入れてから判定する。入力欄がある画面の既定の入り口。 */
@@ -151,6 +153,23 @@ test.describe('BATCH JUDGE', () => {
 	test('入力が空なら判定させない', async ({ page }) => {
 		await page.goto('/batch');
 		await expect(page.getByRole('button', { name: /件をまとめて判定/ })).toBeDisabled();
+	});
+
+	test('受信後に1件ずつ開示し、進捗のふりをしない', async ({ page }) => {
+		// 全件は1回のリクエストで同時に評価されている（§6）。逐次処理している
+		// ように見せない。
+		await stubBatch(page, () => ({ status: 200, body: batchResponse() }));
+		await page.goto('/batch');
+		await page.getByRole('button', { name: /例文を入れる/ }).click();
+		await page.getByRole('button', { name: /件をまとめて判定/ }).click();
+
+		await expect(page.getByRole('heading', { name: '4 CASES' })).toBeVisible();
+		// 数字が最終値まで動く。
+		await expect(page.getByText('4 / 4', { exact: true })).toBeVisible();
+
+		const body = await screenText(page);
+		expect(body).toContain('1回のリクエストで同時に評価');
+		expect(body).toContain('処理の進捗ではありません');
 	});
 
 	test('処理の流れを実測値で出す', async ({ page }) => {

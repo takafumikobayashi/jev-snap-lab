@@ -2,7 +2,7 @@
 	import { untrack } from 'svelte';
 	import { requestBatch } from '$lib/client/batch-api';
 	import { formatCostUsd, toPercent } from '$lib/display';
-	import { THEME_NOTES, verdictLabel, signalLabel } from '$lib/batch-display';
+	import { THEME_NOTES, revealIntervalMs, verdictLabel, signalLabel } from '$lib/batch-display';
 	import BatchRow from '$lib/components/BatchRow.svelte';
 	import BatchProcess from '$lib/components/BatchProcess.svelte';
 	import BatchSummary from '$lib/components/BatchSummary.svelte';
@@ -27,6 +27,43 @@
 	let inFlight: AbortController | null = null;
 	let latestSubmission = 0;
 
+	/**
+	 * 何件まで画面へ出したか。
+	 *
+	 * **これは処理の進捗ではない。** 全件は1回のリクエストで同時に評価されて
+	 * いて、結果はすべて手元にある。受信後に1件ずつ開示しているだけで、画面
+	 * にもそう書く（docs/BATCH_JUDGE_DESIGN.md §6）。進捗のふりをすると、
+	 * 逐次処理していると誤解させる。
+	 */
+	let revealed = $state(0);
+	let revealTimer: ReturnType<typeof setInterval> | null = null;
+
+	const shown = $derived(response ? response.results.slice(0, revealed) : []);
+	const revealing = $derived(response !== null && revealed < response.results.length);
+
+	function stopReveal() {
+		if (revealTimer !== null) clearInterval(revealTimer);
+		revealTimer = null;
+	}
+
+	function startReveal(total: number) {
+		stopReveal();
+		// 動きを減らす設定なら一度に出す。
+		const reduced =
+			typeof window !== 'undefined' &&
+			window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+		const interval = revealIntervalMs(total);
+		if (reduced || interval === 0) {
+			revealed = total;
+			return;
+		}
+		revealed = 0;
+		revealTimer = setInterval(() => {
+			revealed += 1;
+			if (revealed >= total) stopReveal();
+		}, interval);
+	}
+
 	const current = $derived(themes.find((entry) => entry.theme === theme) ?? themes[0]);
 
 	/** 1行1件。空行は捨てる。 */
@@ -46,6 +83,8 @@
 		inFlight?.abort();
 		inFlight = null;
 		latestSubmission += 1;
+		stopReveal();
+		revealed = 0;
 	}
 
 	function switchTheme(next: BatchTheme) {
@@ -93,6 +132,7 @@
 			if (outcome.ok) {
 				response = outcome.response;
 				status = 'success';
+				startReveal(outcome.response.results.length);
 			} else {
 				errorMessage = outcome.message;
 				errorRetryable = outcome.retryable;
@@ -248,16 +288,36 @@
 				{/if}
 			</div>
 		{:else if response}
-			<BatchSummary {response} />
+			<BatchSummary {response} results={shown} />
 
-			<h2 class="mt-8 text-sm font-semibold tracking-wide text-neutral-500">
-				{response.caseCount} CASES
-			</h2>
+			<div class="mt-8 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+				<h2 class="text-sm font-semibold tracking-wide text-neutral-500">
+					{response.caseCount} CASES
+				</h2>
+				<span
+					class="font-mono text-sm tabular-nums {revealing
+						? 'text-neutral-900 dark:text-neutral-100'
+						: 'text-neutral-500'}"
+				>
+					{revealed} / {response.caseCount}
+				</span>
+				{#if revealing}
+					<span class="text-xs text-neutral-400">表示中…</span>
+				{/if}
+			</div>
+			<!--
+				**進捗のふりをしない。** 全件は1回のリクエストで同時に評価され、
+				結果はすべて受信済みである（§6）。
+			-->
+			<p class="mt-1 text-xs text-neutral-500">
+				{response.caseCount}件は<strong>1回のリクエストで同時に評価</strong
+				>されています。この表示は受信後に1件ずつ出しているだけで、処理の進捗ではありません。
+			</p>
 
 			<ul
 				class="mt-3 divide-y divide-neutral-200 border-y border-neutral-200 dark:divide-neutral-800 dark:border-neutral-800"
 			>
-				{#each response.results as result, index (result.caseId)}
+				{#each shown as result, index (result.caseId)}
 					<BatchRow {result} {index} theme={response.theme} label={verdictLabel(result.verdict)} />
 				{/each}
 			</ul>

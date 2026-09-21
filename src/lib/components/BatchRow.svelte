@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { toPercent } from '$lib/display';
-	import { decidingProbability } from '$lib/batch-display';
+	import { decidingProbability, verdictStyle } from '$lib/batch-display';
 	import type { BatchJudgeResult, BatchTheme } from '$lib/types/batch';
 
 	let {
@@ -12,15 +12,22 @@
 
 	/** 判定に効いた確率。判定に使わない軸を混ぜない。 */
 	const top = $derived(decidingProbability(theme, result.signals));
+	const style = $derived(verdictStyle(result.verdict));
 </script>
 
-<li class="grid grid-cols-[2.5rem_1fr] gap-x-3 py-2 sm:grid-cols-[2.5rem_1fr_7rem_5rem_3.5rem]">
+<li class="grid grid-cols-[2.5rem_1fr] gap-x-3 py-2 sm:grid-cols-[2.5rem_1fr_8rem_5rem_3.5rem]">
 	<span class="font-mono text-xs text-neutral-500 tabular-nums"
 		>{String(index + 1).padStart(2, '0')}</span
 	>
 	<p class="text-sm break-words">{result.text}</p>
 
-	<span class="col-start-2 mt-1 text-xs font-medium sm:col-start-3 sm:mt-0">{label}</span>
+	<!-- 色だけに意味を持たせない。結論は文字でも出す。 -->
+	<span
+		class="col-start-2 mt-1 flex items-center gap-1.5 text-xs font-medium sm:col-start-3 sm:mt-0"
+	>
+		<span class="h-2 w-2 shrink-0 rounded-full {style.bar}" aria-hidden="true"></span>
+		<span class={style.text}>{label}</span>
+	</span>
 
 	<!--
 		バーは確率の視覚化であって、正しさの度合いではない。数値も併記して
@@ -30,7 +37,7 @@
 		<span class="flex items-center gap-1">
 			<span class="h-1.5 w-10 rounded-full bg-neutral-200 dark:bg-neutral-800">
 				<span
-					class="block h-1.5 rounded-full bg-neutral-500"
+					class="block h-1.5 rounded-full {style.bar}"
 					style="width: {Math.max(2, toPercent(top))}%"
 				></span>
 			</span>
@@ -46,9 +53,9 @@
 	-->
 	<span class="col-start-2 text-xs whitespace-nowrap sm:col-start-5">
 		{#if result.agrees === true}
-			<span class="text-neutral-500">一致</span>
+			<span class="text-emerald-700 dark:text-emerald-400">一致</span>
 		{:else if result.agrees === false}
-			<span class="font-medium text-amber-700 dark:text-amber-500">不一致</span>
+			<span class="font-medium text-amber-700 dark:text-amber-400">不一致</span>
 		{/if}
 	</span>
 </li>

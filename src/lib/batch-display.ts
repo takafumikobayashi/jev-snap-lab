@@ -76,3 +76,55 @@ export function decidingProbability(theme: BatchTheme, signals: BatchJudgeResult
 	// Choice のテーマは選ばれた選択肢の confidence が1つ入る。
 	return used.reduce((best, signal) => Math.max(best, signal.probability), 0);
 }
+
+/**
+ * 結論ごとの色。
+ *
+ * **色だけに意味を持たせない。** どの行にも文字のラベルが並ぶ（§6）。
+ * 色は読み分けを速くするためのもので、色が見えなくても結論は分かる。
+ *
+ * PRIVACY の `no_signal` に**緑を使わない。** 緑は安全の合図として読まれ、
+ * このモードが出せる結論ではない（§3.1）。注意側だけに色を置き、もう一方は
+ * 無彩色にする。
+ *
+ * DEADLINE は急ぎ度の順に暖色から寒色へ。DX は順序が無いので別々の色相に
+ * する。
+ */
+export type VerdictStyle = { bar: string; text: string };
+
+const NEUTRAL: VerdictStyle = {
+	bar: 'bg-neutral-400 dark:bg-neutral-500',
+	text: 'text-neutral-600 dark:text-neutral-400'
+};
+
+const VERDICT_STYLES: Record<string, VerdictStyle> = {
+	// PRIVACY。要確認だけに色を置く。
+	review: { bar: 'bg-amber-500', text: 'text-amber-700 dark:text-amber-400' },
+	no_signal: NEUTRAL,
+	// DEADLINE。急ぎ度の順。
+	now: { bar: 'bg-rose-500', text: 'text-rose-700 dark:text-rose-400' },
+	today: { bar: 'bg-orange-500', text: 'text-orange-700 dark:text-orange-400' },
+	soon: { bar: 'bg-amber-500', text: 'text-amber-700 dark:text-amber-400' },
+	later: { bar: 'bg-teal-500', text: 'text-teal-700 dark:text-teal-400' },
+	none: NEUTRAL,
+	// DX。順序が無いので別々の色相にする。
+	bpr: { bar: 'bg-violet-500', text: 'text-violet-700 dark:text-violet-400' },
+	digital: { bar: 'bg-sky-500', text: 'text-sky-700 dark:text-sky-400' },
+	neither: NEUTRAL
+};
+
+export function verdictStyle(verdict: string): VerdictStyle {
+	return VERDICT_STYLES[verdict] ?? NEUTRAL;
+}
+
+/**
+ * 1件ずつ開示するときの1件あたりの間隔（ミリ秒）。
+ *
+ * **これは処理時間ではない。** 全件は1回のリクエストで同時に評価されている。
+ * 受信後の再生であり、画面にもそう書く（§6）。
+ */
+export function revealIntervalMs(caseCount: number): number {
+	if (caseCount <= 1) return 0;
+	// 件数が多くても全体で1.2秒に収める。少なければ1件あたりを長くしない。
+	return Math.min(40, Math.max(12, Math.round(1_200 / caseCount)));
+}
