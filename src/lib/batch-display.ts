@@ -38,12 +38,18 @@ export function signalLabel(key: string): string {
 	return SIGNAL_LABELS[key] ?? verdictLabel(key);
 }
 
-/** テーマごとの注意文。画面に常時出す。 */
-export const THEME_NOTES: Record<BatchTheme, string[]> = {
-	privacy: [
-		'「要確認シグナルなし」は、このモードが見る範囲で明確なシグナルが出なかったという意味だけです。個人情報に該当しないという判定でも、AIサービスへ送ってよいという保証でもありません。',
-		'電話番号やマイナンバーのように規則で検出できるものは、本来この判定だけに任せず、regex や DLP と組み合わせます。Jevを唯一の制御にしないでください。'
-	],
+/**
+ * テーマごとの注意文。
+ *
+ * 誤認を招く一点だけに絞る。**注意書きを積むと読まれなくなる。**
+ *
+ * PRIVACY の「要確認シグナルなし」の意味は、ラベルの文言そのものが担う。
+ * `safe` という語を使わないことを型とテストで固定してあるので（§3.1）、
+ * 段落で重ねない。regex / DLP と組み合わせる話は実装者への助言であり、
+ * デモの利用者への注意ではないので設計書にだけ置く。
+ */
+const THEME_NOTES_BY_THEME: Record<BatchTheme, string[]> = {
+	privacy: [],
 	deadline: [
 		'文面から読み取れる緊急度の目安です。日時の厳密な解釈はしていません。基準日はサーバーが渡しています。'
 	],
@@ -51,6 +57,8 @@ export const THEME_NOTES: Record<BatchTheme, string[]> = {
 		'相談文から「まず何を検討するか」を仕分ける技術検証です。正式なDXコンサルティング判断ではありません。'
 	]
 };
+
+export const THEME_NOTES = THEME_NOTES_BY_THEME;
 
 /**
  * 判定に効いた軸。

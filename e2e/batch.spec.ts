@@ -244,11 +244,14 @@ test.describe('BATCH JUDGE', () => {
 		await expect(row).not.toContainText('一致');
 	});
 
-	test('PRIVACY の注意文を常時出す', async ({ page }) => {
+	test('画面に残す注意書きは送信の告知だけにする', async ({ page }) => {
+		// **注意書きを積むと読まれない。** ラベルの意味はラベルの文言で担い、
+		// regex / DLP は実装者への助言なので設計書へ置く（§3.1）。
 		await page.goto('/batch');
 		const body = await screenText(page);
-		expect(body).toContain('個人情報に該当しないという判定でも');
-		expect(body).toContain('Jevを唯一の制御にしないでください');
+		expect(body).toContain('TypeSafeAIへ送信されます');
+		expect(body).not.toContain('個人情報に該当しないという判定でも');
+		expect(body).not.toContain('Jevを唯一の制御にしないでください');
 	});
 
 	test('不一致の中身を確認できる', async ({ page }) => {
