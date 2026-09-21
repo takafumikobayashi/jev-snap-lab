@@ -142,9 +142,11 @@ SPEC FIND v0はランタイムで公式サイトへアクセスしない。機�
 │   │       └── judge-input.ts
 │   └── app.html
 ├── data/
-│   └── city/
-│       ├── fictional-m-city.json   # 公開用。コミットする
-│       └── local-*.json             # 実データ。gitignore（§9 of CITY_DATA）
+│   ├── city/
+│   │   ├── fictional-m-city.json   # 公開用。コミットする
+│   │   └── local-*.json             # 実データ。gitignore（§9 of CITY_DATA）
+│   ├── spec/                        # SPEC FIND のpassage corpus（下記）
+│   └── batch/                       # BATCH JUDGE の評価用fixture（下記）
 ├── static/
 │   ├── favicon.svg             # 優先
 │   ├── favicon.png             # SVG 非対応環境のフォールバック
@@ -179,6 +181,26 @@ src/lib/server/
 scripts/
 └── build-spec-corpus.mjs         # 公式PDFからコーパスを生成する（PDFは同梱しない）
 ```
+
+BATCH JUDGE で追加した構成は次のとおり。**Jev呼び出しの経路とUIはまだ無い。** 方式を決めるための実測までが入っている。
+
+```text
+data/batch/
+├── privacy.json                  # 3テーマ各50件。人手で付けた正解ラベル付き
+├── deadline.json                 # gold は Jev の出力ではない（BATCH_JUDGE_DESIGN §5）
+└── dx.json
+
+src/lib/types/
+└── batch.ts                      # テーマ・ラベル・事例の型
+
+src/lib/server/
+├── batch-dataset.server.ts       # fixture の読み込み時検証と内訳の集計
+├── batch-dataset.spec.ts         # 検証と配布fixtureの性質を確かめる
+└── batch-judge.live.spec.ts      # 方式を決めるための実測。既定でスキップし、
+                                  # LIVE_JEV=1 のときだけ上流を呼ぶ
+```
+
+`data/batch`のfixtureは`data/spec`と同じ扱いで、読み込み時に全フィールドを検証する。goldの綴り違いが「不一致」として集計されると、benchmarkがデータの壊れ方を測ってしまうため（[BATCH_JUDGE_DESIGN.md](BATCH_JUDGE_DESIGN.md) §5）。
 
 `data/spec`のpassage JSONは静的・バージョン管理対象とし、公式サイトからのランタイム取得は行わない。PDF本体は1.6MBあり公式URLから常に取得できるため同梱せず、出力JSONだけをコミットする。メタデータは別ファイルに分けず同じJSONへ入れる。同じ事実を2箇所に持つと必ず片方が古くなるため（[SPEC_FIND_DESIGN.md](SPEC_FIND_DESIGN.md) §4）。
 

@@ -82,24 +82,46 @@ for (const file of DOC_FILES) {
 //    ドキュメントとコードのずれは何度も踏んでいる。機能ごとに「実装されて
 //    いれば必ず存在するファイル」を決め、それがあるのに未実装と書いてある
 //    行を落とす。
+//
+//    段階は2つある。**途中まで進んだ機能を一括で「実装済み」とは言えない。**
+//    BATCH JUDGE は schema と fixture があるがJev呼び出しとUIが無い。この
+//    状態で「Jev呼び出しは未実装」と書くのは正しく、「着手前」と書くのは
+//    誤りである。marker を分けて、落とす語も分ける。
 const SHIPPED = [
-	{ label: 'SPEC FIND', path: 'src/lib/server/spec-find.server.ts', pattern: /SPEC ?FIND/i },
+	// v1 は既存モードの拡張で、まだ着手前である。v0 と同じ語なので除く。
+	{
+		label: 'SPEC FIND',
+		path: 'src/lib/server/spec-find.server.ts',
+		pattern: /SPEC ?FIND(?! ?v1)/i
+	},
 	{
 		label: 'CITY Semantic Fit',
 		path: 'src/lib/server/city-semantic.server.ts',
 		pattern: /Semantic Fit/
 	}
 ];
-const STALE = /未実装|設計段階|未着手|まだ作成していない/;
+const STALE = /未実装|設計段階|未着手|着手前|まだ作成していない/;
+
+/** 着手済み。全体が未実装ではないので、「着手前」とだけ書けない。 */
+const STARTED = [{ label: 'BATCH JUDGE', path: 'data/batch', pattern: /BATCH ?JUDGE/i }];
+const NOT_STARTED = /未着手|着手前|まだ作成していない/;
 
 for (const file of DOC_FILES) {
 	const lines = readFileSync(file, 'utf8').split('\n');
 	for (const [index, line] of lines.entries()) {
-		if (!STALE.test(line)) continue;
 		for (const feature of SHIPPED) {
-			if (!feature.pattern.test(line) || !existsSync(feature.path)) continue;
+			if (!STALE.test(line) || !feature.pattern.test(line) || !existsSync(feature.path)) continue;
 			problems.push(
 				`${file}:${index + 1}: ${feature.label} は実装済みだが未実装と書いてある（${feature.path}）`
+			);
+		}
+		for (const feature of STARTED) {
+			if (!NOT_STARTED.test(line) || !feature.pattern.test(line) || !existsSync(feature.path)) {
+				continue;
+			}
+			problems.push(
+				`${file}:${index + 1}: ${feature.label} は着手済みだが着手前と書いてある（${feature.path}）。` +
+					`何が未実装かを書き分けること`
 			);
 		}
 	}

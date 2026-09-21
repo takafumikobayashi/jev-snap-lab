@@ -582,7 +582,14 @@ SPEC FIND    少数のQuery  × 多くのKnowledge
 BATCH JUDGE  多数のInput  × 少数の判断基準
 ```
 
-どちらも**着手前**である。BATCH JUDGE は新規モード、SPEC FIND v1 は既存モードの拡張。設計は [BATCH_JUDGE_DESIGN.md](BATCH_JUDGE_DESIGN.md) と [SPEC_FIND_DESIGN.md](SPEC_FIND_DESIGN.md) §10 にある。
+BATCH JUDGE は新規モード、SPEC FIND v1 は既存モードの拡張。設計は [BATCH_JUDGE_DESIGN.md](BATCH_JUDGE_DESIGN.md) と [SPEC_FIND_DESIGN.md](SPEC_FIND_DESIGN.md) §10 にある。
+
+進捗は次のとおり。**一括で「着手前」とは言えない状態にある。**
+
+| | 状態 |
+|---|---|
+| BATCH JUDGE | Phase 11（schema・fixture）と Phase 12（方式の実測）が完了。**Jev呼び出しの経路とUIは未実装** |
+| SPEC FIND v1 | 着手前 |
 
 ### 9.0 合意事項
 

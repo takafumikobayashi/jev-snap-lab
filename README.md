@@ -25,10 +25,12 @@ CITY は正式な行政案内サービスではなく、Jev と根拠付きル�
 | ----------------- | ------------------------------------------------------------------------------------------ |
 | SPEC FIND         | **実装済み**。`SPEC_FIND_ENABLED=true` で有効。本番で有効にする                            |
 | CITY Semantic Fit | **実装済み（shadow）**。`CITY_SEMANTIC_EXPERIMENT=true` で有効。本番では無効のまま据え置く |
-| BATCH JUDGE       | 着手前。設計は [BATCH_JUDGE_DESIGN.md](docs/BATCH_JUDGE_DESIGN.md)                         |
+| BATCH JUDGE       | **一部実装**。schema・fixture・方式の実測まで。Jev呼び出しとUIはこれから                   |
 | SPEC FIND v1      | 着手前。設計は [SPEC_FIND_DESIGN.md](docs/SPEC_FIND_DESIGN.md) の §10                      |
 
 実装済みの2つはどちらも既定が無効で、既存のLOVE / SOCIAL / CITYの動作は変わりません。
+
+BATCH JUDGE は `data/batch/*.json`（3テーマ各50件の正解ラベル付きfixture）、その検証（`src/lib/server/batch-dataset.server.ts`）、方式を決めるための実測（`src/lib/server/batch-judge.live.spec.ts`。既定でスキップ）まで進んでいます。**アプリの経路とUIはまだありません。** 実測の結果は [BATCH_JUDGE_DESIGN.md](docs/BATCH_JUDGE_DESIGN.md) §4.6 にあります。
 
 ## 設計ドキュメント
 
