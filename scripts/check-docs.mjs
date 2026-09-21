@@ -127,6 +127,35 @@ for (const file of DOC_FILES) {
 	}
 }
 
+// 5. 採用をやめた方式を、今の方式のように書いていないか。
+//    設計変更のあとに古い記述が残るのを何度も踏んでいる。DX JUDGE は
+//    5つの独立Noulから3択のChoiceへ変えた。履歴として書くのは正しく、
+//    今の方式として書くのは誤りである。
+const RETIRED = [
+	{
+		label: 'DX JUDGE の5軸版',
+		// 実装が3択であることの目印。Choice が消えたら検査を見直す。
+		marker: 'src/lib/server/batch-questions.server.ts',
+		markerPattern: /DX_AXES[\s\S]{0,200}key: 'first_move'/,
+		claim: /DX[^。\n]*(複数Noul|独立Noul|5軸|5つの軸)|DX は 50件 × 5軸/,
+		// 履歴として書いている行は落とさない。
+		historical: /5軸版|当初|当時|以前|やめ|変えた|作り直|採用前|旧|§3\.3/
+	}
+];
+for (const entry of RETIRED) {
+	if (!existsSync(entry.marker)) continue;
+	if (!entry.markerPattern.test(readFileSync(entry.marker, 'utf8'))) continue;
+	for (const file of [...DOC_FILES, 'README.md']) {
+		if (!existsSync(file)) continue;
+		for (const [index, line] of readFileSync(file, 'utf8').split('\n').entries()) {
+			if (!entry.claim.test(line) || entry.historical.test(line)) continue;
+			problems.push(
+				`${file}:${index + 1}: ${entry.label} は採用していないが、今の方式のように書いてある`
+			);
+		}
+	}
+}
+
 // 5. 未確認の gold を「人手で付けた正解ラベル」と書いていないか。
 //    確認状態は data/batch/*.json の `labelStatus` が持つ。文章で状態を
 //    書くと必ずデータと食い違う。実際に README・ARCHITECTURE・

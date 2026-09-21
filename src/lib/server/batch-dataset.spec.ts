@@ -155,8 +155,8 @@ describe('validateDataset', () => {
 			// 件数と1件あたりの上限で天井が決まるため、総量の検査は置いていない。
 			// 天井が動いたらここで気づく（docs/BATCH_JUDGE_DESIGN.md §4.1）。
 			expect(MAX_STATE_CHARS_CEILING).toBe(14_000);
-			// SPEC FIND 実測の 1.087 state token/字。32k の半分以下に収まる。
-			expect(MAX_STATE_CHARS_CEILING * 1.087).toBeLessThan(32_000 / 2);
+			// SPEC FIND 実測の 1.080 state token/字。32k の半分以下に収まる。
+			expect(MAX_STATE_CHARS_CEILING * 1.08).toBeLessThan(32_000 / 2);
 
 			const dataset = valid();
 			dataset.cases = Array.from({ length: MAX_CASES }, (_, index) => ({

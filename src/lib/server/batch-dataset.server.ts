@@ -38,13 +38,16 @@ export const MAX_CASE_CHARS = MAX_INPUT_CODE_POINTS;
  *
  * SPEC FIND では総量の上限を別に置いたが、BATCH JUDGE では要らない。
  * 50件 × 280字 = 14,000字が構造上の天井で、SPEC FIND の実測（文字あたり
- * 1.087 state token）から約15,200 tokens、`state` + 最長の質問 32k の
+ * 1.080 state token）から約15,100 tokens、`state` + 最長の質問 32k の
  * 半分以下に収まるためである。
  *
- * **効いてくるのは質問側である。** DX は 50件 × 5軸 = 250問になり、質問
- * 1問あたり113 tokensの実測から約28,000 tokens、リクエスト全体 64k の
- * 44%を占める。`MAX_CASES` を上げる前に docs/BATCH_JUDGE_DESIGN.md §4.1
- * の実測をやり直すこと。state に余裕があることは質問の余裕ではない。
+ * **効いてくるのは質問側である。** 1件あたりの質問数はテーマで決まり、
+ * 最大は PRIVACY の3軸（50件で150問、実測 約18,100 tokens）。DEADLINE と
+ * DX は Choice 1問ずつである（docs/BATCH_JUDGE_DESIGN.md §3.3、§5.5）。
+ *
+ * 壁は問数ではなく**token側**にあり、65,000 tokens 付近にある。質問文が
+ * 長ければ600問で 400 が返る。`MAX_CASES` や軸を増やす前に §4.6 の実測を
+ * やり直すこと。**state に余裕があることは質問の余裕ではない。**
  */
 export const MAX_STATE_CHARS_CEILING = MAX_CASES * MAX_CASE_CHARS;
 
