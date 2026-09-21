@@ -25,8 +25,10 @@ CITY は正式な行政案内サービスではなく、Jev と根拠付きル�
 | ----------------- | ------------------------------------------------------------------------------------------ |
 | SPEC FIND         | **実装済み**。`SPEC_FIND_ENABLED=true` で有効。本番で有効にする                            |
 | CITY Semantic Fit | **実装済み（shadow）**。`CITY_SEMANTIC_EXPERIMENT=true` で有効。本番では無効のまま据え置く |
+| BATCH JUDGE       | 着手前。設計は [BATCH_JUDGE_DESIGN.md](docs/BATCH_JUDGE_DESIGN.md)                         |
+| SPEC FIND v1      | 着手前。設計は [SPEC_FIND_DESIGN.md](docs/SPEC_FIND_DESIGN.md) の §10                      |
 
-どちらも既定は無効で、既存のLOVE / SOCIAL / CITYの動作は変わりません。
+実装済みの2つはどちらも既定が無効で、既存のLOVE / SOCIAL / CITYの動作は変わりません。
 
 ## 設計ドキュメント
 

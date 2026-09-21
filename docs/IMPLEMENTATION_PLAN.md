@@ -572,3 +572,126 @@ Jevの制限は **`state` と最長の質問で 32k tokens**、リクエスト�
 - [ ] source locator、版、取得日、hashが再現可能である
 - [ ] Jev障害時にCITYはfallback、SPEC FINDは再試行または空振り表示となる
 - [ ] 実機測定で遅延・コスト・精度のトレードオフを確認している
+
+## 9. 次期拡張: BATCH JUDGE と SPEC FIND v1
+
+Jevの使い方が逆になる2つを同じLabで測り、**どの問題構造でSystem One Modelが効くのか**を比較できる状態にする。
+
+```text
+SPEC FIND    少数のQuery  × 多くのKnowledge
+BATCH JUDGE  多数のInput  × 少数の判断基準
+```
+
+どちらも**着手前**である。BATCH JUDGE は新規モード、SPEC FIND v1 は既存モードの拡張。設計は [BATCH_JUDGE_DESIGN.md](BATCH_JUDGE_DESIGN.md) と [SPEC_FIND_DESIGN.md](SPEC_FIND_DESIGN.md) §10 にある。
+
+### 9.0 合意事項
+
+| 項目 | 決定 |
+|---|---|
+| 既存モード | LOVE / SOCIAL / CITY / SPEC FIND の既定経路を変更しない |
+| feature flag | BATCH JUDGE も既定無効から始める。明示的な `true` だけを有効とする |
+| 参照の書き方 | 候補も事例も**オブジェクトのキー**で参照する。配列インデックスは使わない（§8.1） |
+| 分割 | 最初からchunkしない。分割はlatency 22倍・入力token 2.5倍になる（§8.1） |
+| 計測 | 既存の `estimateCostUsd` と `JudgeResponse.usage` を再利用する。新しい仕組みを作らない |
+| 表示する数値 | すべて実測値にする。設計段階で置いた見本の数字を画面へ出さない |
+| Excelの名称 | 出典表示は公式ページの表記「機能要件（第2.7版）」に合わせる。PDF本文の「別紙1_機能要件」は使わない |
+| 機能ID | ExcelのF列（7桁）をそのまま使う。**内部IDを新しく作らない**。PDFの業務フローと同じ体系 |
+
+**合意事項ではないもの（実測で決める）**
+
+- 1リクエストへ入れられる「件数 × 軸数」。測定済みは40問まで。DX JUDGEは50件×5軸で**250問**になり、6倍の未測定領域
+- Layer 2 の絞り込みをどの階層まで行うか。機能領域だけでは統合収納管理（419件）が32k制限を超える
+- SPEC FIND v1 を二段階にするか、決定的な絞り込みで1リクエストに収めるか
+
+### Phase 11: BATCH JUDGE のschemaとfixture
+
+依存: なし。Jevを呼ばない。
+
+- [ ] 3テーマ（PRIVACY / DEADLINE / DX JUDGE）の判断軸を確定する
+- [ ] 各テーマ30〜50件のfixtureを人手で作る。曖昧なケースを意図的に入れる
+- [ ] 正解ラベルを人手で付ける。**Jev自身の出力をgoldにしない**
+- [ ] 共通の計測項目を既存実装から再利用できる形にする
+
+### Phase 12: BATCH JUDGE のbenchmark（実測）
+
+依存: Phase 11。捨てコードでよい。
+
+- [ ] 判定基準を**測る前に**決める（成立とみなす件数×軸数、許容するp95 latency）
+- [ ] 「件数 × 軸数」で測る。50×1 と 50×5 を別物として扱う
+- [ ] Pattern A（1リクエスト）/ B（chunk）/ C（別構造）を比較する
+- [ ] **probabilityの混線**を確認する。正解が分かる事例の位置だけを変え、分布が変わるか見る
+- [ ] answerの欠落、latency、tokens、コストを記録する
+- [ ] 結果を [BATCH_JUDGE_DESIGN.md](BATCH_JUDGE_DESIGN.md) へ反映する
+
+完了条件:
+
+- [ ] 各テーマで成立する最大の件数を実測値として決めた
+- [ ] 混線が起きない参照方式を確認した
+- [ ] UIへ出す数値の桁が実測と合っている
+
+### Phase 13: BATCH JUDGE の実装
+
+依存: Phase 12。
+
+- [ ] feature flagの既定無効で追加する
+- [ ] 一括評価、順位表示、gold との一致、低confidence・不一致の確認
+- [ ] latency / tokens / cost を表示する。1件あたりの時間は参考値である旨を注記する
+- [ ] 精度は「このデモ用ケースに対する人手ラベルとの一致率」と表現する
+- [ ] PRIVACYは断定せず、Jevを唯一の制御にしない旨を画面へ常時出す
+
+完了条件:
+
+- [ ] 既存4モードのE2Eとテストが変わらない
+- [ ] 表示する数値がすべて実測値である
+
+### Phase 14: SPEC FIND の gold dataset と Source Gap の確認
+
+依存: なし。**Excelの取り込みより先に行う。**
+
+- [ ] 現実的な質問を20件以上作り、`expectedSource` を人手で付ける
+- [ ] Retrieval Gap / Corpus Gap / Source Gap を区別して集計する
+- [ ] Source Gapの割合から、Layer 2 が要るか、どの機能領域が効くかを判断する
+
+完了条件:
+
+- [ ] 3種類のGapを数えられる
+- [ ] Layer 2 へ進むかどうかを数字で判断した
+
+### Phase 15: 機能要件Excelの取り込み（Phase 14の結果次第）
+
+依存: Phase 14。
+
+- [ ] `common_05.xlsx`（第2.7版・274KB）から761件を正規化する
+- [ ] **ルビを除去する。** `<si>` から `<rPh>` を除く。大項目748件・機能名称451件・要件文242件に混入している
+- [ ] 機能IDをそのまま使う。内部IDを作らない
+- [ ] PDF corpusへ混ぜず、独立datasetとして扱う
+- [ ] 入力Excelが固定した出典と同じかを照合してから生成する（PDFと同じ方針）
+
+### Phase 16: SPEC FIND v1 の検索方式をbenchmark
+
+依存: Phase 15。
+
+- [ ] 1リクエストへ入れられる要件数を 40 / 86 / 231 の3点で測り、崩れる場所を確認する
+- [ ] 絞り込みの階層（機能領域だけ / 中項目まで / さらに下）を比較する
+- [ ] A（2リクエスト）/ B（決定的な絞り込み + 1リクエスト）/ C を比較する
+- [ ] 最も良い方式を実測で選び、docsへ残す
+
+### Phase 17: SPEC FIND v1 の統合とドキュメント更新
+
+依存: Phase 16。
+
+- [ ] main spec / functional requirements / out-of-scope を区別して表示する
+- [ ] Source Sufficiency の表示を追加する
+- [ ] 公式のsource・version・locatorを失わない
+- [ ] README / PRODUCT_SPEC / JEV_DESIGN / SPEC_FIND_DESIGN / ARCHITECTURE を実態へ合わせる
+
+### 次期拡張のDefinition of Done（BATCH JUDGE / SPEC FIND v1）
+
+- [ ] 既存4モードの既定経路とE2Eが変わらない
+- [ ] BATCH JUDGE の3テーマが動き、人手goldとの一致を確認できる
+- [ ] SPEC FIND が main spec と functional requirements を区別できる
+- [ ] **Source Gap を retrieval failure として扱っていない**
+- [ ] 検索方式・件数の上限を実測で選んでいる
+- [ ] 公式のsource・version・locator・出典表示を失っていない
+- [ ] 画面に出る数値がすべて実測値である
+- [ ] Jevに法的・行政的・仕様適合性の判断をさせていない

@@ -304,3 +304,15 @@ SPEC FINDは、短い自然言語から固定コーパス内の仕様書passage�
 - アプリ側での順位付けと、ローカル出典メタデータのjoin
 
 PDF v0には機能要件Excel、項目定義書、API仕様書、ランタイムのWeb取得を含めない。結果は関連箇所の候補であり、仕様適合性・実装可否・行政上の正式判断ではない。詳細は [SPEC_FIND_DESIGN.md](SPEC_FIND_DESIGN.md) を参照する。
+
+### 次に測ること
+
+Jevの使い方が逆になる2つを同じLabで比較できる状態にする。**どちらも着手前。**
+
+```text
+SPEC FIND    少数のQuery  × 多くのKnowledge  -> 読むべき根拠を探す
+BATCH JUDGE  多数のInput  × 少数の判断基準    -> 大量の意味判断を高速に行う
+```
+
+- **BATCH JUDGE** — 短文を数十件まとめて判定する新モード（[BATCH_JUDGE_DESIGN.md](BATCH_JUDGE_DESIGN.md)）
+- **SPEC FIND v1** — 機能要件Excelを第2の層として足し、「この資料には答えが無い」を区別できるようにする（[SPEC_FIND_DESIGN.md](SPEC_FIND_DESIGN.md) の §10）
