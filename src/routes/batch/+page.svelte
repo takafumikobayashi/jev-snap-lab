@@ -2,7 +2,7 @@
 	import { untrack } from 'svelte';
 	import { requestBatch } from '$lib/client/batch-api';
 	import { formatCostUsd } from '$lib/display';
-	import { THEME_NOTES, revealIntervalMs, verdictLabel } from '$lib/batch-display';
+	import { revealIntervalMs, verdictLabel } from '$lib/batch-display';
 	import BatchRow from '$lib/components/BatchRow.svelte';
 	import BatchProcess from '$lib/components/BatchProcess.svelte';
 	import BatchSummary from '$lib/components/BatchSummary.svelte';
@@ -193,14 +193,6 @@
 			</button>
 		{/each}
 	</div>
-
-	{#each THEME_NOTES[theme] as note (note)}
-		<p
-			class="mt-3 rounded-md border border-neutral-300 px-3 py-2 text-xs text-neutral-600 dark:border-neutral-700 dark:text-neutral-400"
-		>
-			{note}
-		</p>
-	{/each}
 
 	<!--
 		**入力欄の手前に出す。** 判定結果と一緒では遅い。このモードは

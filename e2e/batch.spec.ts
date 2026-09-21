@@ -216,12 +216,26 @@ test.describe('BATCH JUDGE', () => {
 
 	test('画面に残す注意書きは送信の告知だけにする', async ({ page }) => {
 		// **注意書きを積むと読まれない。** ラベルの意味はラベルの文言で担い、
-		// regex / DLP は実装者への助言なので設計書へ置く（§3.1）。
+		// 非目的や実装の話は設計書へ置く（§3.1〜§3.3）。
 		await page.goto('/batch');
-		const body = await screenText(page);
-		expect(body).toContain('TypeSafeAIへ送信されます');
-		expect(body).not.toContain('個人情報に該当しないという判定でも');
-		expect(body).not.toContain('Jevを唯一の制御にしないでください');
+		for (const theme of [
+			'AIにそのまま入れてよい？',
+			'いつまでに対応が必要？',
+			'この業務課題、何から手を付ける？'
+		]) {
+			await page.getByRole('tab', { name: theme }).click();
+			const body = await screenText(page);
+			expect(body, theme).toContain('TypeSafeAIへ送信されます');
+			for (const dropped of [
+				'個人情報に該当しないという判定でも',
+				'Jevを唯一の制御にしないでください',
+				'日時の厳密な解釈はしていません',
+				'基準日はサーバーが渡しています',
+				'正式なDXコンサルティング判断ではありません'
+			]) {
+				expect(body, `${theme} に ${dropped} が出ている`).not.toContain(dropped);
+			}
+		}
 	});
 
 	test('失敗したら再試行できる', async ({ page }) => {
