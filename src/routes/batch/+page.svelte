@@ -178,7 +178,7 @@
 				class="mt-3 divide-y divide-neutral-200 border-y border-neutral-200 dark:divide-neutral-800 dark:border-neutral-800"
 			>
 				{#each response.results as result, index (result.caseId)}
-					<BatchRow {result} {index} label={verdictLabel(result.verdict)} />
+					<BatchRow {result} {index} theme={response.theme} label={verdictLabel(result.verdict)} />
 				{/each}
 			</ul>
 

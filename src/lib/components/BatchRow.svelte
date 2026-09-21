@@ -1,17 +1,20 @@
 <script lang="ts">
 	import { toPercent } from '$lib/display';
-	import type { BatchJudgeResult } from '$lib/types/batch';
+	import { decidingProbability } from '$lib/batch-display';
+	import type { BatchJudgeResult, BatchTheme } from '$lib/types/batch';
 
-	let { result, index, label }: { result: BatchJudgeResult; index: number; label: string } =
-		$props();
+	let {
+		result,
+		index,
+		label,
+		theme
+	}: { result: BatchJudgeResult; index: number; label: string; theme: BatchTheme } = $props();
 
-	/** 判定に効いた確率。バーの長さに使う。 */
-	const top = $derived(
-		result.signals.reduce((best, signal) => Math.max(best, signal.probability), 0)
-	);
+	/** 判定に効いた確率。判定に使わない軸を混ぜない。 */
+	const top = $derived(decidingProbability(theme, result.signals));
 </script>
 
-<li class="grid grid-cols-[2.5rem_1fr] gap-x-3 py-2 sm:grid-cols-[2.5rem_1fr_7rem_3rem_1.5rem]">
+<li class="grid grid-cols-[2.5rem_1fr] gap-x-3 py-2 sm:grid-cols-[2.5rem_1fr_7rem_5rem_3.5rem]">
 	<span class="font-mono text-xs text-neutral-500 tabular-nums"
 		>{String(index + 1).padStart(2, '0')}</span
 	>
@@ -35,7 +38,8 @@
 		</span>
 	</span>
 
-	<span class="col-start-2 text-xs sm:col-start-5">
+	<!-- 「不一致」は3文字ある。列が狭いと折り返す。実際に折り返した。 -->
+	<span class="col-start-2 text-xs whitespace-nowrap sm:col-start-5">
 		{#if result.agrees}
 			<span class="text-neutral-500">一致</span>
 		{:else}

@@ -82,8 +82,8 @@ export function batchResponse(overrides: Record<string, unknown> = {}) {
 		theme: 'privacy',
 		model: 'jev-1.13.0',
 		datasetFingerprint: 'sha256-0123456789abcdef',
-		caseCount: 3,
-		questionCount: 9,
+		caseCount: 4,
+		questionCount: 12,
 		labelStatus: 'draft',
 		latencyMs: 1024,
 		usage: { inputTokens: 18_125, outputTokens: 3_404, estimatedCostUsd: 0.00076125 },
@@ -110,6 +110,21 @@ export function batchResponse(overrides: Record<string, unknown> = {}) {
 					{ key: 'sensitive', probability: 0.45 }
 				],
 				gold: 'review',
+				agrees: true
+			},
+			{
+				// 判定に使わない sensitive だけが高い。全軸の最大値を出すと
+				// 「要確認シグナルなし 97%」になり、シグナルが無いことの
+				// 確信度に見える。
+				caseId: 'privacy_033',
+				text: '生活保護受給世帯の一覧をExcelから抽出しました。',
+				verdict: 'no_signal',
+				signals: [
+					{ key: 'identifies', probability: 0.06 },
+					{ key: 'personal', probability: 0.08 },
+					{ key: 'sensitive', probability: 0.97 }
+				],
+				gold: 'no_signal',
 				agrees: true
 			},
 			{

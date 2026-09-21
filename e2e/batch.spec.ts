@@ -16,7 +16,7 @@ async function screenText(page: Page): Promise<string> {
  *
  * **待たずに本文を読むと、並列実行のときだけ落ちる。** 実際に踏んだ。
  */
-async function runAndWait(page: Page, cases = 3) {
+async function runAndWait(page: Page, cases = 4) {
 	await page.getByRole('button', { name: /件をまとめて判定/ }).click();
 	await expect(page.getByRole('heading', { name: `${cases} CASES` })).toBeVisible();
 }
@@ -34,7 +34,7 @@ test.describe('BATCH JUDGE', () => {
 		await page.goto('/batch');
 		await page.getByRole('button', { name: /件をまとめて判定/ }).click();
 
-		await expect(page.getByRole('heading', { name: '3 CASES' })).toBeVisible();
+		await expect(page.getByRole('heading', { name: '4 CASES' })).toBeVisible();
 		await expect(page.getByText('令和8年度の粗大ごみ収集')).toBeVisible();
 		await expect(page.getByText('要確認シグナルなし', { exact: true }).first()).toBeVisible();
 
@@ -62,11 +62,24 @@ test.describe('BATCH JUDGE', () => {
 		await runAndWait(page);
 
 		const body = await screenText(page);
-		expect(body).toContain('2/3');
+		expect(body).toContain('3/4');
 		expect(body).toContain('暫定ラベル（人手確認前）');
 		expect(body).toContain('Jevの精度ではありません');
 		// 同じ入力で結果が揺れることも伝える（§4.6）。
 		expect(body).toContain('同じ入力でも毎回同じとは限りません');
+	});
+
+	test('判定に使わない軸をバーの数値にしない', async ({ page }) => {
+		// 「要確認シグナルなし 97%」と出すと、シグナルが無いことの確信度に
+		// 見える。97% は判定に使わない sensitive の値である（§3.1）。
+		await stubBatch(page, () => ({ status: 200, body: batchResponse() }));
+		await page.goto('/batch');
+		await runAndWait(page);
+
+		const row = page.getByRole('listitem').filter({ hasText: '生活保護受給世帯の一覧' });
+		await expect(row).toContainText('要確認シグナルなし');
+		await expect(row).toContainText('8%');
+		await expect(row).not.toContainText('97%');
 	});
 
 	test('1件あたりの時間が参考値であることを注記する', async ({ page }) => {
@@ -113,7 +126,7 @@ test.describe('BATCH JUDGE', () => {
 
 		await expect(page.getByText('判定に失敗しました。')).toBeVisible();
 		await page.getByRole('button', { name: '再試行' }).click();
-		await expect(page.getByRole('heading', { name: '3 CASES' })).toBeVisible();
+		await expect(page.getByRole('heading', { name: '4 CASES' })).toBeVisible();
 	});
 
 	test('テーマを切り替えると前の結果を捨てる', async ({ page }) => {
@@ -122,6 +135,6 @@ test.describe('BATCH JUDGE', () => {
 		await runAndWait(page);
 
 		await page.getByRole('tab', { name: 'いつまでに対応が必要？' }).click();
-		await expect(page.getByRole('heading', { name: '3 CASES' })).toHaveCount(0);
+		await expect(page.getByRole('heading', { name: '4 CASES' })).toHaveCount(0);
 	});
 });

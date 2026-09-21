@@ -5,7 +5,7 @@
  * （docs/BATCH_JUDGE_DESIGN.md §3.1）。値そのものも `no_signal` にしてある。
  */
 
-import type { BatchTheme } from '$lib/types/batch';
+import type { BatchJudgeResult, BatchTheme } from '$lib/types/batch';
 
 const VERDICT_LABELS: Record<string, string> = {
 	// PRIVACY。「安全」「OK」「そのまま入力」としない。
@@ -51,3 +51,28 @@ export const THEME_NOTES: Record<BatchTheme, string[]> = {
 		'相談文から「まず何を検討するか」を仕分ける技術検証です。正式なDXコンサルティング判断ではありません。'
 	]
 };
+
+/**
+ * 判定に効いた軸。
+ *
+ * PRIVACY は `identifies` か `personal` で決める。`sensitive` は理由として
+ * 出すだけで判定には使わない（docs/BATCH_JUDGE_DESIGN.md §3.1）。
+ */
+const DECIDING_SIGNALS: Partial<Record<BatchTheme, string[]>> = {
+	privacy: ['identifies', 'personal']
+};
+
+/**
+ * 行に出す確率。
+ *
+ * **全軸の最大値を出してはならない。** 「生活保護受給世帯の一覧をExcelから
+ * 抽出しました」は `sensitive` が0.97、判定は `要確認シグナルなし` である。
+ * 最大値を並べると「要確認シグナルなし 97%」となり、シグナルが無いことの
+ * 確信度に見える。実際に画面へ出てしまった。
+ */
+export function decidingProbability(theme: BatchTheme, signals: BatchJudgeResult['signals']) {
+	const deciding = DECIDING_SIGNALS[theme];
+	const used = deciding ? signals.filter((signal) => deciding.includes(signal.key)) : signals;
+	// Choice のテーマは選ばれた選択肢の confidence が1つ入る。
+	return used.reduce((best, signal) => Math.max(best, signal.probability), 0);
+}
