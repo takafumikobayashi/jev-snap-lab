@@ -120,7 +120,7 @@ type SpecPassage = {
 };
 ```
 
-データセットは `{ schemaVersion, document, passages }` の形にし、`document.passageIds` のような重複した索引は持たない。同じ事実を2箇所に持つと必ず片方が古くなる（CITYデータで同種の取りこぼしを経験している）。実装は `src/lib/types/spec.ts` と `src/lib/server/spec-corpus.server.ts`。
+データセットは `{ schemaVersion, document, passages }` の形にし、`document.passageIds` のような重複した索引は持たない。同じ事実を2箇所に持つと必ず片方が古くなる（CITYデータで同種の取りこぼしを経験している）。実装は `src/lib/types/spec.ts` と `src/lib/server/spec-corpus.server.ts`。生成スクリプトはこの検証をそのまま import する（写すと必ず片方が古くなる）。TypeScript を Node の型ストリップで読むため、`pnpm spec:build` には **Node 22.12 以上**が要る。
 
 `text`と出典メタデータを分離する。Jevには短い `text` と候補IDを渡し、画面に出すタイトル、章、ページ、URLはローカルデータからjoinする。PDFページは改版でずれる可能性があるため、`sourceLocator`を主キーに近い表示根拠とし、ページは補助情報とする。
 

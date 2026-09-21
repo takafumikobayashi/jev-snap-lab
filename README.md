@@ -54,7 +54,9 @@ CITY は正式な行政案内サービスではなく、Jev と根拠付きル�
 
 ## ローカル実行方法
 
-パッケージマネージャは **pnpm** です。Node.js 20 以上が必要です。
+パッケージマネージャは **pnpm** です。**Node.js 22.12 以上**が必要で、`engine-strict=true` により満たさない環境では `pnpm install` が失敗します。
+
+Node 20 は 2026-04-30 にサポートが終了しています。加えて `pnpm spec:build` が TypeScript の型ストリップ（Node 22.6 以降）を使うため、下限を 22.12 にしています。CI と Vercel の実行環境もいずれも Node 22 です。
 
 pnpm を採用したのは、この構成の依存を npm でインストールできなかったためです。開発環境（macOS / Node 22.19.0 / npm 10.9.3）で `npm install` が arborist の peer 解決中に `Cannot read properties of null (reading 'edgesOut')` で異常終了しました。`--legacy-peer-deps` を付けると解決できたため依存の衝突ではありませんが、他のバージョンや環境での再現性は確認していません。pnpm では問題なくインストールできます。
 
