@@ -71,7 +71,9 @@ test.describe('BATCH JUDGE', () => {
 		await fillAndRun(page);
 
 		const body = await screenText(page);
-		expect(body).toContain('3/4');
+		// **「3 / 4」とだけ出さない。** 判定した件数と読まれた（実際は一致数）。
+		expect(body).toContain('4件のうち、ラベルと同じ判定が3件、違う判定が1件');
+		expect(body).not.toContain('一致3/4');
 		expect(body).toContain('暫定ラベル（人手確認前）');
 		expect(body).toContain('Jevの精度ではありません');
 		// 同じ入力で結果が揺れることも伝える（§4.6）。
@@ -174,6 +176,20 @@ test.describe('BATCH JUDGE', () => {
 		expect(body).toContain('処理の進捗ではありません');
 	});
 
+	test('開示の途中で「正解ラベルがない」と出さない', async ({ page }) => {
+		// ラベルの有無は全件で決める。開示済みだけで見ると、まだ0件のあいだ
+		// 「正解ラベルがない」と出る。実際に出た。
+		await stubBatch(page, () => ({ status: 200, body: batchResponse() }));
+		await page.goto('/batch');
+		await page.getByRole('button', { name: /例文を入れる/ }).click();
+		await page.getByRole('button', { name: /件をまとめて判定/ }).click();
+
+		await expect(page.getByRole('heading', { name: '4 CASES' })).toBeVisible();
+		expect(await screenText(page)).not.toContain('正解ラベルがないため');
+		await expect(page.getByText('4 / 4', { exact: true })).toBeVisible();
+		expect(await screenText(page)).not.toContain('正解ラベルがないため');
+	});
+
 	test('処理の流れを実測値で出す', async ({ page }) => {
 		await stubBatch(page, () => ({ status: 200, body: batchResponse() }));
 		await page.goto('/batch');
@@ -198,12 +214,21 @@ test.describe('BATCH JUDGE', () => {
 
 		const body = await screenText(page);
 		expect(body).toContain('結果のまとめ');
-		// 結論の内訳
+		// 何の件数かを見出しへ書く。
+		expect(body).toContain('judgeがどう判定したか（4件）');
 		expect(body).toContain('要確認2件');
 		// 揺れやすい帯を出す（§4.6）。
 		expect(body).toContain('0.4〜0.7（揺れやすい）');
-		// 混同の中身
-		expect(body).toContain('要確認シグナルなし→要確認1件');
+
+		// **矢印だけで書かない。** `要確認シグナルなし→要確認1件` と出したら
+		// 「要確認が1件」と読まれた。列に分けて向きを示す。
+		expect(body).toContain('違った1件の内訳');
+		expect(body).toContain('ラベルjudgeの判定件数');
+		// まとめの中に矢印を使わない。処理の流れの矢印は別物なので範囲を絞る。
+		const summary = (
+			await page.locator('section', { hasText: '結果のまとめ' }).last().innerText()
+		).replace(/\s+/g, '');
+		expect(summary).not.toContain('→');
 	});
 
 	test('正解の無い文章に一致率を出さない', async ({ page }) => {

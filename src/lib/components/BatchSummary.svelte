@@ -44,21 +44,43 @@
 		];
 	});
 
+	/**
+	 * ラベルの有無は**全件**で決める。
+	 *
+	 * 開示済みだけで見ると、まだ0件のあいだ「正解ラベルがない」と出てしまう。
+	 * 実際に開示中の画面へ出た。数えるのは開示済み、有無は全件。
+	 */
+	const hasLabels = $derived(response.results.some((result) => result.gold !== undefined));
 	const graded = $derived(results.filter((result) => result.gold !== undefined));
 	const agreed = $derived(graded.filter((result) => result.agrees).length);
 
-	/** どちらへ寄って外したか。分からないと直しようがない（§7）。 */
+	/**
+	 * どちらへ寄って外したか。分からないと直しようがない（§7）。
+	 *
+	 * **矢印だけで書かない。** `要確認シグナルなし → 要確認 1件` と出したところ、
+	 * 「要確認が1件」と読まれた（実際は24件）。ラベルと判定を別の列に出す。
+	 */
 	const confusion = $derived(
-		Object.entries(
+		Object.values(
 			graded
-				.filter((result) => !result.agrees)
-				.reduce<Record<string, number>>((carry, result) => {
-					const key = `${verdictLabel(result.gold ?? '')} → ${verdictLabel(result.verdict)}`;
-					carry[key] = (carry[key] ?? 0) + 1;
-					return carry;
-				}, {})
-		).sort((a, b) => b[1] - a[1])
+				.filter((result) => result.agrees === false)
+				.reduce<Record<string, { gold: string; verdict: string; count: number }>>(
+					(carry, result) => {
+						const key = `${result.gold}\u0000${result.verdict}`;
+						carry[key] ??= {
+							gold: verdictLabel(result.gold ?? ''),
+							verdict: verdictLabel(result.verdict),
+							count: 0
+						};
+						carry[key].count += 1;
+						return carry;
+					},
+					{}
+				)
+		).sort((a, b) => b.count - a.count)
 	);
+
+	const disagreed = $derived(graded.filter((result) => result.agrees === false).length);
 </script>
 
 <section class="mt-8">
@@ -66,7 +88,7 @@
 
 	<div class="mt-3 grid gap-6 sm:grid-cols-2">
 		<div>
-			<h3 class="text-xs text-neutral-500">結論の内訳</h3>
+			<h3 class="text-xs text-neutral-500">judge がどう判定したか（{response.caseCount}件）</h3>
 			<ul class="mt-1.5 space-y-1">
 				{#each byVerdict as row (row.verdict)}
 					<li class="flex items-center gap-2 text-sm">
@@ -94,7 +116,7 @@
 		</div>
 
 		<div>
-			<h3 class="text-xs text-neutral-500">判定に効いた確率の分布</h3>
+			<h3 class="text-xs text-neutral-500">判定に効いた確率の分布（{response.caseCount}件）</h3>
 			<ul class="mt-1.5 space-y-1">
 				{#each bands as band (band.label)}
 					<li class="flex items-center gap-2 text-sm">
@@ -112,24 +134,54 @@
 		</div>
 	</div>
 
-	{#if graded.length > 0}
+	{#if hasLabels}
 		<div class="mt-5">
 			<h3 class="text-xs text-neutral-500">
 				{#if response.labelStatus === 'draft'}
-					暫定ラベル（人手確認前）との一致
+					暫定ラベル（人手確認前）と judge の照合
 				{:else}
-					正解ラベルとの一致
+					正解ラベルと judge の照合
 				{/if}
 			</h3>
-			<p class="mt-1 font-mono text-sm tabular-nums">
-				{agreed} / {graded.length}（{toPercent(agreed / graded.length)}%）
+
+			<!--
+				**「49 / 50」とだけ出さない。** 判定した件数と読まれた。何と何を
+				比べた数字なのかを言葉で書く。
+			-->
+			<p class="mt-1 text-sm">
+				<span class="font-mono tabular-nums">{graded.length}</span>件のうち、ラベルと同じ判定が
+				<span class="font-mono text-emerald-700 tabular-nums dark:text-emerald-400">{agreed}</span
+				>件、違う判定が
+				<span class="font-mono text-amber-700 tabular-nums dark:text-amber-400">{disagreed}</span
+				>件（{toPercent(agreed / graded.length)}% 一致）
 			</p>
+
 			{#if confusion.length > 0}
-				<ul class="mt-1.5 space-y-0.5 text-xs text-neutral-500">
-					{#each confusion as [label, count] (label)}
-						<li>{label} {count}件</li>
-					{/each}
-				</ul>
+				<!--
+					矢印だけで書かない。`要確認シグナルなし → 要確認 1件` と出したら
+					「要確認が1件」と読まれた。実際は24件で、それは結論の内訳の数字。
+				-->
+				<div class="mt-2">
+					<p class="text-xs text-neutral-500">違った{disagreed}件の内訳</p>
+					<table class="mt-1 text-xs">
+						<thead class="text-neutral-500">
+							<tr>
+								<th class="pr-4 text-left font-normal">ラベル</th>
+								<th class="pr-4 text-left font-normal">judge の判定</th>
+								<th class="text-left font-normal">件数</th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each confusion as row (row.gold + row.verdict)}
+								<tr>
+									<td class="pr-4">{row.gold}</td>
+									<td class="pr-4 text-amber-700 dark:text-amber-400">{row.verdict}</td>
+									<td class="font-mono tabular-nums">{row.count}</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
 			{/if}
 		</div>
 	{:else}
