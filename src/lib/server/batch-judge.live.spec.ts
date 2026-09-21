@@ -3,8 +3,8 @@
  *
  * 既定ではスキップする。実行すると上流を呼び、課金が発生する。
  *
- *   LIVE_JEV=1 node --env-file=.env ./node_modules/.bin/vitest run \
- *     src/lib/server/batch-judge.live.spec.ts
+ *   LIVE_JEV=1 node --env-file=.env node_modules/vitest/vitest.mjs run \
+ *     --project server --reporter=verbose src/lib/server/batch-judge.live.spec.ts
  *
  * SPEC FIND の実機評価と違い、**本番の入口を通さない。** BATCH JUDGE は
  * まだ実装が無く、方式を決めるために測るのがこのフェーズだからである
@@ -18,7 +18,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import { choice, noul, type Questions } from '@typesafe-ai/sdk';
-import { DX_DIMENSIONS, type BatchDataset, type DxDimension } from '$lib/types/batch';
+import { DX_CLASSES, type BatchDataset, type DxClass } from '$lib/types/batch';
 import { validateDataset } from './batch-dataset.server';
 import type { JsonValue } from '$lib/types/semantic';
 
@@ -137,49 +137,42 @@ const DEADLINE_AXES: Axis[] = Object.entries(DEADLINE_CRITERIA).map(([key, descr
 		})
 }));
 
-const DX_CRITERIA: Record<DxDimension, { true: string; false: string }> = {
-	bpr_first: {
-		true: 'The work itself should be questioned first: the form, the rule, the approval chain, or whether the step is needed at all.',
-		false: 'The shape of the work is fine; only how it is carried out is at issue.'
-	},
-	automation: {
-		true: 'A deterministic rule could do it: copying, aggregating, sending on a schedule, or matching by an exact key.',
-		false: 'No fixed rule would cover it.'
-	},
-	ai_candidate: {
-		true: 'It needs reading meaning from language: sorting by intent, classifying, drafting, or summarising.',
-		false: 'It needs no reading of meaning.'
-	},
-	system_change: {
-		true: 'It cannot be solved without changing or introducing a system, a database, or shared infrastructure.',
-		false: 'It can be addressed without touching a system.'
-	},
-	human_review: {
-		true: 'A person must stay in the loop: the judgement affects someone, or knowledge sits with one person and has to be made shared.',
-		false: 'It can run without a person checking each case.'
-	}
+/**
+ * DX JUDGE の3択。
+ *
+ * 5つの独立Noulから変えた。実測で軸が独立しておらず、goldが真の群と偽の群の
+ * 平均差が0.06〜0.20しかなかった。どの課題もどの軸も0.5〜0.8に固まり、
+ * 「検討に値する」としか言えていなかった（§4.6）。
+ *
+ * 切り口は**まず何をするか**であり、解決策の網羅ではない。「否」の受け皿と
+ * して `neither` を置く。人・体制・制度の問題を無理にBPRかデジタルへ寄せない。
+ */
+const DX_CRITERIA: Record<DxClass, string> = {
+	bpr: 'The work itself should be questioned first. The form, the rule, the approval chain, or the duplication is the problem, and a tool laid over it would preserve that problem.',
+	digital:
+		'The work itself is needed and a tool would do it: copying, aggregating, searching, transcribing, sending, drafting, or sorting by meaning.',
+	neither:
+		'Neither fits. It is a matter of people, staffing, training, or a rule set outside this organisation, and has to be settled before any tool or redesign is chosen.'
 };
 
-const DX_AXES: Axis[] = DX_DIMENSIONS.map((dimension) => ({
-	key: dimension,
-	build: (path) =>
-		noul(
-			`For the problem described in \`${path}.text\`, is this a direction worth taking up?`,
-			DX_CRITERIA[dimension]
-		)
-}));
-
-/** Pattern C（別構造）用。5つのNoulを1つのChoiceへ畳む。 */
 const DX_CHOICE: Axis = {
-	key: 'primary',
+	key: 'first_move',
 	build: (path) =>
 		choice(
-			`For the problem described in \`${path}.text\`, which direction should be taken up first?`,
-			Object.fromEntries(
-				DX_DIMENSIONS.map((dimension) => [dimension, DX_CRITERIA[dimension].true])
-			) as Record<string, string>
+			`For the problem described in \`${path}.text\`, what should be taken up first?`,
+			DX_CRITERIA
 		)
 };
+
+/** Pattern C（別構造）用。3択を3つの独立Noulへ展開する。 */
+const DX_NOUL_AXES: Axis[] = DX_CLASSES.map((value) => ({
+	key: value,
+	build: (path) =>
+		noul(`For the problem described in \`${path}.text\`, is this what should be taken up first?`, {
+			true: DX_CRITERIA[value],
+			false: 'Something else should be taken up first.'
+		})
+}));
 
 type Built = { state: Record<string, JsonValue>; questions: Questions; questionCount: number };
 
@@ -275,9 +268,9 @@ function record(label: string, built: Built[], result: RunResult, agreement: str
 	const total = result.latencyMs.reduce((sum, ms) => sum + ms, 0);
 	report.push(
 		[
-			label.padEnd(26),
+			label.padEnd(24),
 			`req=${String(result.requests).padStart(2)}`,
-			`q=${String(built.reduce((sum, b) => sum + b.questionCount, 0)).padStart(3)}`,
+			`q=${String(built.reduce((sum, b) => sum + b.questionCount, 0)).padStart(4)}`,
 			`total=${String(Math.round(total)).padStart(6)}ms`,
 			`max1=${String(Math.round(Math.max(...result.latencyMs))).padStart(6)}ms`,
 			`med1=${String(Math.round(median(result.latencyMs))).padStart(6)}ms`,
@@ -326,6 +319,8 @@ function privacyAgreement(dataset: BatchDataset, answers: Record<string, Answer>
 	const over = dataset.cases.filter(
 		(item) => item.gold === 'safe' && privacyVerdict(answers, item.id, 0.5) === 'review'
 	);
+	const axesOf = (id: string) =>
+		PRIVACY_AXES.map((axis) => (answers[`${id}__${axis.key}`]?.noul ?? 0).toFixed(2)).join('/');
 	const oldRule = dataset.cases.filter((item) => {
 		const top = Math.max(
 			...PRIVACY_AXES.map((axis) => answers[`${item.id}__${axis.key}`]?.noul ?? 0)
@@ -340,23 +335,17 @@ function privacyAgreement(dataset: BatchDataset, answers: Record<string, Answer>
 		['過検知', over]
 	] as const) {
 		report.push(
-			...items.map((item) => {
-				const axes = PRIVACY_AXES.map((axis) =>
-					(answers[`${item.id}__${axis.key}`]?.noul ?? 0).toFixed(2)
-				).join('/');
-				return `    ${label} ${item.id} ${axes} ${item.difficulty} ${item.text}`;
-			})
+			...items.map(
+				(item) => `    ${label} ${item.id} ${axesOf(item.id)} ${item.difficulty} ${item.text}`
+			)
 		);
 	}
 	if (process.env.BATCH_DUMP === '1') {
 		// ラベルや判定ルールを変えたときの影響を、測り直さずに評価するための生値。
 		report.push(
-			...dataset.cases.map((item) => {
-				const axes = PRIVACY_AXES.map((axis) =>
-					(answers[`${item.id}__${axis.key}`]?.noul ?? 0).toFixed(2)
-				).join('/');
-				return `  DUMP ${item.id} ${item.gold as string} ${axes} ${item.text}`;
-			})
+			...dataset.cases.map(
+				(item) => `  DUMP ${item.id} ${item.gold as string} ${axesOf(item.id)} ${item.text}`
+			)
 		);
 	}
 	return `agree(${sweep.join(' ')}) 見逃し=${missed.length} 過検知=${over.length} max3軸なら=${
@@ -382,41 +371,42 @@ function deadlineNoulAgreement(dataset: BatchDataset, answers: Record<string, An
 	return `agree=${((hits / dataset.cases.length) * 100).toFixed(0)}%`;
 }
 
-/**
- * DX: 軸ごとに独立して数える。単一のaccuracyへ潰さない。
- *
- * 閾値は**測る前に決められない。** 0.5を正解の定義にすると、Noulの分布が
- * どこにあっても「その閾値での一致率」しか見えない。掃引して報告する。
- */
+/** DX: 3択の一致。**混同の中身も出す。** どちらへ寄ったかが分からないと直せない。 */
 function dxAgreement(dataset: BatchDataset, answers: Record<string, Answer>): string {
-	const sweep = [0.3, 0.5, 0.7].map((threshold) => {
-		const hits = dataset.cases.flatMap((item) =>
-			DX_DIMENSIONS.map(
-				(dimension) =>
-					(answers[`${item.id}__${dimension}`]?.noul ?? 0) >= threshold ===
-					(item.gold as Record<DxDimension, boolean>)[dimension]
-			)
-		);
-		return `${threshold}:${((hits.filter(Boolean).length / hits.length) * 100).toFixed(0)}%`;
+	const picked = (id: string) => answers[`${id}__first_move`]?.choice ?? '?';
+	const hits = dataset.cases.filter((item) => picked(item.id) === item.gold).length;
+
+	const confusion: Record<string, number> = {};
+	for (const item of dataset.cases) {
+		if (picked(item.id) !== item.gold) {
+			const key = `${item.gold as string}→${picked(item.id)}`;
+			confusion[key] = (confusion[key] ?? 0) + 1;
+		}
+	}
+	const byClass = DX_CLASSES.map((value) => {
+		const of = dataset.cases.filter((item) => item.gold === value);
+		return `${value}:${of.filter((item) => picked(item.id) === value).length}/${of.length}`;
 	});
-	const perAxis = DX_DIMENSIONS.map((dimension) => {
-		const hits = dataset.cases.filter((item) => {
-			const gold = (item.gold as Record<DxDimension, boolean>)[dimension];
-			return (answers[`${item.id}__${dimension}`]?.noul ?? 0) >= 0.5 === gold;
-		}).length;
-		return `${dimension.slice(0, 4)}:${((hits / dataset.cases.length) * 100).toFixed(0)}%`;
-	});
-	return `agree(${sweep.join(' ')} | @0.5 ${perAxis.join(' ')})`;
+	report.push(
+		`    dx 内訳 ${byClass.join(' ')}  混同 ${
+			Object.entries(confusion)
+				.sort((a, b) => b[1] - a[1])
+				.map(([key, count]) => `${key}=${count}`)
+				.join(' ') || 'なし'
+		}`
+	);
+	return `agree=${((hits / dataset.cases.length) * 100).toFixed(0)}%`;
 }
 
-function dxChoiceAgreement(dataset: BatchDataset, answers: Record<string, Answer>): string {
-	// 畳んだChoiceは「選んだ軸がgoldで真か」しか見られない。軸ごとの
-	// false positive / negative は測れなくなる。これが Pattern C の代償である。
+function dxNoulAgreement(dataset: BatchDataset, answers: Record<string, Answer>): string {
 	const hits = dataset.cases.filter((item) => {
-		const picked = answers[`${item.id}__primary`]?.choice as DxDimension | undefined;
-		return picked !== undefined && (item.gold as Record<DxDimension, boolean>)[picked] === true;
+		const best = DX_CLASSES.map((value) => ({
+			value,
+			score: answers[`${item.id}__${value}`]?.noul ?? 0
+		})).sort((a, b) => b.score - a.score)[0];
+		return best?.value === item.gold;
 	}).length;
-	return `picked-is-true=${((hits / dataset.cases.length) * 100).toFixed(0)}%`;
+	return `agree=${((hits / dataset.cases.length) * 100).toFixed(0)}%`;
 }
 
 // ---------------------------------------------------------------------------
@@ -426,12 +416,15 @@ describe.runIf(LIVE)('BATCH JUDGE benchmark', () => {
 	const deadline = load('deadline');
 	const dx = load('dx');
 
-	it('Pattern A: 50件 × 各軸を1リクエストで送る', { timeout: 600_000 }, async () => {
-		for (const [dataset, axes, agree] of [
+	const patterns = () =>
+		[
 			[privacy, PRIVACY_AXES, privacyAgreement],
 			[deadline, [DEADLINE_CHOICE], deadlineChoiceAgreement],
-			[dx, DX_AXES, dxAgreement]
-		] as const) {
+			[dx, [DX_CHOICE], dxAgreement]
+		] as const;
+
+	it('Pattern A: 50件 × 各軸を1リクエストで送る', { timeout: 600_000 }, async () => {
+		for (const [dataset, axes, agree] of patterns()) {
 			const built = build(dataset, dataset.cases, axes as Axis[]);
 			const runs: RunResult[] = [];
 			for (let at = 0; at < REPEATS; at += 1) runs.push(await run([built]));
@@ -439,8 +432,8 @@ describe.runIf(LIVE)('BATCH JUDGE benchmark', () => {
 				...runs[0],
 				latencyMs: runs.flatMap((r) => r.latencyMs),
 				requests: REPEATS,
-				inputTokens: runs.reduce((s, r) => s + r.inputTokens, 0),
-				outputTokens: runs.reduce((s, r) => s + r.outputTokens, 0),
+				inputTokens: runs.reduce((sum, r) => sum + r.inputTokens, 0),
+				outputTokens: runs.reduce((sum, r) => sum + r.outputTokens, 0),
 				missing: runs.flatMap((r) => r.missing)
 			};
 			record(
@@ -454,11 +447,7 @@ describe.runIf(LIVE)('BATCH JUDGE benchmark', () => {
 	});
 
 	it('Pattern B: 質問数が実測上限に収まるようchunkする', { timeout: 600_000 }, async () => {
-		for (const [dataset, axes, agree] of [
-			[privacy, PRIVACY_AXES, privacyAgreement],
-			[deadline, [DEADLINE_CHOICE], deadlineChoiceAgreement],
-			[dx, DX_AXES, dxAgreement]
-		] as const) {
+		for (const [dataset, axes, agree] of patterns()) {
 			const built = chunked(dataset, axes as Axis[]);
 			const result = await run(built);
 			record(`B ${dataset.theme} chunk`, built, result, agree(dataset, result.answers));
@@ -477,10 +466,10 @@ describe.runIf(LIVE)('BATCH JUDGE benchmark', () => {
 			deadlineNoulAgreement(deadline, deadlineRun.answers)
 		);
 
-		// dx: 5 Noul -> 1 Choice（250問 -> 50問）
-		const dxBuilt = build(dx, dx.cases, [DX_CHOICE]);
+		// dx: 3択のChoice -> 3つの独立Noul（50問 -> 150問）
+		const dxBuilt = build(dx, dx.cases, DX_NOUL_AXES);
 		const dxRun = await run([dxBuilt]);
-		record('C dx 50x1 choice', [dxBuilt], dxRun, dxChoiceAgreement(dx, dxRun.answers));
+		record('C dx 50x3 noul', [dxBuilt], dxRun, dxNoulAgreement(dx, dxRun.answers));
 
 		expect([...deadlineRun.missing, ...dxRun.missing]).toEqual([]);
 	});
@@ -492,17 +481,17 @@ describe.runIf(LIVE)('BATCH JUDGE benchmark', () => {
 		//
 		// **同じ並びで2回投げた差を先に測る。** これが無いと、逆順との差が
 		// 位置のせいなのか、上流のゆらぎなのか区別できない。
-		const forward = build(dx, dx.cases, DX_AXES);
-		const reversed = build(dx, [...dx.cases].reverse(), DX_AXES);
+		const forward = build(privacy, privacy.cases, PRIVACY_AXES);
+		const reversed = build(privacy, [...privacy.cases].reverse(), PRIVACY_AXES);
 
 		const first = await run([forward]);
 		const control = await run([forward]);
 		const second = await run([reversed]);
 
 		const compare = (a: RunResult, b: RunResult) =>
-			dx.cases.flatMap((item) =>
-				DX_DIMENSIONS.map((dimension) => {
-					const id = `${item.id}__${dimension}`;
+			privacy.cases.flatMap((item) =>
+				PRIVACY_AXES.map((axis) => {
+					const id = `${item.id}__${axis.key}`;
 					const left = a.answers[id]?.noul ?? 0;
 					const right = b.answers[id]?.noul ?? 0;
 					// 閾値をまたぐ差だけが判定を変える。差の大きさとは別に数える。
@@ -514,7 +503,7 @@ describe.runIf(LIVE)('BATCH JUDGE benchmark', () => {
 			const worst = [...rows].sort((a, b) => b.delta - a.delta).slice(0, 3);
 			report.push(
 				[
-					label.padEnd(26),
+					label.padEnd(24),
 					`max=${worst[0].delta.toFixed(3)}`,
 					`mean=${(rows.reduce((sum, row) => sum + row.delta, 0) / rows.length).toFixed(3)}`,
 					`over${MAX_BLEED_DELTA}=${rows.filter((row) => row.delta > MAX_BLEED_DELTA).length}/${rows.length}`,
@@ -525,8 +514,8 @@ describe.runIf(LIVE)('BATCH JUDGE benchmark', () => {
 			return rows;
 		};
 
-		const jitter = describeDeltas('bleed dx 同じ並びで2回', compare(first, control));
-		const shifted = describeDeltas('bleed dx 逆順', compare(first, second));
+		const jitter = describeDeltas('bleed privacy 同じ並び', compare(first, control));
+		const shifted = describeDeltas('bleed privacy 逆順', compare(first, second));
 
 		// 位置を変えた差が、同じ並びのゆらぎを超えているか。超えていなければ
 		// 「混線」ではなく上流のゆらぎである。
@@ -542,23 +531,23 @@ describe.runIf(LIVE)('BATCH JUDGE benchmark', () => {
 	});
 
 	it('成立する最大の「件数 × 軸数」を探る', { timeout: 600_000 }, async () => {
-		// 50×5=250 は上で成立している。**どこで壊れるかは別に測る。**
+		// 50×3=150 は上で成立している。**どこで壊れるかは別に測る。**
 		// 成立した一点だけを見て上限を決めると、本番が端に立つ。
 		// 精度は見ない。answerが全部返るかどうかだけを見る容量の試験なので、
 		// 事例は fixture を複製して作る（IDは別にする）。
-		for (const cases of [100, 150, 200]) {
+		for (const cases of [100, 200, 250, 350]) {
 			const inflated: BatchDataset = {
-				...dx,
+				...privacy,
 				cases: Array.from({ length: cases }, (_, at) => ({
-					...dx.cases[at % dx.cases.length],
-					id: `dx_probe_${String(at).padStart(3, '0')}`
+					...privacy.cases[at % privacy.cases.length],
+					id: `privacy_probe_${String(at).padStart(3, '0')}`
 				}))
 			};
-			const built = build(inflated, inflated.cases, DX_AXES);
+			const built = build(inflated, inflated.cases, PRIVACY_AXES);
 			try {
 				const result = await run([built]);
 				record(
-					`probe dx ${cases}x5`,
+					`probe privacy ${cases}x3`,
 					[built],
 					result,
 					result.missing.length === 0 ? 'complete' : `MISSING ${result.missing.length}`
@@ -566,7 +555,7 @@ describe.runIf(LIVE)('BATCH JUDGE benchmark', () => {
 				if (result.missing.length > 0) break;
 			} catch (error) {
 				report.push(
-					`probe dx ${cases}x5  q=${built.questionCount}  失敗: ${
+					`probe privacy ${cases}x3  q=${built.questionCount}  失敗: ${
 						error instanceof Error ? error.message : String(error)
 					}`
 				);
@@ -581,7 +570,7 @@ describe.runIf(LIVE)('BATCH JUDGE benchmark', () => {
 		console.log(
 			`判定基準: 1リクエスト ${MAX_ACCEPTABLE_MS}ms 以内 / answer欠落0 / 並び替えの差 ${MAX_BLEED_DELTA} 以内`
 		);
-		// 前の4本が計測を record している。空なら計測せずに通ってしまう。
+		// 前の5本が計測を record している。空なら計測せずに通ってしまう。
 		expect(report.length).toBeGreaterThan(0);
 	});
 });

@@ -614,7 +614,7 @@ BATCH JUDGE  多数のInput  × 少数の判断基準
 
 成果物: `src/lib/types/batch.ts`、`data/batch/{privacy,deadline,dx}.json`、`src/lib/server/batch-dataset.server.ts`
 
-**残件:** ラベルはClaudeが起草した下書きである。Phase 13 の前に人が通しで確認する（[BATCH_JUDGE_DESIGN.md](BATCH_JUDGE_DESIGN.md) §5）。
+**残件:** ラベルはClaudeが起草した下書きである。DX は利用者が目視で確認済みだが、その後5軸から3択へ作り直したため再確認が要る。PRIVACY と DEADLINE は未確認。Phase 13 の前に人が通しで確認する（[BATCH_JUDGE_DESIGN.md](BATCH_JUDGE_DESIGN.md) §5）。
 
 ### Phase 12: BATCH JUDGE のbenchmark（実測）
 
@@ -629,18 +629,20 @@ BATCH JUDGE  多数のInput  × 少数の判断基準
 
 完了条件:
 
-- [x] 各テーマで成立する最大の件数を実測値として決めた（750問まで成立、1,000問で400）
+- [x] 各テーマで成立する最大の件数を実測値として決めた（**質問数ではなくtokenが壁**。約65,000 tokens）
 - [x] 混線が起きない参照方式を確認した（キー参照。逆順の差はゆらぎの2.0倍に留まる）
 - [ ] UIへ出す数値の桁が実測と合っている（Phase 13 でUIを作るときに確認する）
 
 **実測で分かった主なこと**
 
-- 250問は1リクエストで通る。壁は質問数ではなくtoken側で、750問と1,000問の間にある
-- latencyは質問数にほぼ比例しない（50問674ms、250問763ms、750問2,309ms）
+- 壁は質問数ではなくtoken側にある。短い質問なら750問通り、長い質問は600問で400になる
+- latencyは質問数にほぼ比例しない（50問421ms、150問981ms、750問2,309ms）
 - 分割の追加コストは入力tokenで2〜8%。SPEC FINDの2.5倍とは違い、stateが小さいため
-- 排他的なカテゴリは Choice が強い（DEADLINE 94%、独立Noulへ展開すると82%）
-- **DXのNoulを0.5で二値化しない。** 同じ並びで2回投げても250件中8〜11件が0.5をまたいで反転する
+
+- **排他的なカテゴリは Choice。** DEADLINE 96%、DX 80%。独立Noulへ展開すると落ちる
+- **DXは5つの独立Noulをやめて3択にした。** 軸が独立しておらず、gold真と偽の平均差が0.06〜0.20しかなかった
 - **PRIVACYは3軸の最大値で二値化しない。** `sensitive` が話題の語に反応する。`identifies` または `personal` で96%（見逃し0、過検知2）
+- 分離の悪い軸を閾値で切らない。DXの5軸版は同じ並びで2回投げるだけで4.4%が反転していた
 
 ### Phase 13: BATCH JUDGE の実装
 

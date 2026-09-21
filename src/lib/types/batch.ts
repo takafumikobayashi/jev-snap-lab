@@ -24,16 +24,15 @@ export type DeadlineClass = (typeof DEADLINE_CLASSES)[number];
 /**
  * DX JUDGE の検討方向。
  *
- * 単一Choiceへ押し込まず、独立したNoulとして扱う。複数が同時に高くてよい。
+ * 排他的な3択にする。当初は5つの独立Noulだったが、実測で軸が独立して
+ * いなかった。goldが真の群と偽の群の平均差が0.06〜0.20しかなく、どの課題も
+ * どの軸も「検討に値する」になっていた（docs/BATCH_JUDGE_DESIGN.md §4.6）。
+ *
+ * 「否」の受け皿として `neither` を置く。人・体制・制度の問題は、手を
+ * 動かす前に別の議論が要る。**無理にBPRかデジタルへ寄せない。**
  */
-export const DX_DIMENSIONS = [
-	'bpr_first',
-	'automation',
-	'ai_candidate',
-	'system_change',
-	'human_review'
-] as const;
-export type DxDimension = (typeof DX_DIMENSIONS)[number];
+export const DX_CLASSES = ['bpr', 'digital', 'neither'] as const;
+export type DxClass = (typeof DX_CLASSES)[number];
 
 /** 難易度。曖昧なケースを意図的に入れるため、評価時に分けて見る。 */
 export type BatchDifficulty = 'easy' | 'medium' | 'hard';
@@ -49,8 +48,7 @@ type BaseCase = {
 
 export type PrivacyCase = BaseCase & { gold: PrivacyVerdict };
 export type DeadlineCase = BaseCase & { gold: DeadlineClass };
-/** DX は軸ごとに真偽を持つ。閾値の校正は評価時に行う。 */
-export type DxCase = BaseCase & { gold: Record<DxDimension, boolean> };
+export type DxCase = BaseCase & { gold: DxClass };
 
 export type BatchCase = PrivacyCase | DeadlineCase | DxCase;
 

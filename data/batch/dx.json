@@ -6,609 +6,318 @@
 		{
 			"id": "dx_001",
 			"text": "毎月Excelから別のExcelへ同じ数字を転記している",
-			"difficulty": "easy",
-			"gold": {
-				"bpr_first": true,
-				"automation": true,
-				"ai_candidate": false,
-				"system_change": false,
-				"human_review": false
-			},
-			"note": "転記の自動化。その前に様式の見直し"
+			"difficulty": "hard",
+			"gold": "bpr",
+			"note": "同じ数字を二つの場所に持つ構造そのものを断つのが先"
 		},
 		{
 			"id": "dx_002",
 			"text": "紙の申請書をそのままWebフォームにしたい",
 			"difficulty": "easy",
-			"gold": {
-				"bpr_first": true,
-				"automation": false,
-				"ai_candidate": false,
-				"system_change": true,
-				"human_review": false
-			},
-			"note": "そのまま置き換える前に項目の見直し"
+			"gold": "bpr",
+			"note": "そのまま電子化する前に項目を見直す"
 		},
 		{
 			"id": "dx_003",
 			"text": "問い合わせメールを読んで担当部署へ振り分けている",
 			"difficulty": "easy",
-			"gold": {
-				"bpr_first": false,
-				"automation": true,
-				"ai_candidate": true,
-				"system_change": false,
-				"human_review": true
-			},
-			"note": "意味判断が要る"
+			"gold": "digital"
 		},
 		{
 			"id": "dx_004",
 			"text": "出張先から庁内システムを確認できない",
 			"difficulty": "easy",
-			"gold": {
-				"bpr_first": false,
-				"automation": false,
-				"ai_candidate": false,
-				"system_change": true,
-				"human_review": false
-			},
-			"note": "基盤の話"
+			"gold": "digital"
 		},
 		{
 			"id": "dx_005",
 			"text": "同じ書類を3つの課でそれぞれ保管している",
 			"difficulty": "easy",
-			"gold": {
-				"bpr_first": true,
-				"automation": false,
-				"ai_candidate": false,
-				"system_change": false,
-				"human_review": false
-			}
+			"gold": "bpr"
 		},
 		{
 			"id": "dx_006",
 			"text": "窓口で毎回同じ説明を繰り返している",
-			"difficulty": "medium",
-			"gold": {
-				"bpr_first": true,
-				"automation": true,
-				"ai_candidate": true,
-				"system_change": false,
-				"human_review": false
-			}
+			"difficulty": "hard",
+			"gold": "digital",
+			"note": "案内やFAQで置き換えられる"
 		},
 		{
 			"id": "dx_007",
 			"text": "手書きの申請書を職員が入力し直している",
 			"difficulty": "easy",
-			"gold": {
-				"bpr_first": false,
-				"automation": true,
-				"ai_candidate": true,
-				"system_change": false,
-				"human_review": true
-			},
+			"gold": "digital",
 			"note": "OCRの候補"
 		},
 		{
 			"id": "dx_008",
 			"text": "承認をもらうのに3人の押印が必要",
 			"difficulty": "easy",
-			"gold": {
-				"bpr_first": true,
-				"automation": false,
-				"ai_candidate": false,
-				"system_change": true,
-				"human_review": false
-			}
+			"gold": "bpr"
 		},
 		{
 			"id": "dx_009",
 			"text": "定期的にCSVをダウンロードして集計している",
 			"difficulty": "easy",
-			"gold": {
-				"bpr_first": false,
-				"automation": true,
-				"ai_candidate": false,
-				"system_change": false,
-				"human_review": false
-			}
+			"gold": "digital"
 		},
 		{
 			"id": "dx_010",
 			"text": "相談内容の分類に時間がかかっている",
 			"difficulty": "medium",
-			"gold": {
-				"bpr_first": false,
-				"automation": false,
-				"ai_candidate": true,
-				"system_change": false,
-				"human_review": true
-			}
+			"gold": "digital"
 		},
 		{
 			"id": "dx_011",
 			"text": "年に1回しか使わない帳票のために手順書を維持している",
 			"difficulty": "medium",
-			"gold": {
-				"bpr_first": true,
-				"automation": false,
-				"ai_candidate": false,
-				"system_change": false,
-				"human_review": false
-			}
+			"gold": "bpr"
 		},
 		{
 			"id": "dx_012",
 			"text": "システムが古くて改修に時間がかかる",
 			"difficulty": "easy",
-			"gold": {
-				"bpr_first": false,
-				"automation": false,
-				"ai_candidate": false,
-				"system_change": true,
-				"human_review": false
-			}
+			"gold": "digital"
 		},
 		{
 			"id": "dx_013",
 			"text": "各課がバラバラの様式で報告を出している",
 			"difficulty": "easy",
-			"gold": {
-				"bpr_first": true,
-				"automation": false,
-				"ai_candidate": false,
-				"system_change": false,
-				"human_review": false
-			}
+			"gold": "bpr"
 		},
 		{
 			"id": "dx_014",
 			"text": "FAXで届いた内容を手入力している",
 			"difficulty": "medium",
-			"gold": {
-				"bpr_first": true,
-				"automation": true,
-				"ai_candidate": true,
-				"system_change": false,
-				"human_review": false
-			}
+			"gold": "digital"
 		},
 		{
 			"id": "dx_015",
 			"text": "問い合わせの回答文を毎回一から書いている",
 			"difficulty": "medium",
-			"gold": {
-				"bpr_first": false,
-				"automation": false,
-				"ai_candidate": true,
-				"system_change": false,
-				"human_review": true
-			}
+			"gold": "digital"
 		},
 		{
 			"id": "dx_016",
 			"text": "紙の台帳を探すのに時間がかかる",
 			"difficulty": "medium",
-			"gold": {
-				"bpr_first": false,
-				"automation": false,
-				"ai_candidate": false,
-				"system_change": true,
-				"human_review": false
-			}
+			"gold": "digital"
 		},
 		{
 			"id": "dx_017",
 			"text": "職員によって回答の内容が違う",
-			"difficulty": "medium",
-			"gold": {
-				"bpr_first": true,
-				"automation": false,
-				"ai_candidate": false,
-				"system_change": false,
-				"human_review": true
-			},
-			"note": "標準化が先"
+			"difficulty": "hard",
+			"gold": "bpr",
+			"note": "標準化が先。道具では揃わない"
 		},
 		{
 			"id": "dx_018",
 			"text": "データの二重入力が発生している",
 			"difficulty": "easy",
-			"gold": {
-				"bpr_first": true,
-				"automation": true,
-				"ai_candidate": false,
-				"system_change": true,
-				"human_review": false
-			}
+			"gold": "bpr"
 		},
 		{
 			"id": "dx_019",
 			"text": "会議のたびに資料を印刷している",
 			"difficulty": "easy",
-			"gold": {
-				"bpr_first": true,
-				"automation": false,
-				"ai_candidate": false,
-				"system_change": false,
-				"human_review": false
-			}
+			"gold": "bpr"
 		},
 		{
 			"id": "dx_020",
 			"text": "住民からの電話が特定の時間に集中する",
-			"difficulty": "medium",
-			"gold": {
-				"bpr_first": true,
-				"automation": false,
-				"ai_candidate": false,
-				"system_change": false,
-				"human_review": false
-			}
+			"difficulty": "hard",
+			"gold": "neither",
+			"note": "窓口体制と要員配置の問題"
 		},
 		{
 			"id": "dx_021",
 			"text": "報告書の誤字チェックに時間を使っている",
 			"difficulty": "easy",
-			"gold": {
-				"bpr_first": false,
-				"automation": true,
-				"ai_candidate": true,
-				"system_change": false,
-				"human_review": false
-			}
+			"gold": "digital"
 		},
 		{
 			"id": "dx_022",
 			"text": "前任者しか手順を知らない業務がある",
 			"difficulty": "easy",
-			"gold": {
-				"bpr_first": true,
-				"automation": false,
-				"ai_candidate": false,
-				"system_change": false,
-				"human_review": true
-			}
+			"gold": "neither",
+			"note": "属人化。人と引き継ぎの問題"
 		},
 		{
 			"id": "dx_023",
 			"text": "紙で保管している文書を探せない",
 			"difficulty": "medium",
-			"gold": {
-				"bpr_first": false,
-				"automation": false,
-				"ai_candidate": false,
-				"system_change": true,
-				"human_review": false
-			}
+			"gold": "digital"
 		},
 		{
 			"id": "dx_024",
 			"text": "毎週同じ内容のメールを送っている",
 			"difficulty": "easy",
-			"gold": {
-				"bpr_first": false,
-				"automation": true,
-				"ai_candidate": false,
-				"system_change": false,
-				"human_review": false
-			}
+			"gold": "digital"
 		},
 		{
 			"id": "dx_025",
 			"text": "申請の不備で差し戻しが多い",
 			"difficulty": "medium",
-			"gold": {
-				"bpr_first": true,
-				"automation": false,
-				"ai_candidate": false,
-				"system_change": true,
-				"human_review": false
-			}
+			"gold": "bpr",
+			"note": "様式と記載要領を直す"
 		},
 		{
 			"id": "dx_026",
 			"text": "集計ミスが起きやすい",
 			"difficulty": "medium",
-			"gold": {
-				"bpr_first": false,
-				"automation": true,
-				"ai_candidate": false,
-				"system_change": false,
-				"human_review": true
-			}
+			"gold": "digital"
 		},
 		{
 			"id": "dx_027",
 			"text": "他自治体の事例を調べるのに時間がかかる",
 			"difficulty": "medium",
-			"gold": {
-				"bpr_first": false,
-				"automation": false,
-				"ai_candidate": true,
-				"system_change": false,
-				"human_review": false
-			}
+			"gold": "digital"
 		},
 		{
 			"id": "dx_028",
 			"text": "職員のスキルにばらつきがある",
 			"difficulty": "hard",
-			"gold": {
-				"bpr_first": true,
-				"automation": false,
-				"ai_candidate": false,
-				"system_change": false,
-				"human_review": true
-			}
+			"gold": "neither",
+			"note": "育成と配置の問題"
 		},
 		{
 			"id": "dx_029",
 			"text": "紙とデータの両方で管理している",
 			"difficulty": "easy",
-			"gold": {
-				"bpr_first": true,
-				"automation": false,
-				"ai_candidate": false,
-				"system_change": true,
-				"human_review": false
-			}
+			"gold": "bpr"
 		},
 		{
 			"id": "dx_030",
 			"text": "問い合わせ内容を記録していない",
-			"difficulty": "medium",
-			"gold": {
-				"bpr_first": true,
-				"automation": false,
-				"ai_candidate": false,
-				"system_change": true,
-				"human_review": false
-			}
+			"difficulty": "hard",
+			"gold": "bpr",
+			"note": "記録する運用を決めるのが先"
 		},
 		{
 			"id": "dx_031",
 			"text": "承認までに1週間かかる",
 			"difficulty": "medium",
-			"gold": {
-				"bpr_first": true,
-				"automation": false,
-				"ai_candidate": false,
-				"system_change": true,
-				"human_review": false
-			}
+			"gold": "bpr"
 		},
 		{
 			"id": "dx_032",
 			"text": "システム間でデータを手で移している",
 			"difficulty": "easy",
-			"gold": {
-				"bpr_first": false,
-				"automation": true,
-				"ai_candidate": false,
-				"system_change": true,
-				"human_review": false
-			}
+			"gold": "digital"
 		},
 		{
 			"id": "dx_033",
 			"text": "同じ質問が何度も来る",
 			"difficulty": "medium",
-			"gold": {
-				"bpr_first": true,
-				"automation": true,
-				"ai_candidate": true,
-				"system_change": false,
-				"human_review": false
-			}
+			"gold": "digital"
 		},
 		{
 			"id": "dx_034",
 			"text": "資料の最新版がどれか分からない",
-			"difficulty": "easy",
-			"gold": {
-				"bpr_first": true,
-				"automation": false,
-				"ai_candidate": false,
-				"system_change": true,
-				"human_review": false
-			}
+			"difficulty": "hard",
+			"gold": "digital"
 		},
 		{
 			"id": "dx_035",
 			"text": "窓口の待ち時間が長い",
-			"difficulty": "medium",
-			"gold": {
-				"bpr_first": true,
-				"automation": false,
-				"ai_candidate": false,
-				"system_change": true,
-				"human_review": false
-			}
+			"difficulty": "hard",
+			"gold": "digital"
 		},
 		{
 			"id": "dx_036",
 			"text": "担当者が不在だと処理が止まる",
 			"difficulty": "medium",
-			"gold": {
-				"bpr_first": true,
-				"automation": false,
-				"ai_candidate": false,
-				"system_change": false,
-				"human_review": true
-			}
+			"gold": "neither",
+			"note": "体制の問題。道具では埋まらない"
 		},
 		{
 			"id": "dx_037",
 			"text": "紙の請求書を仕分けしている",
 			"difficulty": "medium",
-			"gold": {
-				"bpr_first": true,
-				"automation": true,
-				"ai_candidate": true,
-				"system_change": false,
-				"human_review": false
-			}
+			"gold": "digital"
 		},
 		{
 			"id": "dx_038",
 			"text": "独自のExcelマクロを個人が管理している",
 			"difficulty": "medium",
-			"gold": {
-				"bpr_first": true,
-				"automation": false,
-				"ai_candidate": false,
-				"system_change": true,
-				"human_review": true
-			}
+			"gold": "neither",
+			"note": "属人化。まず誰が持つ業務かを決める"
 		},
 		{
 			"id": "dx_039",
 			"text": "業務量を把握できていない",
 			"difficulty": "hard",
-			"gold": {
-				"bpr_first": true,
-				"automation": false,
-				"ai_candidate": false,
-				"system_change": false,
-				"human_review": false
-			},
-			"note": "まず可視化"
+			"gold": "bpr",
+			"note": "まず可視化する"
 		},
 		{
 			"id": "dx_040",
 			"text": "外部からの依頼をメールで受けている",
-			"difficulty": "medium",
-			"gold": {
-				"bpr_first": true,
-				"automation": false,
-				"ai_candidate": false,
-				"system_change": true,
-				"human_review": false
-			}
+			"difficulty": "hard",
+			"gold": "bpr",
+			"note": "受付の形を決めるのが先"
 		},
 		{
 			"id": "dx_041",
 			"text": "議事録の作成に時間がかかる",
 			"difficulty": "easy",
-			"gold": {
-				"bpr_first": false,
-				"automation": true,
-				"ai_candidate": true,
-				"system_change": false,
-				"human_review": true
-			}
+			"gold": "digital"
 		},
 		{
 			"id": "dx_042",
 			"text": "複数のシステムに同じ情報を登録している",
 			"difficulty": "easy",
-			"gold": {
-				"bpr_first": true,
-				"automation": true,
-				"ai_candidate": false,
-				"system_change": true,
-				"human_review": false
-			}
+			"gold": "bpr"
 		},
 		{
 			"id": "dx_043",
 			"text": "紙の名簿を目視で突合している",
 			"difficulty": "medium",
-			"gold": {
-				"bpr_first": false,
-				"automation": true,
-				"ai_candidate": false,
-				"system_change": false,
-				"human_review": true
-			}
+			"gold": "digital"
 		},
 		{
 			"id": "dx_044",
 			"text": "問い合わせのたびに関係課へ確認している",
 			"difficulty": "medium",
-			"gold": {
-				"bpr_first": true,
-				"automation": false,
-				"ai_candidate": false,
-				"system_change": false,
-				"human_review": false
-			}
+			"gold": "bpr"
 		},
 		{
 			"id": "dx_045",
 			"text": "報告様式が毎年変わる",
 			"difficulty": "hard",
-			"gold": {
-				"bpr_first": true,
-				"automation": false,
-				"ai_candidate": false,
-				"system_change": false,
-				"human_review": false
-			}
+			"gold": "neither",
+			"note": "上位機関の制度に起因する。庁内では決められない"
 		},
 		{
 			"id": "dx_046",
 			"text": "電話の内容を後からメモしている",
 			"difficulty": "medium",
-			"gold": {
-				"bpr_first": false,
-				"automation": true,
-				"ai_candidate": true,
-				"system_change": false,
-				"human_review": true
-			}
+			"gold": "digital"
 		},
 		{
 			"id": "dx_047",
 			"text": "データの保存場所が人によって違う",
 			"difficulty": "easy",
-			"gold": {
-				"bpr_first": true,
-				"automation": false,
-				"ai_candidate": false,
-				"system_change": true,
-				"human_review": false
-			}
+			"gold": "bpr"
 		},
 		{
 			"id": "dx_048",
 			"text": "新人が覚えることが多すぎる",
 			"difficulty": "hard",
-			"gold": {
-				"bpr_first": true,
-				"automation": false,
-				"ai_candidate": false,
-				"system_change": false,
-				"human_review": true
-			}
+			"gold": "neither",
+			"note": "育成の問題"
 		},
 		{
 			"id": "dx_049",
 			"text": "住民に何度も同じ書類を出させている",
 			"difficulty": "easy",
-			"gold": {
-				"bpr_first": true,
-				"automation": false,
-				"ai_candidate": false,
-				"system_change": true,
-				"human_review": false
-			}
+			"gold": "bpr"
 		},
 		{
 			"id": "dx_050",
 			"text": "進捗が誰にも見えていない",
 			"difficulty": "medium",
-			"gold": {
-				"bpr_first": true,
-				"automation": false,
-				"ai_candidate": false,
-				"system_change": true,
-				"human_review": false
-			}
+			"gold": "digital"
 		}
 	]
 }

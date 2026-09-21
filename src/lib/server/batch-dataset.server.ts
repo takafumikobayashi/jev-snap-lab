@@ -10,7 +10,7 @@
 import {
 	BATCH_THEMES,
 	DEADLINE_CLASSES,
-	DX_DIMENSIONS,
+	DX_CLASSES,
 	PRIVACY_VERDICTS,
 	type BatchCase,
 	type BatchDataset,
@@ -52,26 +52,8 @@ function requireString(value: unknown, where: string): string {
 
 /** テーマごとの gold の形。ここを緩めると不一致の集計が意味を失う。 */
 function validateGold(theme: BatchTheme, gold: unknown, where: string): void {
-	if (theme === 'privacy') {
-		if (!PRIVACY_VERDICTS.includes(gold as never)) fail(`${where} が privacy のラベルでない`);
-		return;
-	}
-	if (theme === 'deadline') {
-		if (!DEADLINE_CLASSES.includes(gold as never)) fail(`${where} が deadline のラベルでない`);
-		return;
-	}
-	// DX は軸ごとの独立した真偽。欠けた軸を false とみなさない。
-	if (gold === null || typeof gold !== 'object' || Array.isArray(gold)) {
-		fail(`${where} がオブジェクトでない`);
-	}
-	const keys = Object.keys(gold as object);
-	for (const dimension of DX_DIMENSIONS) {
-		if (typeof (gold as Record<string, unknown>)[dimension] !== 'boolean') {
-			fail(`${where}.${dimension} が真偽値でない`);
-		}
-	}
-	const unexpected = keys.filter((key) => !DX_DIMENSIONS.includes(key as never));
-	if (unexpected.length > 0) fail(`${where} に未知の軸がある: ${unexpected.join(', ')}`);
+	const allowed = { privacy: PRIVACY_VERDICTS, deadline: DEADLINE_CLASSES, dx: DX_CLASSES }[theme];
+	if (!allowed.includes(gold as never)) fail(`${where} が ${theme} のラベルでない`);
 }
 
 export function validateDataset(value: unknown): BatchDataset {
@@ -127,14 +109,7 @@ export function summarizeDataset(dataset: BatchDataset): {
 	const gold: Record<string, number> = {};
 	for (const item of dataset.cases as BatchCase[]) {
 		difficulty[item.difficulty] += 1;
-		if (typeof item.gold === 'string') {
-			gold[item.gold] = (gold[item.gold] ?? 0) + 1;
-		} else {
-			// DX は軸ごとに「真」の件数を数える。単一ラベルではない。
-			for (const [dimension, hit] of Object.entries(item.gold)) {
-				if (hit) gold[dimension] = (gold[dimension] ?? 0) + 1;
-			}
-		}
+		gold[item.gold] = (gold[item.gold] ?? 0) + 1;
 	}
 	return { cases: dataset.cases.length, difficulty, gold };
 }

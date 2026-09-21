@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { BATCH_THEMES, DX_DIMENSIONS } from '$lib/types/batch';
+import { BATCH_THEMES, DX_CLASSES } from '$lib/types/batch';
 import {
 	MAX_CASES,
 	MAX_CASE_CHARS,
@@ -62,33 +62,17 @@ describe('validateDataset', () => {
 			).toThrow(/deadline のラベルでない/);
 		});
 
-		it('dx の欠けた軸を false とみなさない', () => {
+		it('dx の未知のラベルを拒む', () => {
 			expect(
 				broken((d) => {
 					d.theme = 'dx';
 					for (const [index, item] of (d.cases as Record<string, unknown>[]).entries()) {
 						item.id = `dx_${index + 1}`;
-						item.gold = Object.fromEntries(DX_DIMENSIONS.map((key) => [key, false]));
+						item.gold = 'bpr';
 					}
-					delete ((d.cases as Record<string, unknown>[])[0].gold as Record<string, unknown>)
-						.automation;
+					(d.cases as Record<string, unknown>[])[1].gold = 'automation';
 				})
-			).toThrow(/automation が真偽値でない/);
-		});
-
-		it('dx の未知の軸を拒む', () => {
-			expect(
-				broken((d) => {
-					d.theme = 'dx';
-					for (const [index, item] of (d.cases as Record<string, unknown>[]).entries()) {
-						item.id = `dx_${index + 1}`;
-						item.gold = {
-							...Object.fromEntries(DX_DIMENSIONS.map((key) => [key, false])),
-							outsourcing: true
-						};
-					}
-				})
-			).toThrow(/未知の軸がある: outsourcing/);
+			).toThrow(/dx のラベルでない/);
 		});
 	});
 
@@ -199,16 +183,11 @@ describe('配布する fixture', () => {
 		expect(Object.keys(deadline.gold).sort()).toEqual(['later', 'none', 'now', 'soon', 'today']);
 	});
 
-	it('dx はどの軸にも真と偽の両方がある', () => {
-		// 常に真の軸は、閾値を何に置いても「当たる」ため評価にならない。
-		const dataset = validateDataset(
-			JSON.parse(readFileSync('data/batch/dx.json', 'utf8')) as unknown
+	it('dx はどの区分にも事例がある', () => {
+		// 事例の無い区分があると、その区分へ寄せた混同が見えない。
+		const summary = summarizeDataset(
+			validateDataset(JSON.parse(readFileSync('data/batch/dx.json', 'utf8')) as unknown)
 		);
-		const summary = summarizeDataset(dataset);
-		for (const dimension of DX_DIMENSIONS) {
-			const hits = summary.gold[dimension] ?? 0;
-			expect(hits).toBeGreaterThan(0);
-			expect(hits).toBeLessThan(dataset.cases.length);
-		}
+		for (const value of DX_CLASSES) expect(summary.gold[value] ?? 0).toBeGreaterThan(0);
 	});
 });
