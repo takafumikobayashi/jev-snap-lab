@@ -15,7 +15,12 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 // 検証はアプリと同じ実装を使う。スクリプト側へ写すと必ず片方が古くなる。
 // 型だけのimportなので、Nodeの型ストリップでそのまま読める。
-import { validateCorpus, MAX_PASSAGE_CHARS } from '../src/lib/server/spec-corpus.server.ts';
+import {
+	validateCorpus,
+	MAX_CORPUS_CHARS,
+	MAX_PASSAGE_CHARS,
+	stateCharsOf
+} from '../src/lib/server/spec-corpus.server.ts';
 
 const DEFAULT_OUT = 'data/spec/common-feature-2.7.json';
 
@@ -146,7 +151,10 @@ const corpus = {
 };
 
 console.log(`見出し ${sections.length} 件 -> passage ${passages.length} 件`);
-console.log(`本文の総文字数 ${passages.reduce((n, p) => n + p.text.length, 0)}`);
+const stateChars = passages.reduce((n, p) => n + stateCharsOf(p), 0);
+console.log(
+	`state の文字数 ${stateChars} / 上限 ${MAX_CORPUS_CHARS}（${Math.round((stateChars / MAX_CORPUS_CHARS) * 100)}%）`
+);
 
 try {
 	validateCorpus(corpus, { allowedHosts: ['www.digital.go.jp'] });

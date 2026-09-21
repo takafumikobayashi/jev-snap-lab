@@ -9,7 +9,7 @@
 import type { SpecCorpus, SpecPassage } from '$lib/types/spec';
 import type { RankedCandidate } from '$lib/types/semantic';
 import type { SpecHit } from '$lib/types/judge';
-import { attributionFor } from './spec-corpus.server';
+import { attributionFor, headingContextOf } from './spec-corpus.server';
 
 // 表示用の型はレスポンス契約と同じものを使う。写すと必ず片方が古くなる。
 export type { SpecHit } from '$lib/types/judge';
@@ -66,6 +66,7 @@ export function toSemanticCandidates(corpus: SpecCorpus) {
 	return corpus.passages.map((passage) => ({
 		candidateId: passage.passageId,
 		text: passage.text,
-		context: passage.headingPath.join(' / ')
+		// 文脈の作り方は検証側と同じ関数を使う。別々に持つと予算の検査が古くなる。
+		context: headingContextOf(passage)
 	}));
 }

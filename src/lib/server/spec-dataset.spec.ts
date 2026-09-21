@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { attributionFor, MAX_PASSAGES, validateCorpus } from './spec-corpus.server';
+import {
+	attributionFor,
+	MAX_CORPUS_CHARS,
+	MAX_PASSAGES,
+	stateCharsOf,
+	validateCorpus
+} from './spec-corpus.server';
 import { toSemanticCandidates } from './spec-evidence.server';
 import { MAX_CANDIDATES_PER_REQUEST } from './semantic-match.server';
 
@@ -23,6 +29,15 @@ describe('配布する SPEC コーパス', () => {
 		expect(corpus.passages.length).toBeLessThanOrEqual(MAX_PASSAGES);
 		// 代表passageとして最低限の広さは要る。
 		expect(corpus.passages.length).toBeGreaterThanOrEqual(20);
+	});
+
+	it('トークン予算に余裕がある', () => {
+		// state は候補の文字数に比例する。Jev の制限は state と最長の質問で
+		// 32k tokens（docs/IMPLEMENTATION_PLAN.md §8.1）。上限いっぱいで
+		// 配布すると、次にpassageを足したときに黙って予算を超える。
+		const total = corpus.passages.reduce((sum, p) => sum + stateCharsOf(p), 0);
+		expect(total).toBeLessThanOrEqual(MAX_CORPUS_CHARS);
+		expect(total / MAX_CORPUS_CHARS).toBeLessThan(0.9);
 	});
 
 	it('主要な機能領域をすべて含む', () => {

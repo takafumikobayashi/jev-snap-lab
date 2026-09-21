@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
 	attributionFor,
+	MAX_CORPUS_CHARS,
 	MAX_PASSAGE_CHARS,
 	MAX_PASSAGES,
+	stateCharsOf,
 	validateCorpus
 } from './spec-corpus.server';
 import type { SpecDocument, SpecPassage } from '$lib/types/spec';
@@ -148,6 +150,49 @@ describe('validateCorpus', () => {
 		});
 	});
 
+	describe('リクエスト全体の大きさ', () => {
+		/** 本文の長さを指定してコーパスを作る。件数と1件あたりの上限は守る。 */
+		function sized(count: number, chars: number): Record<string, unknown> {
+			const c = valid(count);
+			(c.passages as Record<string, unknown>[]).forEach((p, i) => {
+				// 重複検査に当たらないよう末尾を変える。
+				p.text = 'あ'.repeat(chars - 4) + String(i).padStart(4, '0');
+			});
+			return c;
+		}
+
+		it('上限以内なら通す', () => {
+			// 34件 × 500字 + 見出し ≒ 17,400字。
+			expect(() => validateCorpus(sized(34, 500), HOSTS)).not.toThrow();
+		});
+
+		it('件数と1件あたりの上限を守っていても、合計が超えれば拒否する', () => {
+			// 34件 × 600字 = 20,400字。1件600字も34件も、それぞれの上限は
+			// 超えていない。総量を見ないとここを通してしまう。
+			const c = sized(34, MAX_PASSAGE_CHARS);
+			for (const p of c.passages as Record<string, unknown>[]) {
+				expect((p.text as string).length).toBeLessThanOrEqual(MAX_PASSAGE_CHARS);
+			}
+			expect((c.passages as unknown[]).length).toBeLessThanOrEqual(MAX_PASSAGES);
+			expect(() => validateCorpus(c, HOSTS)).toThrow(/合計が .*上限/);
+		});
+
+		it('見出しも合計に数える', () => {
+			// 本文だけなら収まるが、見出しを足すと超える境界。
+			const c = sized(34, 500);
+			for (const p of c.passages as Record<string, unknown>[]) {
+				p.headingPath = ['あ'.repeat(120), 'い'.repeat(120)];
+			}
+			expect(() => validateCorpus(c, HOSTS)).toThrow(/合計が/);
+		});
+
+		it('件数と1件あたりの上限をすべて使うと超過する', () => {
+			// 上限どうしの積が総量上限を上回ることを明示しておく。
+			// ここが逆転したら総量の検査は意味を失う。
+			expect(MAX_PASSAGES * MAX_PASSAGE_CHARS).toBeGreaterThan(MAX_CORPUS_CHARS);
+		});
+	});
+
 	describe('件数', () => {
 		it('空のコーパスを拒否する', () => {
 			expectFail((c) => (c.passages = []), '空である');
@@ -179,5 +224,13 @@ describe('attributionFor', () => {
 		const p = { ...(passage(0) as unknown as SpecPassage), normalized: true };
 		expect(attributionFor(document, p)).toContain('を加工して作成');
 		expect(attributionFor(document, p)).not.toContain('出典：');
+	});
+});
+
+describe('stateCharsOf', () => {
+	it('本文と見出しを合算する', () => {
+		expect(stateCharsOf({ text: 'あいう', headingPath: ['章', '節'] })).toBe(
+			'あいう'.length + '章 / 節'.length
+		);
 	});
 });

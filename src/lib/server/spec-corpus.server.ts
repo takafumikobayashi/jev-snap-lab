@@ -14,6 +14,28 @@ export const MAX_PASSAGES = 40;
 /** 1 passage の文字数上限。長すぎる断片は複数の意味を混ぜる。 */
 export const MAX_PASSAGE_CHARS = 600;
 
+/**
+ * コーパス全体の文字数上限（本文 + 見出し）。
+ *
+ * 件数と1件あたりの上限だけでは、リクエスト全体の大きさが決まらない。
+ * Jev の制限は**`state` と最長の質問で 32k tokens**、リクエスト全体で 64k
+ * tokens である（https://docs.typesafe.ai/models）。効いてくるのは前者で、
+ * 質問は1問あたり 113 tokens しか増えないのに対し、state は候補の文字数に
+ * 比例するためである。
+ *
+ * 実測（2026-09-21、model jev-1.13.0、配布コーパス15,317字）:
+ *
+ * - state + 質問1問 = 16,651 tokens（32k の 52%）
+ * - 文字あたり 1.087 state token
+ *
+ * 件数40件 × 1件600字を上限まで使うと約25,700字になり、state だけで
+ * 32k の約88%に達する。測っていない領域へ入るため、総量でも止める。
+ * 20,000字なら state + 質問1問が約68%に収まる。
+ *
+ * この上限を上げるときは、先にトークンとレイテンシを測り直すこと。
+ */
+export const MAX_CORPUS_CHARS = 20_000;
+
 export type SpecValidationOptions = {
 	/** `sourceUrl` に許すホスト。空なら URL を持つ文書を拒否する。 */
 	allowedHosts: string[];
@@ -70,6 +92,21 @@ function requireHttpsUrl(value: unknown, where: string, allowedHosts: string[]):
 		fail(`${where} のホストが許可されていない`);
 	}
 	return text;
+}
+
+/**
+ * 1 passage が state で占める文字数。
+ *
+ * `toSemanticCandidates` が組み立てる形と揃える。別々に数えると、送る形を
+ * 変えたときに予算の検査だけが古くなる。
+ */
+export function stateCharsOf(passage: { text: string; headingPath: string[] }): number {
+	return passage.text.length + headingContextOf(passage).length;
+}
+
+/** 候補に添える文脈。本文だけでは章が分からないpassageがある。 */
+export function headingContextOf(passage: { headingPath: string[] }): string {
+	return passage.headingPath.join(' / ');
 }
 
 export function validateCorpus(value: unknown, options: SpecValidationOptions): SpecCorpus {
@@ -130,6 +167,15 @@ export function validateCorpus(value: unknown, options: SpecValidationOptions): 
 		}
 		requireStringArray(passage.headingPath, `${id}.headingPath`);
 		requireStringArray(passage.tags, `${id}.tags`, { allowEmpty: true });
+	}
+
+	// 件数と1件あたりの上限だけでは、リクエスト全体の大きさが決まらない。
+	const totalChars = (value as SpecCorpus).passages.reduce(
+		(sum, passage) => sum + stateCharsOf(passage),
+		0
+	);
+	if (totalChars > MAX_CORPUS_CHARS) {
+		fail(`本文と見出しの合計が ${totalChars} 文字で上限 ${MAX_CORPUS_CHARS} を超える`);
 	}
 
 	return value as SpecCorpus;
