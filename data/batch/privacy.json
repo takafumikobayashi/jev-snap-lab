@@ -1,0 +1,328 @@
+{
+	"schemaVersion": "1",
+	"theme": "privacy",
+	"label": "AIにそのまま入れてよい？",
+	"cases": [
+		{
+			"id": "privacy_001",
+			"text": "明日の会議室を予約したい",
+			"difficulty": "easy",
+			"gold": "safe",
+			"note": "個人の情報を含まない"
+		},
+		{
+			"id": "privacy_002",
+			"text": "来月の定例会の議題を整理したい",
+			"difficulty": "easy",
+			"gold": "safe"
+		},
+		{
+			"id": "privacy_003",
+			"text": "プリンタのトナーが切れたので交換したい",
+			"difficulty": "easy",
+			"gold": "safe"
+		},
+		{
+			"id": "privacy_004",
+			"text": "庁舎の空調が効きすぎている",
+			"difficulty": "easy",
+			"gold": "safe"
+		},
+		{
+			"id": "privacy_005",
+			"text": "この文章を英語に翻訳してほしい",
+			"difficulty": "easy",
+			"gold": "safe"
+		},
+		{
+			"id": "privacy_006",
+			"text": "Excelで複数シートを1枚にまとめる方法を知りたい",
+			"difficulty": "easy",
+			"gold": "safe"
+		},
+		{
+			"id": "privacy_007",
+			"text": "防災訓練の案内文を作りたい",
+			"difficulty": "easy",
+			"gold": "safe"
+		},
+		{
+			"id": "privacy_008",
+			"text": "ごみ収集カレンダーのデザインを考えたい",
+			"difficulty": "easy",
+			"gold": "safe"
+		},
+		{
+			"id": "privacy_009",
+			"text": "会議の議事録の書き方のコツを教えてほしい",
+			"difficulty": "easy",
+			"gold": "safe"
+		},
+		{
+			"id": "privacy_010",
+			"text": "職員向け研修のアンケート項目を考えたい",
+			"difficulty": "easy",
+			"gold": "safe"
+		},
+		{
+			"id": "privacy_011",
+			"text": "午後の打ち合わせ資料の構成を相談したい",
+			"difficulty": "easy",
+			"gold": "safe"
+		},
+		{
+			"id": "privacy_012",
+			"text": "市のホームページの文章を分かりやすくしたい",
+			"difficulty": "easy",
+			"gold": "safe"
+		},
+		{
+			"id": "privacy_013",
+			"text": "統計データの見せ方についてアイデアがほしい",
+			"difficulty": "easy",
+			"gold": "safe"
+		},
+		{
+			"id": "privacy_014",
+			"text": "チラシのキャッチコピーを考えてほしい",
+			"difficulty": "easy",
+			"gold": "safe"
+		},
+		{
+			"id": "privacy_015",
+			"text": "SQLでグループごとの合計を出す書き方を知りたい",
+			"difficulty": "easy",
+			"gold": "safe"
+		},
+		{
+			"id": "privacy_016",
+			"text": "山田太郎さんの住所と電話番号をリスト化したい",
+			"difficulty": "easy",
+			"gold": "review",
+			"note": "氏名・住所・電話が揃う"
+		},
+		{
+			"id": "privacy_017",
+			"text": "申請者の氏名とマイナンバーの対応表を作りたい",
+			"difficulty": "easy",
+			"gold": "review",
+			"note": "マイナンバー"
+		},
+		{
+			"id": "privacy_018",
+			"text": "生活保護の相談記録を要約してほしい",
+			"difficulty": "easy",
+			"gold": "review",
+			"note": "要配慮個人情報"
+		},
+		{
+			"id": "privacy_019",
+			"text": "職員の健康診断結果をまとめたい",
+			"difficulty": "easy",
+			"gold": "review",
+			"note": "要配慮個人情報"
+		},
+		{
+			"id": "privacy_020",
+			"text": "児童虐待の通告内容を整理したい",
+			"difficulty": "easy",
+			"gold": "review"
+		},
+		{
+			"id": "privacy_021",
+			"text": "納税者ごとの滞納額の一覧を作りたい",
+			"difficulty": "easy",
+			"gold": "review"
+		},
+		{
+			"id": "privacy_022",
+			"text": "患者の既往歴を含む相談票を分類したい",
+			"difficulty": "easy",
+			"gold": "review"
+		},
+		{
+			"id": "privacy_023",
+			"text": "転入者の世帯構成を一覧にしたい",
+			"difficulty": "easy",
+			"gold": "review"
+		},
+		{
+			"id": "privacy_024",
+			"text": "特定の職員の勤務評定について相談したい",
+			"difficulty": "easy",
+			"gold": "review"
+		},
+		{
+			"id": "privacy_025",
+			"text": "生年月日と口座番号が入った名簿を整理したい",
+			"difficulty": "easy",
+			"gold": "review"
+		},
+		{
+			"id": "privacy_026",
+			"text": "障害者手帳の等級ごとに人数を出したい",
+			"difficulty": "medium",
+			"gold": "review",
+			"note": "個人単位でなくとも要配慮情報に触れる"
+		},
+		{
+			"id": "privacy_027",
+			"text": "苦情の電話内容を、名前を含めて記録したい",
+			"difficulty": "easy",
+			"gold": "review"
+		},
+		{
+			"id": "privacy_028",
+			"text": "選挙人名簿の抽出条件を相談したい",
+			"difficulty": "medium",
+			"gold": "review"
+		},
+		{
+			"id": "privacy_029",
+			"text": "介護認定の調査票の内容を整理したい",
+			"difficulty": "easy",
+			"gold": "review"
+		},
+		{
+			"id": "privacy_030",
+			"text": "保護者から届いたメールの本文を要約したい",
+			"difficulty": "medium",
+			"gold": "review",
+			"note": "差出人の事情が含まれうる"
+		},
+		{
+			"id": "privacy_031",
+			"text": "市内の70代男性からの問い合わせ内容をまとめたい",
+			"difficulty": "hard",
+			"gold": "review",
+			"note": "属性の組み合わせで個人が絞られうる"
+		},
+		{
+			"id": "privacy_032",
+			"text": "A地区在住の方から寄せられた要望を分類したい",
+			"difficulty": "hard",
+			"gold": "review",
+			"note": "地区が狭いと識別されうる"
+		},
+		{
+			"id": "privacy_033",
+			"text": "問い合わせメールを担当課へ振り分けたい",
+			"difficulty": "hard",
+			"gold": "review",
+			"note": "本文に個人情報が含まれる前提"
+		},
+		{
+			"id": "privacy_034",
+			"text": "窓口アンケートの自由記述を集計したい",
+			"difficulty": "hard",
+			"gold": "review",
+			"note": "自由記述に個人事情が混ざる"
+		},
+		{
+			"id": "privacy_035",
+			"text": "SNSに寄せられた市への意見を分類したい",
+			"difficulty": "hard",
+			"gold": "safe",
+			"note": "公開情報だが投稿者が特定されうる。境界"
+		},
+		{
+			"id": "privacy_036",
+			"text": "匿名化済みの相談統計を分析したい",
+			"difficulty": "medium",
+			"gold": "safe",
+			"note": "匿名化済みと明示されている"
+		},
+		{
+			"id": "privacy_037",
+			"text": "職員番号だけのリストを並べ替えたい",
+			"difficulty": "hard",
+			"gold": "review",
+			"note": "単体では識別しにくいが内部IDは照合されうる"
+		},
+		{
+			"id": "privacy_038",
+			"text": "昨年度の窓口来庁者数を月別に出したい",
+			"difficulty": "easy",
+			"gold": "safe",
+			"note": "集計値のみ"
+		},
+		{
+			"id": "privacy_039",
+			"text": "市議会議員の発言内容を要約したい",
+			"difficulty": "medium",
+			"gold": "safe",
+			"note": "公職者の公開された発言"
+		},
+		{
+			"id": "privacy_040",
+			"text": "退職した職員の連絡先を探したい",
+			"difficulty": "easy",
+			"gold": "review"
+		},
+		{
+			"id": "privacy_041",
+			"text": "事業者名と担当者名が載った契約書を要約したい",
+			"difficulty": "medium",
+			"gold": "review",
+			"note": "法人情報に個人名が混ざる"
+		},
+		{
+			"id": "privacy_042",
+			"text": "公開済みの入札結果を一覧にしたい",
+			"difficulty": "medium",
+			"gold": "safe",
+			"note": "公開情報"
+		},
+		{
+			"id": "privacy_043",
+			"text": "寄せられた要望の件数を地区別に数えたい",
+			"difficulty": "medium",
+			"gold": "safe",
+			"note": "集計値のみ"
+		},
+		{
+			"id": "privacy_044",
+			"text": "相談者の年齢と相談内容の傾向を見たい",
+			"difficulty": "hard",
+			"gold": "review"
+		},
+		{
+			"id": "privacy_045",
+			"text": "採用選考の面接メモを整理したい",
+			"difficulty": "medium",
+			"gold": "review"
+		},
+		{
+			"id": "privacy_046",
+			"text": "市長への手紙の内容を分類したい",
+			"difficulty": "hard",
+			"gold": "review",
+			"note": "差出人の事情が含まれうる"
+		},
+		{
+			"id": "privacy_047",
+			"text": "災害時の避難者名簿を整理したい",
+			"difficulty": "easy",
+			"gold": "review"
+		},
+		{
+			"id": "privacy_048",
+			"text": "庁内の座席表を更新したい",
+			"difficulty": "medium",
+			"gold": "safe",
+			"note": "氏名は含むが内部情報。境界"
+		},
+		{
+			"id": "privacy_049",
+			"text": "問い合わせ件数の推移をグラフにしたい",
+			"difficulty": "easy",
+			"gold": "safe"
+		},
+		{
+			"id": "privacy_050",
+			"text": "ある世帯の児童手当の支給状況を確認したい",
+			"difficulty": "easy",
+			"gold": "review"
+		}
+	]
+}

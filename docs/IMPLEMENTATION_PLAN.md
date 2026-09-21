@@ -599,35 +599,47 @@ BATCH JUDGE  多数のInput  × 少数の判断基準
 
 **合意事項ではないもの（実測で決める）**
 
-- 1リクエストへ入れられる「件数 × 軸数」。測定済みは40問まで。DX JUDGEは50件×5軸で**250問**になり、6倍の未測定領域
+- ~~1リクエストへ入れられる「件数 × 軸数」~~ Phase 12 で実測した。750問まで成立し、1,000問で400
 - Layer 2 の絞り込みをどの階層まで行うか。機能領域だけでは統合収納管理（419件）が32k制限を超える
 - SPEC FIND v1 を二段階にするか、決定的な絞り込みで1リクエストに収めるか
 
 ### Phase 11: BATCH JUDGE のschemaとfixture
 
-依存: なし。Jevを呼ばない。
+依存: なし。Jevを呼ばない。**完了。**
 
-- [ ] 3テーマ（PRIVACY / DEADLINE / DX JUDGE）の判断軸を確定する
-- [ ] 各テーマ30〜50件のfixtureを人手で作る。曖昧なケースを意図的に入れる
-- [ ] 正解ラベルを人手で付ける。**Jev自身の出力をgoldにしない**
-- [ ] 共通の計測項目を既存実装から再利用できる形にする
+- [x] 3テーマ（PRIVACY / DEADLINE / DX JUDGE）の判断軸を確定する
+- [x] 各テーマ30〜50件のfixtureを人手で作る。曖昧なケースを意図的に入れる（各50件）
+- [x] 正解ラベルを人手で付ける。**Jev自身の出力をgoldにしない**
+- [x] 共通の計測項目を既存実装から再利用できる形にする（`estimateCostUsd`、`result.usage`）
+
+成果物: `src/lib/types/batch.ts`、`data/batch/{privacy,deadline,dx}.json`、`src/lib/server/batch-dataset.server.ts`
+
+**残件:** ラベルはClaudeが起草した下書きである。Phase 13 の前に人が通しで確認する（[BATCH_JUDGE_DESIGN.md](BATCH_JUDGE_DESIGN.md) §5）。
 
 ### Phase 12: BATCH JUDGE のbenchmark（実測）
 
-依存: Phase 11。捨てコードでよい。
+依存: Phase 11。捨てコードでよい。**完了。** 結果は [BATCH_JUDGE_DESIGN.md](BATCH_JUDGE_DESIGN.md) §4.6。
 
-- [ ] 判定基準を**測る前に**決める（成立とみなす件数×軸数、許容するp95 latency）
-- [ ] 「件数 × 軸数」で測る。50×1 と 50×5 を別物として扱う
-- [ ] Pattern A（1リクエスト）/ B（chunk）/ C（別構造）を比較する
-- [ ] **probabilityの混線**を確認する。正解が分かる事例の位置だけを変え、分布が変わるか見る
-- [ ] answerの欠落、latency、tokens、コストを記録する
-- [ ] 結果を [BATCH_JUDGE_DESIGN.md](BATCH_JUDGE_DESIGN.md) へ反映する
+- [x] 判定基準を**測る前に**決める（16,000ms以内 / answer欠落0 / 並び替えの差0.10以内）
+- [x] 「件数 × 軸数」で測る。50×1 と 50×5 を別物として扱う
+- [x] Pattern A（1リクエスト）/ B（chunk）/ C（別構造）を比較する
+- [x] **probabilityの混線**を確認する。並び順だけを変え、同じ並びのゆらぎと比べる
+- [x] answerの欠落、latency、tokens、コストを記録する
+- [x] 結果を [BATCH_JUDGE_DESIGN.md](BATCH_JUDGE_DESIGN.md) へ反映する
 
 完了条件:
 
-- [ ] 各テーマで成立する最大の件数を実測値として決めた
-- [ ] 混線が起きない参照方式を確認した
-- [ ] UIへ出す数値の桁が実測と合っている
+- [x] 各テーマで成立する最大の件数を実測値として決めた（750問まで成立、1,000問で400）
+- [x] 混線が起きない参照方式を確認した（キー参照。逆順の差はゆらぎの2.0倍に留まる）
+- [ ] UIへ出す数値の桁が実測と合っている（Phase 13 でUIを作るときに確認する）
+
+**実測で分かった主なこと**
+
+- 250問は1リクエストで通る。壁は質問数ではなくtoken側で、750問と1,000問の間にある
+- latencyは質問数にほぼ比例しない（50問674ms、250問763ms、750問2,309ms）
+- 分割の追加コストは入力tokenで2〜8%。SPEC FINDの2.5倍とは違い、stateが小さいため
+- 排他的なカテゴリは Choice が強い（DEADLINE 94%、独立Noulへ展開すると82%）
+- **DXのNoulを0.5で二値化しない。** 同じ並びで2回投げても250件中11件が0.5をまたいで反転する
 
 ### Phase 13: BATCH JUDGE の実装
 

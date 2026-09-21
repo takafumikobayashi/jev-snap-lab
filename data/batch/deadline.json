@@ -1,0 +1,312 @@
+{
+	"schemaVersion": "1",
+	"theme": "deadline",
+	"label": "いつまでに対応が必要？",
+	"cases": [
+		{
+			"id": "deadline_001",
+			"text": "至急ご対応をお願いします",
+			"difficulty": "easy",
+			"gold": "now"
+		},
+		{
+			"id": "deadline_002",
+			"text": "大至急、本件の確認をお願いします",
+			"difficulty": "easy",
+			"gold": "now"
+		},
+		{
+			"id": "deadline_003",
+			"text": "システム障害が発生しています。すぐに確認してください",
+			"difficulty": "easy",
+			"gold": "now"
+		},
+		{
+			"id": "deadline_004",
+			"text": "本日17時までに回答してください",
+			"difficulty": "easy",
+			"gold": "today"
+		},
+		{
+			"id": "deadline_005",
+			"text": "今日中にご提出ください",
+			"difficulty": "easy",
+			"gold": "today"
+		},
+		{
+			"id": "deadline_006",
+			"text": "本日の終業までにお願いします",
+			"difficulty": "easy",
+			"gold": "today"
+		},
+		{
+			"id": "deadline_007",
+			"text": "明日の朝一番で必要です",
+			"difficulty": "medium",
+			"gold": "today",
+			"note": "翌日だが実質は当日対応"
+		},
+		{
+			"id": "deadline_008",
+			"text": "可能であれば今週中にお願いします",
+			"difficulty": "easy",
+			"gold": "soon"
+		},
+		{
+			"id": "deadline_009",
+			"text": "来週月曜までにご確認ください",
+			"difficulty": "easy",
+			"gold": "soon"
+		},
+		{
+			"id": "deadline_010",
+			"text": "次回会議までに確認をお願いします",
+			"difficulty": "medium",
+			"gold": "soon",
+			"note": "会議日が不明"
+		},
+		{
+			"id": "deadline_011",
+			"text": "今月末までにご提出ください",
+			"difficulty": "easy",
+			"gold": "soon"
+		},
+		{
+			"id": "deadline_012",
+			"text": "月内に一度ご相談させてください",
+			"difficulty": "medium",
+			"gold": "soon"
+		},
+		{
+			"id": "deadline_013",
+			"text": "来月の定例までにまとめておいてください",
+			"difficulty": "medium",
+			"gold": "later"
+		},
+		{
+			"id": "deadline_014",
+			"text": "次年度に向けて検討をお願いします",
+			"difficulty": "easy",
+			"gold": "later"
+		},
+		{
+			"id": "deadline_015",
+			"text": "四半期ごとに見直しをお願いします",
+			"difficulty": "medium",
+			"gold": "later"
+		},
+		{
+			"id": "deadline_016",
+			"text": "お時間のある際にご確認ください",
+			"difficulty": "easy",
+			"gold": "none"
+		},
+		{
+			"id": "deadline_017",
+			"text": "ご参考までに共有します",
+			"difficulty": "easy",
+			"gold": "none"
+		},
+		{
+			"id": "deadline_018",
+			"text": "特に急ぎではありません",
+			"difficulty": "easy",
+			"gold": "none"
+		},
+		{
+			"id": "deadline_019",
+			"text": "ご報告まで",
+			"difficulty": "easy",
+			"gold": "none"
+		},
+		{
+			"id": "deadline_020",
+			"text": "ご一読いただければ幸いです",
+			"difficulty": "easy",
+			"gold": "none"
+		},
+		{
+			"id": "deadline_021",
+			"text": "9月25日17時までに提出してください",
+			"difficulty": "hard",
+			"gold": "today",
+			"note": "日付が今日かは文面から決まらない"
+		},
+		{
+			"id": "deadline_022",
+			"text": "期限は特に設けていませんが早めにお願いします",
+			"difficulty": "hard",
+			"gold": "soon",
+			"note": "矛盾した言い方"
+		},
+		{
+			"id": "deadline_023",
+			"text": "なるべく早めにお願いします",
+			"difficulty": "medium",
+			"gold": "soon"
+		},
+		{
+			"id": "deadline_024",
+			"text": "急ぎませんが今週中には欲しいです",
+			"difficulty": "hard",
+			"gold": "soon"
+		},
+		{
+			"id": "deadline_025",
+			"text": "折り返しご連絡ください",
+			"difficulty": "medium",
+			"gold": "now"
+		},
+		{
+			"id": "deadline_026",
+			"text": "本日中は難しければ明日でも構いません",
+			"difficulty": "hard",
+			"gold": "today"
+		},
+		{
+			"id": "deadline_027",
+			"text": "締切を過ぎています。至急ご対応ください",
+			"difficulty": "easy",
+			"gold": "now"
+		},
+		{
+			"id": "deadline_028",
+			"text": "次の打ち合わせで議論しましょう",
+			"difficulty": "medium",
+			"gold": "later"
+		},
+		{
+			"id": "deadline_029",
+			"text": "来年度の予算要求に向けて整理してください",
+			"difficulty": "easy",
+			"gold": "later"
+		},
+		{
+			"id": "deadline_030",
+			"text": "随時ご対応ください",
+			"difficulty": "medium",
+			"gold": "none"
+		},
+		{
+			"id": "deadline_031",
+			"text": "手が空いたときで結構です",
+			"difficulty": "easy",
+			"gold": "none"
+		},
+		{
+			"id": "deadline_032",
+			"text": "今週金曜が期限です",
+			"difficulty": "easy",
+			"gold": "soon"
+		},
+		{
+			"id": "deadline_033",
+			"text": "あと30分で会議が始まります",
+			"difficulty": "easy",
+			"gold": "now"
+		},
+		{
+			"id": "deadline_034",
+			"text": "午後イチでお願いできますか",
+			"difficulty": "easy",
+			"gold": "today"
+		},
+		{
+			"id": "deadline_035",
+			"text": "納期は3月末です",
+			"difficulty": "medium",
+			"gold": "later"
+		},
+		{
+			"id": "deadline_036",
+			"text": "できれば本日中、遅くとも明日までに",
+			"difficulty": "medium",
+			"gold": "today"
+		},
+		{
+			"id": "deadline_037",
+			"text": "ご都合のよいときにご返信ください",
+			"difficulty": "easy",
+			"gold": "none"
+		},
+		{
+			"id": "deadline_038",
+			"text": "今期中に方針を決めたいです",
+			"difficulty": "medium",
+			"gold": "later"
+		},
+		{
+			"id": "deadline_039",
+			"text": "すぐに止めてください",
+			"difficulty": "easy",
+			"gold": "now"
+		},
+		{
+			"id": "deadline_040",
+			"text": "今夜中に反映をお願いします",
+			"difficulty": "easy",
+			"gold": "today"
+		},
+		{
+			"id": "deadline_041",
+			"text": "来週中に一度お時間いただけますか",
+			"difficulty": "easy",
+			"gold": "soon"
+		},
+		{
+			"id": "deadline_042",
+			"text": "急ぎ確認したい点があります",
+			"difficulty": "medium",
+			"gold": "now"
+		},
+		{
+			"id": "deadline_043",
+			"text": "差し支えなければ今月中にお願いします",
+			"difficulty": "medium",
+			"gold": "soon"
+		},
+		{
+			"id": "deadline_044",
+			"text": "継続的に対応していきましょう",
+			"difficulty": "medium",
+			"gold": "none"
+		},
+		{
+			"id": "deadline_045",
+			"text": "期限なしの相談です",
+			"difficulty": "easy",
+			"gold": "none"
+		},
+		{
+			"id": "deadline_046",
+			"text": "本件は来期の課題とします",
+			"difficulty": "easy",
+			"gold": "later"
+		},
+		{
+			"id": "deadline_047",
+			"text": "できるだけ早くお願いします",
+			"difficulty": "hard",
+			"gold": "soon",
+			"note": "急ぎだが日付の手がかりが無い"
+		},
+		{
+			"id": "deadline_048",
+			"text": "明後日までにご回答ください",
+			"difficulty": "medium",
+			"gold": "soon"
+		},
+		{
+			"id": "deadline_049",
+			"text": "週明けまでにお願いします",
+			"difficulty": "easy",
+			"gold": "soon"
+		},
+		{
+			"id": "deadline_050",
+			"text": "今すぐは不要です",
+			"difficulty": "medium",
+			"gold": "none"
+		}
+	]
+}
