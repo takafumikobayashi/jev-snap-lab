@@ -307,12 +307,19 @@ PDF v0には機能要件Excel、項目定義書、API仕様書、ランタイム
 
 ### 次に測ること
 
-Jevの使い方が逆になる2つを同じLabで比較できる状態にする。**どちらも着手前。**
+Jevの使い方が逆になる2つを同じLabで比較できる状態にする。
 
 ```text
 SPEC FIND    少数のQuery  × 多くのKnowledge  -> 読むべき根拠を探す
 BATCH JUDGE  多数のInput  × 少数の判断基準    -> 大量の意味判断を高速に行う
 ```
 
-- **BATCH JUDGE** — 短文を数十件まとめて判定する新モード（[BATCH_JUDGE_DESIGN.md](BATCH_JUDGE_DESIGN.md)）
-- **SPEC FIND v1** — 機能要件Excelを第2の層として足し、「この資料には答えが無い」を区別できるようにする（[SPEC_FIND_DESIGN.md](SPEC_FIND_DESIGN.md) の §10）
+- **BATCH JUDGE** — 短文を数十件まとめて判定する新モード（[BATCH_JUDGE_DESIGN.md](BATCH_JUDGE_DESIGN.md)）。**一部実装。** 3テーマ各50件のfixture、その検証、Jevとの契約、方式を決めるための実測まで進んでいる。**アプリの経路とUIはまだ無い**
+- **SPEC FIND v1** — 機能要件Excelを第2の層として足し、「この資料には答えが無い」を区別できるようにする（[SPEC_FIND_DESIGN.md](SPEC_FIND_DESIGN.md) の §10）。着手前
+
+BATCH JUDGE の実測で分かったことのうち、製品の作りに効くものは次のとおり（[BATCH_JUDGE_DESIGN.md](BATCH_JUDGE_DESIGN.md) §4.6）。
+
+- **同じ入力に同じ答えは返らない。** 同じリクエストを2回投げると判定が0〜1/50変わる。数十件を並べる画面はこの揺れを前提に作る
+- **PRIVACY の結論に「安全」と書かない。** `要確認シグナルなし` / `要確認` の二値に留める。法的な該当性の判定でも、AIへ送ってよいという保証でもない
+- **PRIVACY 自身が入力文をJevへ送る。** 入力欄の手前に送信する旨を常時出し、デモ用の例文を置く
+- 一致率はすべて**暫定ラベル（人手確認前）**に対する実測値であり、精度ではない

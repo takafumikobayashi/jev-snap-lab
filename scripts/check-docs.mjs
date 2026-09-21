@@ -106,19 +106,35 @@ const STALE = /未実装|設計段階|未着手|着手前|まだ作成してい�
 const STARTED = [{ label: 'BATCH JUDGE', path: 'data/batch', pattern: /BATCH ?JUDGE/i }];
 const NOT_STARTED = /未着手|着手前|まだ作成していない/;
 
+/**
+ * 機能名が同じ行に無くても拾う。
+ *
+ * PRODUCT_SPEC.md が「どちらも着手前。」と書き、機能名は次のコードブロック
+ * にあった。行だけを見る検査はこれを通してしまう。前後の行も見る。
+ */
+const CONTEXT_LINES = 6;
+function nearby(lines, index) {
+	return lines.slice(Math.max(0, index - CONTEXT_LINES), index + CONTEXT_LINES + 1).join('\n');
+}
+
 for (const file of DOC_FILES) {
 	const lines = readFileSync(file, 'utf8').split('\n');
 	for (const [index, line] of lines.entries()) {
+		const around = nearby(lines, index);
 		for (const feature of SHIPPED) {
+			// こちらは行だけを見る。窓にすると「SPEC FIND v1 は着手前」の近くの
+			// 「SPEC FIND」を拾って誤検知する。
 			if (!STALE.test(line) || !feature.pattern.test(line) || !existsSync(feature.path)) continue;
 			problems.push(
 				`${file}:${index + 1}: ${feature.label} は実装済みだが未実装と書いてある（${feature.path}）`
 			);
 		}
 		for (const feature of STARTED) {
-			if (!NOT_STARTED.test(line) || !feature.pattern.test(line) || !existsSync(feature.path)) {
+			if (!NOT_STARTED.test(line) || !feature.pattern.test(around) || !existsSync(feature.path)) {
 				continue;
 			}
+			// 何が未実装かを書き分けている行は落とさない。
+			if (/一部実装|schema|fixture|UI|経路/.test(around)) continue;
 			problems.push(
 				`${file}:${index + 1}: ${feature.label} は着手済みだが着手前と書いてある（${feature.path}）。` +
 					`何が未実装かを書き分けること`
