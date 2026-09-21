@@ -131,6 +131,51 @@ describe('Jevへ送るもの', () => {
 	});
 });
 
+describe('並び順', () => {
+	it('入力順を変えても state が同じになる', () => {
+		// 実測で、並び順を変えると同じ事例の確率が動いた（逆順で最大0.400）。
+		// 利用者が貼った順で送ると、同じ50件でも並べ替えただけで結果が変わる。
+		const forward = buildBatchRequest(privacy);
+		const reversed = buildBatchRequest(privacy, [...privacy.cases].reverse());
+		const shuffled = buildBatchRequest(
+			privacy,
+			[...privacy.cases].sort((a, b) => (a.id < b.id ? 1 : -1))
+		);
+
+		// キーの並びまで含めて同じであること。JSON文字列で比べる。
+		expect(JSON.stringify(reversed.state)).toBe(JSON.stringify(forward.state));
+		expect(JSON.stringify(shuffled.state)).toBe(JSON.stringify(forward.state));
+	});
+
+	it('並びは入力順でもID順でもない', () => {
+		// 入力順に依らないことを示すには、入力順と違う並びになっている必要が
+		// ある。同じならこの検査は空振りしている。
+		const bag = buildBatchRequest(privacy).state[CASES_KEY] as Record<string, unknown>;
+		const order = Object.keys(bag);
+		expect(order).not.toEqual(privacy.cases.map((item) => item.id));
+		expect(order).not.toEqual([...order].sort());
+		expect([...order].sort()).toEqual([...privacy.cases.map((item) => item.id)].sort());
+	});
+
+	it('並べ替えても質問と事例の対応が崩れない', () => {
+		const request = buildBatchRequest(privacy);
+		for (const item of privacy.cases) {
+			expect(request.index.get(questionIdOf(item.id, 'identifies'))).toBe(item.id);
+		}
+		expect(request.index.size).toBe(privacy.cases.length * 3);
+	});
+
+	it('混線を測るときは入力順のまま送れる', () => {
+		// canonicalOrder を外せない作りにすると、素の並び順依存を測れなくなる。
+		const raw = buildBatchRequest(privacy, privacy.cases, undefined, undefined, {
+			canonicalOrder: false
+		});
+		expect(Object.keys(raw.state[CASES_KEY] as Record<string, unknown>)).toEqual(
+			privacy.cases.map((item) => item.id)
+		);
+	});
+});
+
 describe('readBatchAnswers', () => {
 	const request = buildBatchRequest(privacy, privacy.cases.slice(0, 2));
 

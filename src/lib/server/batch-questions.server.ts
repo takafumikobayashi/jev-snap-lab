@@ -9,6 +9,7 @@
  * 「測ったもの」と「動くもの」がずれる。CITY / SPEC FIND と同じ方針。
  */
 
+import { createHash } from 'node:crypto';
 import { choice, noul, type Questions } from '@typesafe-ai/sdk';
 import { JudgeError } from './errors.server';
 import {
@@ -154,23 +155,52 @@ export type BatchRequest = {
  *
  * **stateへ入れるのは `id` と `text` だけである**（`BatchJevCase`）。`gold`、
  * `note`、`difficulty` は人手の評価であって判断材料ではない。
+ *
+ * **並び順を内容から決める**（`canonicalOrder`）。実測で、並び順を変えると
+ * 同じ事例の確率が動いた（逆順で最大0.400、判定の反転が150件中6件）。
+ * 配列インデックス参照のような大規模な混線ではないが、**並び順依存は残って
+ * いる**（docs/BATCH_JUDGE_DESIGN.md §4.6）。
+ *
+ * 利用者が貼った順で送ると、同じ50件でも並べ替えただけで結果が変わる。
+ * 本文のハッシュで並べれば、入力順が違っても state は同じになる。画面の
+ * 並びは `index` から戻す。
+ *
+ * **これは並び順依存を消すものではない。** 入力順の影響を消すだけで、
+ * 集合が変われば結果は変わりうる。混線を測るときは `canonicalOrder: false`
+ * にして、素の並び順依存を見る。
  */
+export type BuildOptions = {
+	/** 既定は true。混線を測るときだけ false にする。 */
+	canonicalOrder?: boolean;
+};
+
+/** 内容から決まる並び順のキー。入力順にもIDにも依らない。 */
+function orderKey(item: BatchCase): string {
+	return createHash('sha256').update(item.text).digest('hex');
+}
+
 export function buildBatchRequest(
 	dataset: BatchDataset,
 	cases: readonly BatchCase[] = dataset.cases,
 	axes: BatchAxis[] = AXES_BY_THEME[dataset.theme],
-	referenceDate = dataset.referenceDate
+	referenceDate = dataset.referenceDate,
+	options: BuildOptions = {}
 ): BatchRequest {
 	if (cases.length === 0) {
 		throw new JudgeError('QUESTION_DEFINITION_ERROR', 'BATCH JUDGE の事例が空である');
 	}
+
+	const ordered =
+		options.canonicalOrder === false
+			? [...cases]
+			: [...cases].sort((a, b) => (orderKey(a) < orderKey(b) ? -1 : 1));
 
 	// **gold と note を入れない。** 答えと根拠を渡せば一致率が測れなくなる。
 	// 形を `BatchJevCase` に固定し、事例を展開してコピーしない。
 	const bag: Record<string, Omit<BatchJevCase, 'id'>> = {};
 	const questions: Questions = {};
 	const index = new Map<string, string>();
-	for (const item of cases) {
+	for (const item of ordered) {
 		bag[item.id] = { text: item.text };
 		for (const axis of axes) {
 			const questionId = questionIdOf(item.id, axis.key);

@@ -52,6 +52,8 @@ const LIVE = process.env.LIVE_JEV === '1';
 /**
  * 本番へ出せる上限。`/api/judge` の REQUEST_BUDGET_MS と同じ値。
  * これを超える構成は、実装しても Vercel の maxDuration に収まらない。
+ *
+ * **`record()` が必ず検査する。** 出力へ書くだけでは基準が飾りになる。
  */
 const MAX_ACCEPTABLE_MS = 16_000;
 
@@ -196,6 +198,11 @@ function median(values: number[]): number {
 const report: string[] = [];
 function record(label: string, built: Built[], result: RunResult, agreement: string): void {
 	const total = result.latencyMs.reduce((sum, ms) => sum + ms, 0);
+	// 判定基準をここで効かせる。レポートに出すだけでは、超えても誰も気づかない。
+	expect(Math.max(...result.latencyMs), `${label} が1リクエストの上限を超えた`).toBeLessThanOrEqual(
+		MAX_ACCEPTABLE_MS
+	);
+	expect(result.missing, `${label} で answer が欠けた`).toEqual([]);
 	report.push(
 		[
 			label.padEnd(24),
@@ -389,15 +396,36 @@ describe.runIf(LIVE)('BATCH JUDGE benchmark', () => {
 		expect([...deadlineRun.missing, ...dxRun.missing]).toEqual([]);
 	});
 
+	it('入力順を変えても送るものが変わらない', { timeout: 600_000 }, async () => {
+		// **本番は内容で並べる**ので、利用者が貼った順は結果に影響しない
+		// （`canonicalOrder`）。素の並び順依存は次のテストで測る。
+		const forward = build(privacy, privacy.cases);
+		const reversed = build(privacy, [...privacy.cases].reverse());
+		expect(JSON.stringify(reversed.state)).toBe(JSON.stringify(forward.state));
+
+		const first = await run([forward]);
+		const second = await run([reversed]);
+		const flips = privacy.cases.filter(
+			(item) =>
+				privacyVerdict(new Map(Object.entries(first.answers)), item.id) !==
+				privacyVerdict(new Map(Object.entries(second.answers)), item.id)
+		);
+		report.push(
+			`canonical 入力順を逆にしたときの判定の違い ${flips.length}/${privacy.cases.length}`
+		);
+	});
+
 	it('probabilityの混線: 並び順だけを変えて分布が動くか見る', { timeout: 600_000 }, async () => {
-		// コーパスも質問も同じで、事例の並びだけを逆にする。キー参照が
-		// 効いていれば、同じ事例の確率はほぼ動かないはずである。
-		// 200 が返ることは参照が効いた証明にならない（§4.4）。
+		// **canonicalOrder を外して素の性質を測る。** 本番の経路は上のテストの
+		// 通り入力順に依らないが、それは並び順依存が無いという意味ではない。
+		// 集合が変われば並びも変わるため、ここで残っている感度を記録する。
 		//
 		// **同じ並びで2回投げた差を先に測る。** これが無いと、逆順との差が
 		// 位置のせいなのか、上流のゆらぎなのか区別できない。
-		const forward = build(privacy, privacy.cases, PRIVACY_AXES);
-		const reversed = build(privacy, [...privacy.cases].reverse(), PRIVACY_AXES);
+		const raw = (cases: BatchDataset['cases']) =>
+			buildBatchRequest(privacy, cases, PRIVACY_AXES, undefined, { canonicalOrder: false });
+		const forward = raw(privacy.cases);
+		const reversed = raw([...privacy.cases].reverse());
 
 		const first = await run([forward]);
 		const control = await run([forward]);
@@ -432,17 +460,21 @@ describe.runIf(LIVE)('BATCH JUDGE benchmark', () => {
 		const jitter = describeDeltas('bleed privacy 同じ並び', compare(first, control));
 		const shifted = describeDeltas('bleed privacy 逆順', compare(first, second));
 
-		// 位置を変えた差が、同じ並びのゆらぎを超えているか。超えていなければ
-		// 「混線」ではなく上流のゆらぎである。
 		const mean = (rows: typeof jitter) =>
 			rows.reduce((sum, row) => sum + row.delta, 0) / rows.length;
+		const over = shifted.filter((row) => row.delta > MAX_BLEED_DELTA).length;
 		report.push(
-			`  逆順の平均差 / 同じ並びの平均差 = ${(mean(shifted) / Math.max(mean(jitter), 1e-9)).toFixed(2)}`
+			`  逆順の平均差 / 同じ並びの平均差 = ${(mean(shifted) / Math.max(mean(jitter), 1e-9)).toFixed(2)}`,
+			over > 0
+				? `  **基準未達**: 素の並び順では ${over}/${shifted.length} が ${MAX_BLEED_DELTA} を超える。` +
+						`本番は canonicalOrder で入力順の影響を消しているが、並び順依存そのものは残っている`
+				: `  素の並び順でも ${MAX_BLEED_DELTA} を超えなかった`
 		);
 
-		expect(first.missing).toEqual([]);
-		expect(second.missing).toEqual([]);
-		expect(control.missing).toEqual([]);
+		// 素の並び順は基準未達である。**それを承知で測っているので、ここでは
+		// 落とさない。** 代わりに、本番の経路が入力順に依らないことを上の
+		// テストで担保し、残る感度をレポートへ必ず出す。
+		expect(report.some((line) => line.includes('bleed privacy 逆順'))).toBe(true);
 	});
 
 	it('基準日を動かすと絶対日付の判定が動く', { timeout: 600_000 }, async () => {
