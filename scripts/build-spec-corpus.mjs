@@ -13,6 +13,7 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { verifySource } from './lib/spec-source.mjs';
 // 検証はアプリと同じ実装を使う。スクリプト側へ写すと必ず片方が古くなる。
 // 型だけのimportなので、Nodeの型ストリップでそのまま読める。
 import {
@@ -42,6 +43,14 @@ const DOCUMENT = {
 	title: '地方公共団体情報システム共通機能標準仕様書',
 	version: '2.7',
 	publishedAt: '2026-02-27',
+	/**
+	 * 固定した公式PDFの content hash。
+	 *
+	 * 別のPDFを渡してもこのメタデータで名乗ってしまうため、生成の前に照合する。
+	 * 改版で差し替えるときは、公式ページで版・公開日・URLを確認したうえで、
+	 * この値と `version` / `publishedAt` / `sourceUrl` を同時に更新する。
+	 */
+	contentHash: 'sha256-41d7fe7a96d5bcee527bd7caa21ac565a21d8d98a9fdc72431171ec93fad346d',
 	sourceUrl:
 		'https://www.digital.go.jp/assets/contents/node/basic_page/field_ref_resources/4d056a04-6eba-4109-9850-a786d3e71971/023dffea/20260227_policies_local_governments_common_02.pdf'
 };
@@ -65,6 +74,17 @@ const text = execFileSync('pdftotext', ['-layout', pdfPath, '-'], {
 });
 const pages = text.split('\f');
 const contentHash = `sha256-${createHash('sha256').update(readFileSync(pdfPath)).digest('hex')}`;
+
+// 固定した出典と同じPDFか、抽出の前に確かめる。
+const mismatches = verifySource({ contentHash, text, pinned: DOCUMENT });
+if (mismatches.length > 0) {
+	console.error('入力PDFが固定した出典と一致しない:');
+	for (const problem of mismatches) console.error(`  - ${problem}`);
+	console.error('\n公式ページで版・公開日・URLを確認し、');
+	console.error('scripts/build-spec-corpus.mjs の DOCUMENT を更新してから実行すること。');
+	console.error(`${outPath} は更新しなかった。`);
+	process.exit(1);
+}
 
 // --- 見出しを拾う ---
 const sections = [];

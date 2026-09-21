@@ -5,9 +5,9 @@
 		"title": "地方公共団体情報システム共通機能標準仕様書",
 		"version": "2.7",
 		"publishedAt": "2026-02-27",
+		"contentHash": "sha256-41d7fe7a96d5bcee527bd7caa21ac565a21d8d98a9fdc72431171ec93fad346d",
 		"sourceUrl": "https://www.digital.go.jp/assets/contents/node/basic_page/field_ref_resources/4d056a04-6eba-4109-9850-a786d3e71971/023dffea/20260227_policies_local_governments_common_02.pdf",
-		"retrievedAt": "2026-09-21",
-		"contentHash": "sha256-41d7fe7a96d5bcee527bd7caa21ac565a21d8d98a9fdc72431171ec93fad346d"
+		"retrievedAt": "2026-09-21"
 	},
 	"passages": [
 		{
