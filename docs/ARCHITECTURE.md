@@ -194,7 +194,10 @@ src/lib/types/
 └── batch.ts                      # テーマ・ラベル・事例の型
 
 src/lib/server/
+├── batch-questions.server.ts     # Jevとの契約。質問ID・primitive・instructions・
+│                                 # criteria・stateの参照パス・answer欠落時の扱い
 ├── batch-dataset.server.ts       # fixture の読み込み時検証と内訳の集計
+├── batch-questions.spec.ts       # 契約の検査
 ├── batch-dataset.spec.ts         # 検証と配布fixtureの性質を確かめる
 └── batch-judge.live.spec.ts      # 方式を決めるための実測。既定でスキップし、
                                   # LIVE_JEV=1 のときだけ上流を呼ぶ

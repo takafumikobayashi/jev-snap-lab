@@ -7,6 +7,7 @@
  * 集計され、benchmark の結論がデータの壊れ方を測ってしまう。
  */
 
+import { createHash } from 'node:crypto';
 import {
 	BATCH_THEMES,
 	DEADLINE_CLASSES,
@@ -130,4 +131,22 @@ export function summarizeDataset(dataset: BatchDataset): {
 		gold[item.gold] = (gold[item.gold] ?? 0) + 1;
 	}
 	return { cases: dataset.cases.length, difficulty, gold };
+}
+
+/**
+ * データセットの指紋。
+ *
+ * 手で書くバージョン番号は必ず古くなる。**内容から計算する。** 事例を1件でも
+ * 直せば変わるため、表示した数値がどのデータに対するものか後から辿れる。
+ *
+ * 並び順も指紋に含める。`referenceDate` を変えれば DEADLINE の gold が変わる
+ * ので、それも含める。
+ */
+export function datasetFingerprint(dataset: BatchDataset): string {
+	const canonical = JSON.stringify({
+		theme: dataset.theme,
+		referenceDate: dataset.referenceDate ?? null,
+		cases: dataset.cases.map((item) => [item.id, item.text, item.gold, item.difficulty])
+	});
+	return `sha256-${createHash('sha256').update(canonical).digest('hex').slice(0, 16)}`;
 }

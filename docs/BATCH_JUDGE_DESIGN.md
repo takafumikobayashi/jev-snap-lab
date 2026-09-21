@@ -184,7 +184,13 @@ BATCH JUDGE の state は短文50件（約1,100字）しかない。同じ理屈
 
 ### 4.6 実測（Phase 12）
 
-2026-09-21、model `jev-1.13.0`。測定は [src/lib/server/batch-judge.live.spec.ts](../src/lib/server/batch-judge.live.spec.ts)。
+2026-09-21、model `jev-1.13.0`。測定は [src/lib/server/batch-judge.live.spec.ts](../src/lib/server/batch-judge.live.spec.ts)、質問の定義は [batch-questions.server.ts](../src/lib/server/batch-questions.server.ts)（§5.5）。
+
+対象のfixture。**fixtureを直せば変わる**ので、以下の数値がどのデータに対するものか辿れる。
+
+```text
+privacy=sha256-5d4fede871aa763f  deadline=sha256-449f388d77f53a5f  dx=sha256-fee027ba72e9851a
+```
 
 **判定基準は測る前に決めた。** 1リクエスト16,000ms以内（`/api/judge` の `REQUEST_BUDGET_MS`）、answer欠落0、並び替えによる確率の差0.10以内。
 
@@ -321,6 +327,135 @@ DEADLINE のデータセットは `referenceDate` を持つ。**gold を決め�
 > PRIVACY は一度作り直している。最初のfixtureは「〜をまとめたい」という作業の説明文だったが、このモードが判断するのは貼り付けられる文章そのものなので、中身が個人情報である形へ置き換えた。氏名・住所・電話番号・メール・マイナンバーはすべて架空で、市名は既存テストと同じ「甲市」、電話は未割当の `0000` ブロック、メールは RFC 2606 の `example.jp` を使っている。
 >
 > DX は利用者が目視で確認し、方向性として妥当と判断している（2026-09-21）。その上で5軸から3択へ作り直したため、**新しいgoldラベルは再度の確認が要る**。
+
+## 5.5 Jevとの契約
+
+質問ID、primitive、instructions、criteria、stateの参照パスは [batch-questions.server.ts](../src/lib/server/batch-questions.server.ts) で決める。**評価用のコードへ質問文を書き写さない。** 書き写すと、片方だけ直したときに「測ったもの」と「動くもの」がずれる。§4.6 の実測はこのモジュールを通している。
+
+### 5.5.1 質問ID
+
+```text
+<caseId>__<axis>        privacy_022__identifies / deadline_021__class / dx_001__first_move
+```
+
+質問IDはJevへ送られない。答えを事例へ戻すための対応表でしかないので、**IDの文字列から事例を復元しない。** 組み立てたときの `Map<質問ID, 事例ID>` をそのまま持ち回る。
+
+### 5.5.2 state
+
+```json
+{
+  "mode": "batch",
+  "theme": "deadline",
+  "referenceDate": "2026-09-21",
+  "cases": {
+    "deadline_021": { "text": "9月25日17時までに提出してください" },
+    "deadline_043": { "text": "9月30日までにご提出ください" }
+  }
+}
+```
+
+事例は**オブジェクトのキー**で置く（§4.3）。`referenceDate` は持つテーマだけ入れる。判定に寄与しない値をstateへ入れない。
+
+### 5.5.3 テーマごとの質問
+
+**PRIVACY** — Noul 3問／件。`identifies` と `personal` が判定、`sensitive` は理由の内訳（§3.1）。
+
+```json
+{
+  "privacy_022__identifies": {
+    "type": "noul",
+    "instructions": "Does `cases.privacy_022.text` single out one particular private individual?",
+    "criteria": {
+      "true": "One particular person can be pinned down from it — by name, address, phone number, email address, an identification number, an internal staff or case number, a role held by one person, or a combination of attributes narrow enough to isolate one person.",
+      "false": "No particular private individual can be pinned down. Aggregate figures, organisations and companies, places without a household, and public figures acting in their official capacity do not count."
+    }
+  }
+}
+```
+
+**DEADLINE** — Choice 1問／件。5択。`referenceDate` を参照させる（§3.2）。
+
+```json
+{
+  "deadline_021__class": {
+    "type": "choice",
+    "instructions": "How soon does `cases.deadline_021.text` ask for a response? Today's date is given in `referenceDate`; read any explicit date against it. Judge how far off the deadline is, not the calendar arithmetic itself.",
+    "criteria": {
+      "now": "The text asks for action right away, or says a deadline has already passed.",
+      "today": "The text points at the end of the working day, tonight, or first thing tomorrow morning.",
+      "soon": "The text points at this week, next week, or the end of this month.",
+      "later": "The text points beyond this month: next month, this quarter, the fiscal year, or later.",
+      "none": "The text expresses no time pressure at all."
+    }
+  }
+}
+```
+
+**DX JUDGE** — Choice 1問／件。3択（§3.3）。
+
+```json
+{
+  "dx_001__first_move": {
+    "type": "choice",
+    "instructions": "For the problem described in `cases.dx_001.text`, what should be taken up first?",
+    "criteria": {
+      "bpr": "The work itself should be questioned first. The form, the rule, the approval chain, or the duplication is the problem, and a tool laid over it would preserve that problem.",
+      "digital": "The work itself is needed and a tool would do it: copying, aggregating, searching, transcribing, sending, drafting, or sorting by meaning.",
+      "neither": "Neither fits. It is a matter of people, staffing, training, or a rule set outside this organisation, and has to be settled before any tool or redesign is chosen."
+    }
+  }
+}
+```
+
+**Score は使わない。** 段階を測る軸が無いためである。使う理由ができたら、ここへ根拠と一緒に足す。
+
+### 5.5.4 answer が欠けたときの扱い
+
+**リクエスト全体を失敗させる**（`UPSTREAM_UNAVAILABLE`）。一部だけ返して残りを「判定できなかった」と描くほうが親切に見えるが、PRIVACY で欠落が `要確認シグナルなし` と並んで表示されると、**見ていない事例を安全に見せる**ことになる。
+
+欠落は想定される状態ではない。実測では150問・250問・300問・500問・750問のいずれでも1件も出ていない（§4.6）。異常として扱い、静かに欠けたまま見せない。再実行は数百msで済む。
+
+次も同じく契約違反として失敗させる。**200が返ることは、契約が守られた証明にならない。**
+
+| 条件 | 例 |
+|---|---|
+| `answers` がオブジェクトでない | 配列、`null` |
+| 送っていない質問の answer がある | 対応表が壊れている |
+| `type` が `noul` でも `choice` でもない | `score` が返る |
+| `noul` が 0〜1 の数値でない | `1.4`、文字列 |
+| `choice` が空文字 | — |
+
+例外メッセージには**件数だけ**を出し、入力本文を入れない。
+
+### 5.5.5 レスポンス
+
+```ts
+type BatchJudgeResponse = {
+	requestId: string;
+	mode: 'batch';
+	theme: BatchTheme;
+	model: string;
+	datasetFingerprint: string;   // 内容から計算する。手書きのバージョンは古くなる
+	referenceDate?: string;       // DEADLINE のときだけ
+	caseCount: number;
+	questionCount: number;
+	latencyMs: number;
+	usage: { inputTokens: number; outputTokens: number; estimatedCostUsd: number };
+	results: BatchJudgeResult[];
+};
+
+type BatchJudgeResult = {
+	caseId: string;
+	verdict: string;                                   // テーマごとの結論
+	signals: { key: string; probability: number }[];   // 判定に使った確率をそのまま持つ
+	gold?: string;                                     // fixture を評価したときだけ
+	agrees?: boolean;
+};
+```
+
+`signals` に確率をそのまま持つのは、**閾値を変えるために再実行しなくてよいようにする**ためである。PRIVACY の `sensitive` のように判定には使わないが理由として出すものも含む。
+
+`datasetFingerprint` は fixture の内容から計算する（`datasetFingerprint()`）。手で書くバージョン番号は必ず古くなる。事例を1件でも直せば変わるため、**表示した数値がどのデータに対するものか後から辿れる。**
 
 ## 6. UI
 

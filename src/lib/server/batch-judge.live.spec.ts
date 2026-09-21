@@ -17,10 +17,21 @@
 
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
-import { choice, noul, type Questions } from '@typesafe-ai/sdk';
-import { DX_CLASSES, type BatchDataset, type DxClass } from '$lib/types/batch';
-import { validateDataset } from './batch-dataset.server';
-import type { JsonValue } from '$lib/types/semantic';
+import { noul } from '@typesafe-ai/sdk';
+import { DX_CLASSES, type BatchDataset } from '$lib/types/batch';
+import { datasetFingerprint, validateDataset } from './batch-dataset.server';
+// 質問文を評価側へ書き写さない。片方だけ直すと、測ったものと動くものがずれる。
+import {
+	AXES_BY_THEME,
+	DEADLINE_CRITERIA,
+	DX_CRITERIA,
+	PRIVACY_AXES,
+	buildBatchRequest,
+	privacyVerdict,
+	readBatchAnswers,
+	type BatchAnswer,
+	type BatchAxis
+} from './batch-questions.server';
 
 // timeout は benchmark 用に広げる。250問が**成立するか**を先に見たいので、
 // 本番の予算で先に切ってしまうと「落ちた理由」が分からなくなる。本番へ
@@ -70,110 +81,20 @@ function load(theme: 'privacy' | 'deadline' | 'dx'): BatchDataset {
 // 質問の組み立て
 // ---------------------------------------------------------------------------
 
-/** 事例1件あたり1問を作る軸。`path` は `cases.privacy_001` のようなキー参照。 */
-type Axis = { key: string; build: (path: string) => Questions[string] };
-
-/**
- * PRIVACY の軸。
- *
- * 判断の対象は**入力文そのもの**である。「〜をまとめたい」という作業の
- * 説明ではなく、これから貼り付けようとしている文章を仕分ける。fixture も
- * その形にしてある（data/batch/privacy.json）。
- */
-const PRIVACY_AXES: Axis[] = [
-	{
-		key: 'identifies',
+/** Pattern C（別構造）用。DEADLINE の1つのChoiceを5つの独立したNoulへ展開する。 */
+const DEADLINE_NOUL_AXES: BatchAxis[] = Object.entries(DEADLINE_CRITERIA).map(
+	([key, description]) => ({
+		key,
 		build: (path) =>
-			noul(`Does \`${path}.text\` single out one particular private individual?`, {
-				true: 'One particular person can be pinned down from it — by name, address, phone number, email address, an identification number, an internal staff or case number, a role held by one person, or a combination of attributes narrow enough to isolate one person.',
-				false:
-					'No particular private individual can be pinned down. Aggregate figures, organisations and companies, places without a household, and public figures acting in their official capacity do not count.'
+			noul(`Does \`${path}.text\` ask for a response on this timescale?`, {
+				true: description,
+				false: 'The wording points at a different timescale, or at none.'
 			})
-	},
-	{
-		key: 'personal',
-		build: (path) =>
-			noul(`Does \`${path}.text\` describe a particular person's own situation?`, {
-				true: "It states something about an individual's circumstances, household, family, conduct, finances, or dealings with the authority.",
-				false:
-					'It concerns procedures, rules, schedules, statistics, facilities, or organisations rather than any individual.'
-			})
-	},
-	{
-		key: 'sensitive',
-		build: (path) =>
-			noul(`Does \`${path}.text\` touch information that would harm someone if mishandled?`, {
-				true: 'It touches health, disability, medical treatment, welfare or benefit receipt, poverty or debt, criminal or abuse matters, domestic violence, beliefs, social status, or a child at risk.',
-				false:
-					'Ordinary administrative content, where disclosure would not expose anyone to harm or prejudice.'
-			})
-	}
-];
+	})
+);
 
-const DEADLINE_CRITERIA = {
-	now: 'The text asks for action right away, or says a deadline has already passed.',
-	today: 'The text points at the end of the working day, tonight, or first thing tomorrow morning.',
-	soon: 'The text points at this week, next week, or the end of this month.',
-	later: 'The text points beyond this month: next month, this quarter, the fiscal year, or later.',
-	none: 'The text expresses no time pressure at all.'
-};
-
-/**
- * DEADLINE の3択。
- *
- * **基準日を state で与える。** 「9月25日17時まで」のような絶対日付は、
- * 今日が何日かを知らなければどの区分にも決まらない。日付はアプリが持つ
- * Knowledge であり、Jevに推測させない（§9）。日付そのもののparserは作らず、
- * 「基準日から見てどれくらい先か」という意味判断だけをさせる。
- */
-const DEADLINE_CHOICE: Axis = {
-	key: 'class',
-	build: (path) =>
-		choice(
-			`How soon does \`${path}.text\` ask for a response? Today's date is given in \`referenceDate\`; read any explicit date against it. Judge how far off the deadline is, not the calendar arithmetic itself.`,
-			DEADLINE_CRITERIA
-		)
-};
-
-/** Pattern C（別構造）用。1つのChoiceを5つの独立したNoulへ展開する。 */
-const DEADLINE_AXES: Axis[] = Object.entries(DEADLINE_CRITERIA).map(([key, description]) => ({
-	key,
-	build: (path) =>
-		noul(`Does \`${path}.text\` ask for a response on this timescale?`, {
-			true: description,
-			false: 'The wording points at a different timescale, or at none.'
-		})
-}));
-
-/**
- * DX JUDGE の3択。
- *
- * 5つの独立Noulから変えた。実測で軸が独立しておらず、goldが真の群と偽の群の
- * 平均差が0.06〜0.20しかなかった。どの課題もどの軸も0.5〜0.8に固まり、
- * 「検討に値する」としか言えていなかった（§4.6）。
- *
- * 切り口は**まず何をするか**であり、解決策の網羅ではない。「否」の受け皿と
- * して `neither` を置く。人・体制・制度の問題を無理にBPRかデジタルへ寄せない。
- */
-const DX_CRITERIA: Record<DxClass, string> = {
-	bpr: 'The work itself should be questioned first. The form, the rule, the approval chain, or the duplication is the problem, and a tool laid over it would preserve that problem.',
-	digital:
-		'The work itself is needed and a tool would do it: copying, aggregating, searching, transcribing, sending, drafting, or sorting by meaning.',
-	neither:
-		'Neither fits. It is a matter of people, staffing, training, or a rule set outside this organisation, and has to be settled before any tool or redesign is chosen.'
-};
-
-const DX_CHOICE: Axis = {
-	key: 'first_move',
-	build: (path) =>
-		choice(
-			`For the problem described in \`${path}.text\`, what should be taken up first?`,
-			DX_CRITERIA
-		)
-};
-
-/** Pattern C（別構造）用。3択を3つの独立Noulへ展開する。 */
-const DX_NOUL_AXES: Axis[] = DX_CLASSES.map((value) => ({
+/** Pattern C（別構造）用。DX の3択を3つの独立Noulへ展開する。 */
+const DX_NOUL_AXES: BatchAxis[] = DX_CLASSES.map((value) => ({
 	key: value,
 	build: (path) =>
 		noul(`For the problem described in \`${path}.text\`, is this what should be taken up first?`, {
@@ -182,47 +103,23 @@ const DX_NOUL_AXES: Axis[] = DX_CLASSES.map((value) => ({
 		})
 }));
 
-type Built = { state: Record<string, JsonValue>; questions: Questions; questionCount: number };
+type Built = ReturnType<typeof buildBatchRequest>;
 
-/**
- * 1リクエストを組み立てる。
- *
- * 事例は**オブジェクトのキー**で置き、キーは fixture のIDをそのまま使う。
- * 配列インデックス参照は候補が20件を超えると確率が隣へ滲む（§4.3）。
- * 並び順を変えてもキーは動かないため、混線の検査はこの形のままできる。
- */
+/** 既定の軸で組み立てる薄い包み。benchmark 側の記述を短くするだけ。 */
 function build(
 	dataset: BatchDataset,
-	cases: BatchDataset['cases'],
-	axes: Axis[],
+	cases: BatchDataset['cases'] = dataset.cases,
+	axes: BatchAxis[] = AXES_BY_THEME[dataset.theme],
 	referenceDate = dataset.referenceDate
 ): Built {
-	const bag: Record<string, { text: string }> = {};
-	const questions: Questions = {};
-	for (const item of cases) {
-		bag[item.id] = { text: item.text };
-		for (const axis of axes) {
-			questions[`${item.id}__${axis.key}`] = axis.build(`cases.${item.id}`);
-		}
-	}
-	return {
-		state: {
-			mode: 'batch',
-			theme: dataset.theme,
-			// 基準日のあるテーマだけ入れる。判定に寄与しない値をstateへ入れない。
-			...(referenceDate ? { referenceDate } : {}),
-			cases: bag
-		},
-		questions,
-		questionCount: Object.keys(questions).length
-	};
+	return buildBatchRequest(dataset, cases, axes, referenceDate);
 }
 
 // ---------------------------------------------------------------------------
 // 実行と計測
 // ---------------------------------------------------------------------------
 
-type Answer = { type: string; noul?: number; choice?: string; confidence?: number };
+type Answer = BatchAnswer;
 type RunResult = {
 	answers: Record<string, Answer>;
 	latencyMs: number[];
@@ -252,6 +149,18 @@ async function run(requests: Built[]): Promise<RunResult> {
 		Object.assign(answers, result.answers as Record<string, Answer>);
 	}
 
+	// 契約の検査を benchmark でも通す。ここを通らない形が本番へ行かない。
+	for (const request of requests) {
+		readBatchAnswers(
+			Object.fromEntries(
+				[...request.index.keys()]
+					.filter((id) => answers[id] !== undefined)
+					.map((id) => [id, answers[id]])
+			),
+			{ ...request, index: new Map([...request.index].filter(([id]) => answers[id] !== undefined)) }
+		);
+	}
+
 	const asked = requests.flatMap((request) => Object.keys(request.questions));
 	return {
 		answers,
@@ -267,7 +176,7 @@ async function run(requests: Built[]): Promise<RunResult> {
 }
 
 /** Pattern B。1リクエストの質問数が実測上限を超えないよう事例を切る。 */
-function chunked(dataset: BatchDataset, axes: Axis[]): Built[] {
+function chunked(dataset: BatchDataset, axes: BatchAxis[]): Built[] {
 	const perChunk = Math.max(1, Math.floor(MEASURED_QUESTION_LIMIT / axes.length));
 	const chunks: Built[] = [];
 	for (let at = 0; at < dataset.cases.length; at += perChunk) {
@@ -306,37 +215,22 @@ function record(label: string, built: Built[], result: RunResult, agreement: str
 // 一致率（人手gold）
 // ---------------------------------------------------------------------------
 
-/**
- * PRIVACY の判定ルール。
- *
- * **3軸の最大値では過検知する。** `sensitive` が話題の語に反応するためで、
- * 「生活保護受給世帯の一覧をExcelから抽出しました」は誰も特定できないのに
- * sensitive=0.96 になる。個人が出てこない文を要確認にしても、利用者は
- * 警告を無視するようになるだけである。
- *
- * 実測（§4.6）では `identifies` か `personal` のどちらかが閾値以上、という
- * 規則が最も良かった。見逃し0のまま、過検知が4件から2件に減る。
- */
-function privacyVerdict(answers: Record<string, Answer>, id: string, threshold: number): string {
-	const at = (key: string) => answers[`${id}__${key}`]?.noul ?? 0;
-	return at('identifies') >= threshold || at('personal') >= threshold ? 'review' : 'no_signal';
-}
-
 function privacyAgreement(dataset: BatchDataset, answers: Record<string, Answer>): string {
+	// 判定は契約側の関数をそのまま使う。benchmark 側で書き直さない。
+	const verdict = (id: string, threshold: number) =>
+		privacyVerdict(new Map(Object.entries(answers)), id, threshold);
 	const sweep = [0.3, 0.5, 0.7].map((threshold) => {
-		const hits = dataset.cases.filter(
-			(item) => privacyVerdict(answers, item.id, threshold) === item.gold
-		).length;
+		const hits = dataset.cases.filter((item) => verdict(item.id, threshold) === item.gold).length;
 		return `${threshold}:${((hits / dataset.cases.length) * 100).toFixed(0)}%`;
 	});
 
 	// 一致率は非対称である。**見逃しと過検知を分けて数える。** 個人情報を
 	// 見落とすのと、安全な文を要確認にするのとでは重さが違う。
 	const missed = dataset.cases.filter(
-		(item) => item.gold === 'review' && privacyVerdict(answers, item.id, 0.5) === 'no_signal'
+		(item) => item.gold === 'review' && verdict(item.id, 0.5) === 'no_signal'
 	);
 	const over = dataset.cases.filter(
-		(item) => item.gold === 'no_signal' && privacyVerdict(answers, item.id, 0.5) === 'review'
+		(item) => item.gold === 'no_signal' && verdict(item.id, 0.5) === 'review'
 	);
 	const axesOf = (id: string) =>
 		PRIVACY_AXES.map((axis) => (answers[`${id}__${axis.key}`]?.noul ?? 0).toFixed(2)).join('/');
@@ -381,7 +275,7 @@ function deadlineChoiceAgreement(dataset: BatchDataset, answers: Record<string, 
 
 function deadlineNoulAgreement(dataset: BatchDataset, answers: Record<string, Answer>): string {
 	const hits = dataset.cases.filter((item) => {
-		const best = DEADLINE_AXES.map((axis) => ({
+		const best = DEADLINE_NOUL_AXES.map((axis) => ({
 			key: axis.key,
 			value: answers[`${item.id}__${axis.key}`]?.noul ?? 0
 		})).sort((a, b) => b.value - a.value)[0];
@@ -438,13 +332,13 @@ describe.runIf(LIVE)('BATCH JUDGE benchmark', () => {
 	const patterns = () =>
 		[
 			[privacy, PRIVACY_AXES, privacyAgreement],
-			[deadline, [DEADLINE_CHOICE], deadlineChoiceAgreement],
-			[dx, [DX_CHOICE], dxAgreement]
+			[deadline, AXES_BY_THEME.deadline, deadlineChoiceAgreement],
+			[dx, AXES_BY_THEME.dx, dxAgreement]
 		] as const;
 
 	it('Pattern A: 50件 × 各軸を1リクエストで送る', { timeout: 600_000 }, async () => {
 		for (const [dataset, axes, agree] of patterns()) {
-			const built = build(dataset, dataset.cases, axes as Axis[]);
+			const built = build(dataset, dataset.cases, axes as BatchAxis[]);
 			const runs: RunResult[] = [];
 			for (let at = 0; at < REPEATS; at += 1) runs.push(await run([built]));
 			const merged: RunResult = {
@@ -456,7 +350,7 @@ describe.runIf(LIVE)('BATCH JUDGE benchmark', () => {
 				missing: runs.flatMap((r) => r.missing)
 			};
 			record(
-				`A ${dataset.theme} 50x${(axes as Axis[]).length}`,
+				`A ${dataset.theme} 50x${(axes as BatchAxis[]).length}`,
 				[built],
 				merged,
 				agree(dataset, runs[0].answers)
@@ -467,7 +361,7 @@ describe.runIf(LIVE)('BATCH JUDGE benchmark', () => {
 
 	it('Pattern B: 質問数が実測上限に収まるようchunkする', { timeout: 600_000 }, async () => {
 		for (const [dataset, axes, agree] of patterns()) {
-			const built = chunked(dataset, axes as Axis[]);
+			const built = chunked(dataset, axes as BatchAxis[]);
 			const result = await run(built);
 			record(`B ${dataset.theme} chunk`, built, result, agree(dataset, result.answers));
 			expect(result.missing, `${dataset.theme} で欠けた answer`).toEqual([]);
@@ -476,7 +370,7 @@ describe.runIf(LIVE)('BATCH JUDGE benchmark', () => {
 
 	it('Pattern C: 軸の構造を変える（Choice⇄Noul）', { timeout: 600_000 }, async () => {
 		// deadline: 1 Choice -> 5 Noul（50問 -> 250問）
-		const deadlineBuilt = build(deadline, deadline.cases, DEADLINE_AXES);
+		const deadlineBuilt = build(deadline, deadline.cases, DEADLINE_NOUL_AXES);
 		const deadlineRun = await run([deadlineBuilt]);
 		record(
 			'C deadline 50x5 noul',
@@ -557,7 +451,7 @@ describe.runIf(LIVE)('BATCH JUDGE benchmark', () => {
 		expect(absolute.length, '絶対日付を含む事例が無いと検査にならない').toBeGreaterThan(0);
 
 		const dated = (referenceDate: string) =>
-			build(deadline, absolute, [DEADLINE_CHOICE], referenceDate);
+			build(deadline, absolute, AXES_BY_THEME.deadline, referenceDate);
 
 		// 2026-09-21（月）から見た9月25日は今週の金曜。9月25日から見れば当日。
 		const before = await run([dated('2026-09-21')]);
@@ -619,7 +513,20 @@ describe.runIf(LIVE)('BATCH JUDGE benchmark', () => {
 	});
 
 	it('計測結果を出す', () => {
-		console.log(['', '=== BATCH JUDGE benchmark ===', ...report, ''].join('\n'));
+		// どのfixtureに対する数値かを一緒に出す。docsへ写した数値が後から
+		// 辿れなくなるのを防ぐ。
+		const fingerprints = [privacy, deadline, dx].map(
+			(dataset) => `${dataset.theme}=${datasetFingerprint(dataset)}`
+		);
+		console.log(
+			[
+				'',
+				'=== BATCH JUDGE benchmark ===',
+				`dataset ${fingerprints.join(' ')}`,
+				...report,
+				''
+			].join('\n')
+		);
 		console.log(
 			`判定基準: 1リクエスト ${MAX_ACCEPTABLE_MS}ms 以内 / answer欠落0 / 並び替えの差 ${MAX_BLEED_DELTA} 以内`
 		);

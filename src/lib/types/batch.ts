@@ -87,3 +87,48 @@ export type BatchDataset = {
 	referenceDate?: string;
 	cases: BatchCase[];
 };
+
+/**
+ * 1事例ぶんの結果。
+ *
+ * `verdict` はテーマごとの結論で、PRIVACY は `no_signal` / `review`、
+ * DEADLINE は `DEADLINE_CLASSES`、DX は `DX_CLASSES` の値をとる。
+ *
+ * `signals` は判定に使った確率をそのまま持つ。**閾値を変えるために再実行
+ * しなくてよいようにする。** PRIVACY の `sensitive` のように判定には使わない
+ * が理由として出すものも含む（docs/BATCH_JUDGE_DESIGN.md §3.1）。
+ */
+export type BatchJudgeResult = {
+	caseId: string;
+	verdict: string;
+	signals: { key: string; probability: number }[];
+	/** fixture を評価したときだけ入る。利用者の入力には gold が無い。 */
+	gold?: string;
+	agrees?: boolean;
+};
+
+/**
+ * BATCH JUDGE のレスポンス。
+ *
+ * 既存の `JudgeResponse` と `usage` の形を揃える。新しい計測の仕組みを作らず、
+ * LOVE / SOCIAL / CITY / SPEC FIND と横並びで比較できるようにする（§8）。
+ *
+ * `datasetFingerprint`、`caseCount`、`questionCount` を持つのは、**表示した
+ * 数値がどのデータに対するものか後から辿れるようにする**ためである。fixture を
+ * 1件でも直せば fingerprint が変わる。
+ */
+export type BatchJudgeResponse = {
+	requestId: string;
+	mode: 'batch';
+	theme: BatchTheme;
+	model: string;
+	/** fixture の内容から計算する。手で書くバージョン番号は必ず古くなる。 */
+	datasetFingerprint: string;
+	/** DEADLINE のときだけ入る。判定の基準になった日（§3.2）。 */
+	referenceDate?: string;
+	caseCount: number;
+	questionCount: number;
+	latencyMs: number;
+	usage: { inputTokens: number; outputTokens: number; estimatedCostUsd: number };
+	results: BatchJudgeResult[];
+};
