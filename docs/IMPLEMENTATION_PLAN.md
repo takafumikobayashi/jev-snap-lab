@@ -492,14 +492,14 @@ Semantic Fit / SPEC FINDの設計根拠は [CITY_SEMANTIC_EXPERIMENT.md](CITY_SE
 
 依存: Phase 6.5、Phase 7。CITYより先に行う。SPEC FINDは新モードの追加だけで、先日作り直したばかりの `city.candidates[]` の型とE2Eに触れない。上流呼び出しも1回なので、CITY固有のrequest-level deadlineの宿題を後ろへ回せる。
 
-- [ ] デジタル庁公式の共通機能標準仕様書第2.7版を固定する
-- [ ] 20〜40件程度の代表passageをオフライン抽出し、`data`配下のspec用ディレクトリへ追加する
-- [ ] `maxPassages` / `maxChars`を超えないデータ検査を追加する
+- [x] デジタル庁公式の共通機能標準仕様書第2.7版を固定する
+- [x] 20〜40件程度の代表passageをオフライン抽出し、`data`配下のspec用ディレクトリへ追加する（39件）
+- [x] `maxPassages` / `maxChars`を超えないデータ検査を追加する
 - [ ] 1回のbounded Jev requestでpassageごとの独立Noulを評価する
 - [ ] top-3、abstain、章節・ページ・公式PDFリンクを表示する
 - [ ] SPEC FINDをserver-side feature flagの既定無効で追加する
-- [ ] Excel、項目定義書、API仕様書を混入させない検査を追加する
-- [ ] gold caseでRecall@1 / Recall@3、source join、p95 latency、tokens、コストを測る
+- [x] Excel、項目定義書、API仕様書を混入させない検査を追加する
+- [x] gold caseでRecall@1 / Recall@3、source join、p95 latency、tokens、コストを測る（Recall@1 93% / Recall@3 100%、[SPEC_FIND_DESIGN.md](SPEC_FIND_DESIGN.md) §8）
 
 完了条件:
 

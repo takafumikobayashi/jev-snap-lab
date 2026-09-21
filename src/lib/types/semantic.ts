@@ -7,6 +7,15 @@
  * （docs/JEV_DESIGN.md §7）。
  */
 
+/**
+ * JSONへ直列化できる値。
+ *
+ * stateはそのまま上流へ送られるため、Date や undefined を混ぜられない。
+ * SDKの `EntryType` に合わせた制約を、こちら側の型でも明示する。
+ */
+export type JsonValue =
+	string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+
 /** 意味評価にかける候補1件。 */
 export type SemanticCandidate = {
 	/**

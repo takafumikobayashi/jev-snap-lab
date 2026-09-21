@@ -11,11 +11,15 @@
 import { noul, type Questions } from '@typesafe-ai/sdk';
 import { JudgeError } from './errors.server';
 import type {
+	JsonValue,
 	RankingOptions,
 	RankingResult,
 	SemanticCandidate,
 	SemanticScores
 } from '$lib/types/semantic';
+
+/** stateへ入れられる値。JSONへ直列化できるものに限る。 */
+type StateObject = Record<string, JsonValue>;
 
 /**
  * 1リクエストへ入れる候補の上限。
@@ -47,12 +51,12 @@ export type SemanticPolicy = {
 
 /** 上流へ1回送る関数。engineの外から差し替える（テストではmock）。 */
 export type SemanticSender = (request: {
-	state: Record<string, unknown>;
+	state: StateObject;
 	questions: Questions;
 }) => Promise<Record<string, unknown>>;
 
 type BuiltRequest = {
-	state: Record<string, unknown>;
+	state: StateObject;
 	questions: Questions;
 	/** 質問の連番 -> 候補ID。質問IDの文字列からは復元しない。 */
 	index: string[];
@@ -67,7 +71,7 @@ type BuiltRequest = {
 export function buildSemanticRequest(
 	candidates: readonly SemanticCandidate[],
 	policy: SemanticPolicy,
-	baseState: Record<string, unknown>
+	baseState: StateObject
 ): BuiltRequest {
 	if (candidates.length === 0) {
 		throw new JudgeError('QUESTION_DEFINITION_ERROR', 'Semantic Fit の候補が空である');
@@ -146,7 +150,7 @@ export function readSemanticScores(
 export async function evaluateSemanticFit(
 	candidates: readonly SemanticCandidate[],
 	policy: SemanticPolicy,
-	baseState: Record<string, unknown>,
+	baseState: StateObject,
 	send: SemanticSender
 ): Promise<Map<string, number>> {
 	const scores = new Map<string, number>();
