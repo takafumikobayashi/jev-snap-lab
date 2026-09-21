@@ -130,6 +130,13 @@ export function readSemanticScores(
 		if (answer === null || typeof answer !== 'object') {
 			throw contractError(`${id} の answer が無い`);
 		}
+		// 送ったのは Noul なので、返ってくる type も noul でなければならない。
+		// 値だけ見ると、別 type の answer に noul が紛れていても通してしまう。
+		// 既存の normalizeAnswers も answer の type を質問の type と突き合わせる。
+		const type = (answer as { type?: unknown }).type;
+		if (type !== 'noul') {
+			throw contractError(`${id} の answer が noul でない`);
+		}
 		const value = (answer as { noul?: unknown }).noul;
 		if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 1) {
 			throw contractError(`${id}.noul が 0..1 の数値でない`);

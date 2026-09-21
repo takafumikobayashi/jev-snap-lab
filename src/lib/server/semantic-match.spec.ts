@@ -103,6 +103,21 @@ describe('readSemanticScores', () => {
 		expect(() => readSemanticScores(extra, index)).toThrow(/送っていない質問/);
 	});
 
+	it('answer の type が noul でなければ契約違反', () => {
+		// 送ったのは Noul。別 type が返るのは契約違反であり、値だけ見て
+		// 通すと「score の答えを適合度として順位付けする」ことになる。
+		const wrong = {
+			...answers([0.9, 0.2, 0.5]),
+			fit_1: { type: 'score', score: 2.4, noul: 0.7 }
+		};
+		expect(() => readSemanticScores(wrong, index)).toThrow(/fit_1 の answer が noul でない/);
+	});
+
+	it('type が無い answer も契約違反', () => {
+		const missing = { ...answers([0.9, 0.2, 0.5]), fit_0: { noul: 0.9 } };
+		expect(() => readSemanticScores(missing, index)).toThrow(/noul でない/);
+	});
+
 	it('確率が範囲外なら契約違反', () => {
 		for (const bad of [-0.1, 1.1, Number.NaN, Number.POSITIVE_INFINITY]) {
 			expect(() => readSemanticScores(answers([bad, 0.2, 0.5]), index)).toThrow(/0\.\.1/);
