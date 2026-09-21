@@ -8,23 +8,11 @@
 
 import type { SpecCorpus, SpecPassage } from '$lib/types/spec';
 import type { RankedCandidate } from '$lib/types/semantic';
+import type { SpecHit } from '$lib/types/judge';
 import { attributionFor } from './spec-corpus.server';
 
-export type SpecHit = {
-	rank: number;
-	passageId: string;
-	/** Noul の yesProbability。仕様適合率でも正答率でもない。 */
-	fitProbability: number;
-	headingPath: string[];
-	sourceLocator: string;
-	page: number | null;
-	text: string;
-	/** 原文か加工物か。画面の出典表示を切り替える。 */
-	normalized: boolean;
-	/** PDL 1.0 が求める出典文字列。 */
-	attribution: string;
-	sourceUrl: string;
-};
+// 表示用の型はレスポンス契約と同じものを使う。写すと必ず片方が古くなる。
+export type { SpecHit } from '$lib/types/judge';
 
 export type SpecJoinResult = {
 	hits: SpecHit[];

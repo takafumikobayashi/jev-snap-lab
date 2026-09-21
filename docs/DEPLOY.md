@@ -34,6 +34,7 @@ Vercelダッシュボードで **Add New → Project** から `takafumikobayashi
 | `JEV_TIMEOUT_MS` | `3500` | 任意 | 未設定でも既定値が同じ |
 | `JEV_TOTAL_TIMEOUT_MS` | `12000` | 任意 | 未設定でも既定値が同じ |
 | `APP_RATE_LIMIT_PER_MINUTE` | `10` | 任意 | 正の整数のみ。読めない値は既定値へ戻り、`RATE_LIMIT_INVALID` を警告に出す |
+| `SPEC_FIND_ENABLED` | `true` | 任意 | 実験機能のSPEC FINDを有効にする。未設定なら無効で、タブも出ない。明示的な `true` だけを有効とする |
 
 **設定してはいけないもの**
 

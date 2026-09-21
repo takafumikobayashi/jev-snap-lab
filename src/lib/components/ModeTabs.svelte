@@ -1,12 +1,17 @@
 <script lang="ts">
 	import { MODES, type Mode } from '$lib/types/judge';
 
-	let { value, onchange }: { value: Mode; onchange: (mode: Mode) => void } = $props();
+	let {
+		value,
+		onchange,
+		available = MODES
+	}: { value: Mode; onchange: (mode: Mode) => void; available?: readonly Mode[] } = $props();
 
 	const DESCRIPTIONS: Record<Mode, string> = {
 		love: '恋愛ソングや詩など、文中の含意',
 		social: 'SNS投稿としての読み',
-		city: '行政問い合わせの担当候補'
+		city: '行政問い合わせの担当候補',
+		spec: 'やりたいことから仕様箇所を探す'
 	};
 
 	/**
@@ -17,14 +22,14 @@
 		const delta = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
 		if (delta === 0) return;
 		event.preventDefault();
-		const next = MODES[(index + delta + MODES.length) % MODES.length];
+		const next = available[(index + delta + available.length) % available.length];
 		onchange(next);
 		document.getElementById(`mode-tab-${next}`)?.focus();
 	}
 </script>
 
 <div role="tablist" aria-label="判定モード" class="flex flex-wrap gap-2">
-	{#each MODES as mode, index (mode)}
+	{#each available as mode, index (mode)}
 		<button
 			id="mode-tab-{mode}"
 			role="tab"

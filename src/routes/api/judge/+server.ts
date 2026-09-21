@@ -17,6 +17,7 @@ import { estimateCostUsd } from '$lib/server/jev-config.server';
 import { normalizeAnswers } from '$lib/server/normalize-response.server';
 import { buildCatalog, buildState } from '$lib/server/question-catalog.server';
 import { buildCityBlock } from '$lib/server/city-evidence.server';
+import { findSpecPassages, isSpecFindEnabled } from '$lib/server/spec-find.server';
 import { createRateLimiter, parseRateLimit } from '$lib/server/rate-limit.server';
 import { describeFailure, validateJudgeInput } from '$lib/validation/judge-input';
 import { readJsonBody } from '$lib/server/request-body.server';
@@ -101,6 +102,82 @@ function log(fields: Record<string, unknown>): void {
 	console.info(JSON.stringify({ route: 'api/judge', ...fields }));
 }
 
+/**
+ * SPEC FIND の応答。
+ *
+ * 典型的な質問は1回で収まるが、候補数が上限を超えると engine が分割する。
+ * usage は呼び出し回数ぶん合算する（docs/IMPLEMENTATION_PLAN.md §8.0）。
+ */
+async function respondSpecFind(
+	text: string,
+	requestId: string,
+	startedAt: number
+): Promise<Response> {
+	let inputTokens = 0;
+	let outputTokens = 0;
+	let model = '';
+	let upstreamLatencyMs = 0;
+	let calls = 0;
+	let pricePerMillion = 0;
+
+	try {
+		const spec = await findSpecPassages(text, async ({ state, questions }) => {
+			const { result, latencyMs, config } = await evaluate(state, questions);
+			calls += 1;
+			inputTokens += result.usage.input_tokens;
+			outputTokens += result.usage.output_tokens;
+			upstreamLatencyMs += latencyMs;
+			model = result.model;
+			pricePerMillion = config.inputPricePerMillionTokens;
+			return result.answers as Record<string, unknown>;
+		});
+
+		const response: JudgeResponse = {
+			requestId,
+			mode: 'spec',
+			model,
+			latencyMs: Math.round(performance.now() - startedAt),
+			usage: {
+				inputTokens,
+				outputTokens,
+				estimatedCostUsd: estimateCostUsd(inputTokens, pricePerMillion)
+			},
+			// SPEC FIND は typed judgment のカードを出さない。判定は passage ごとの
+			// 独立 Noul で、結果は spec.hits に入る。
+			results: [],
+			spec
+		};
+
+		log({
+			requestId,
+			mode: 'spec',
+			status: 200,
+			model,
+			calls,
+			upstreamLatencyMs: Math.round(upstreamLatencyMs),
+			latencyMs: response.latencyMs,
+			inputTokens,
+			hits: spec.hits.length,
+			abstained: spec.abstained,
+			// 出典を解決できなかった候補は画面に出さず、件数だけ残す。
+			unresolved: spec.unresolved.length
+		});
+
+		return jsonResponse(response, 200);
+	} catch (error) {
+		const code = error instanceof JudgeError ? error.code : 'INTERNAL_ERROR';
+		log({
+			requestId,
+			mode: 'spec',
+			status: errorStatus(code),
+			code,
+			latencyMs: Math.round(performance.now() - startedAt),
+			detail: error instanceof JudgeError ? error.logDetail : describeUnhandled(error)
+		});
+		return failure(code, requestId);
+	}
+}
+
 export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 	// requestId は入力本文から生成しない（docs/ARCHITECTURE.md §3）。
 	const requestId = `req_${crypto.randomUUID()}`;
@@ -142,6 +219,14 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 	}
 
 	const { mode, text } = validated.value;
+
+	// SPEC FIND は実験機能。無効なら未知のモードと同じ扱いにする。
+	if (mode === 'spec' && !isSpecFindEnabled()) {
+		log({ requestId, status: 400, code: 'INVALID_INPUT', detail: 'SPEC_FIND_DISABLED' });
+		return failure('INVALID_INPUT', requestId);
+	}
+
+	if (mode === 'spec') return await respondSpecFind(text, requestId, startedAt);
 
 	// catalog の生成は try の中で行う。CITY は候補データを読むため、
 	// データセットの設定ミスがここで例外になる。外に出すと未捕捉になり、

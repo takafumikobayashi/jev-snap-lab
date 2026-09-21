@@ -12,6 +12,15 @@ import { JudgeError, mapSdkError } from './errors.server';
 import { parseJevConfig, type JevConfig } from './jev-config.server';
 import { findQuestionDefects } from './question-validation.server';
 import type { JudgeState } from './question-catalog.server';
+import type { JsonValue } from '$lib/types/semantic';
+
+/**
+ * 上流へ送る state。
+ *
+ * LOVE / SOCIAL / CITY は `JudgeState`、SPEC FIND は候補passageを含む
+ * 別の形を送る。どちらもJSONへ直列化できることだけを共通の制約とする。
+ */
+export type EvaluateState = JudgeState | Record<string, JsonValue>;
 
 let cached: { client: TypeSafeClient; config: JevConfig } | null = null;
 
@@ -57,7 +66,10 @@ export type EvaluateResult = {
  * この signal は送信中のリクエストだけでなく**待機中の retry も中断する**
  * ため、`Retry-After` による長い待機もここで打ち切られる。
  */
-export async function evaluate(state: JudgeState, questions: Questions): Promise<EvaluateResult> {
+export async function evaluate(
+	state: EvaluateState,
+	questions: Questions
+): Promise<EvaluateResult> {
 	const { client, config } = getClient();
 
 	// 送信前に criteria の形を確認する。ここで弾けば 422 を往復せずに済む。

@@ -1,9 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { JudgeResponse } from '$lib/types/judge';
 import type { JudgeErrorBody } from '$lib/types/error';
-import { DISPLAYED_CHOICE_OPTIONS, MODES } from '$lib/types/judge';
+import { DISPLAYED_CHOICE_OPTIONS, MODES, type Mode } from '$lib/types/judge';
 import { JudgeError } from '$lib/server/errors.server';
 import { buildCatalog, type QuestionCatalog } from '$lib/server/question-catalog.server';
+
+/** 質問カタログを持つモード。SPEC FIND は持たない。 */
+const CATALOG_MODES = MODES.filter((mode): mode is Exclude<Mode, 'spec'> => mode !== 'spec');
 
 // Jev への実通信を差し替える。ルート側の責務（Content-Type、JSON parse、
 // 入力検証、レスポンス組み立て、エラー変換）だけを検証する。
@@ -92,8 +95,10 @@ describe('POST /api/judge', () => {
 		expect(typeof body.latencyMs).toBe('number');
 	});
 
-	it('3モードすべて実カタログで正規化できる', async () => {
-		for (const mode of MODES) {
+	it('カタログを持つ3モードすべて実カタログで正規化できる', async () => {
+		// SPEC FIND は質問カタログを持たない。passage ごとの独立 Noul を
+		// その場で組み立てるため、この検査の対象外になる。
+		for (const mode of CATALOG_MODES) {
 			mockSuccess(mode);
 			const response = await post({ mode, text: 'テスト入力' });
 			expect(response.status, mode).toBe(200);
@@ -199,6 +204,14 @@ describe('POST /api/judge', () => {
 						: undefined;
 				expect(candidate.probability).toBe(option?.probability);
 			}
+		});
+
+		it('SPEC FIND は既定で無効なので 400 を返す', async () => {
+			// 実験機能。SPEC_FIND_ENABLED が真のときだけ受け付ける。
+			const response = await post({ mode: 'spec', text: 'Excelにデータを出したい' });
+			expect(response.status).toBe(400);
+			// 無効なのに上流を呼ばない。
+			expect(evaluate).not.toHaveBeenCalled();
 		});
 
 		it('LOVE / SOCIAL には city ブロックを付けない', async () => {

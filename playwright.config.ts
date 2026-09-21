@@ -28,7 +28,10 @@ export default defineConfig({
 			// 手元の .env に実データが指定されていても、E2E は架空データで走らせる。
 			CITY_DIRECTORY: 'fictional-m-city',
 			// OGP は絶対 URL を要求する。設定した状態での出力を検証する。
-			PUBLIC_SITE_URL: 'http://localhost:4173'
+			PUBLIC_SITE_URL: 'http://localhost:4173',
+			// SPEC FIND は既定で無効。UI を検証するため E2E でだけ有効にする。
+			// 既定が無効であることは spec-find-flag.spec.ts で固定している。
+			SPEC_FIND_ENABLED: 'true'
 		}
 	}
 });

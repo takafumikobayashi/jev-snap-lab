@@ -495,19 +495,19 @@ Semantic Fit / SPEC FINDの設計根拠は [CITY_SEMANTIC_EXPERIMENT.md](CITY_SE
 - [x] デジタル庁公式の共通機能標準仕様書第2.7版を固定する
 - [x] 20〜40件程度の代表passageをオフライン抽出し、`data`配下のspec用ディレクトリへ追加する（39件）
 - [x] `maxPassages` / `maxChars`を超えないデータ検査を追加する
-- [ ] 1回のbounded Jev requestでpassageごとの独立Noulを評価する
-- [ ] top-3、abstain、章節・ページ・公式PDFリンクを表示する
-- [ ] SPEC FINDをserver-side feature flagの既定無効で追加する
+- [x] 1回のbounded Jev requestでpassageごとの独立Noulを評価する
+- [x] top-3、abstain、章節・ページ・公式PDFリンクを表示する
+- [x] SPEC FINDをserver-side feature flagの既定無効で追加する（`SPEC_FIND_ENABLED`）
 - [x] Excel、項目定義書、API仕様書を混入させない検査を追加する
 - [x] gold caseでRecall@1 / Recall@3、source join、p95 latency、tokens、コストを測る（Recall@1 93% / Recall@3 100%、[SPEC_FIND_DESIGN.md](SPEC_FIND_DESIGN.md) §8）
 
 完了条件:
 
-- [ ] 入力、候補、版、source locatorの対応がfixtureで再現できる
-- [ ] 十分に近い候補がない場合に、無理な回答を出さずabstainできる
-- [ ] 仕様適合、実装可否、行政・法的判断と誤認させない注意文が常時表示される
-- [ ] 公式サイトへランタイムアクセスせず、固定データセットの版が結果へ残る
-- [ ] 既存3モードのE2EとMVP Definition of Doneが変わらない
+- [x] 入力、候補、版、source locatorの対応がfixtureで再現できる
+- [x] 十分に近い候補がない場合に、無理な回答を出さずabstainできる
+- [x] 仕様適合、実装可否、行政・法的判断と誤認させない注意文が常時表示される
+- [x] 公式サイトへランタイムアクセスせず、固定データセットの版が結果へ残る
+- [x] 既存3モードのE2EとMVP Definition of Doneが変わらない
 
 ### Phase 9: CITY Semantic Fitのshadow実験（任意）
 
