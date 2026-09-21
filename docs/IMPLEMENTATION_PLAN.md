@@ -533,7 +533,7 @@ Jevの制限は **`state` と最長の質問で 32k tokens**、リクエスト�
 - [x] 追加Jev呼び出しを最大1回に制限する
 - [x] 既存結果を返せるrequest-level deadlineとfallbackを実装する（`REQUEST_BUDGET_MS = 16,000`）
 - [x] base / semanticのlatency、tokens、推計コスト、hit@k、abstainを入力本文なしで記録する
-- [ ] 直接語彙、言い換え、課境界、対象外、情報不足のFit / Gapケースを比較する
+- [x] 直接語彙、言い換え、課境界、対象外、情報不足のFit / Gapケースを比較する（[CITY_SEMANTIC_EXPERIMENT.md](CITY_SEMANTIC_EXPERIMENT.md) §7.2）
 
 完了条件:
 
