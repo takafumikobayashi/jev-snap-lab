@@ -9,7 +9,7 @@
  * しない（docs/SPEC_FIND_DESIGN.md §8）。
  */
 
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { TypeSafeClient } from '@typesafe-ai/sdk';
 import { validateCorpus } from './spec-corpus.server';
@@ -106,14 +106,61 @@ const GOLD: GoldCase[] = [
 	{ kind: '対象外', query: 'ふるさと納税の返礼品を選びたい', accept: [] }
 ];
 
-describe.skipIf(!LIVE)('SPEC FIND 実機評価', () => {
-	const candidates = toSemanticCandidates(corpus);
-	const order = corpus.passages.map((p) => p.passageId);
+/**
+ * 採用基準。Phase 10 の採否判断をログの目視に依存させないため、明示して固定する。
+ *
+ * 実測（2026-09-21、model jev-1.13.0）は Recall@1 93% / Recall@3 100% /
+ * abstain 2/2 / latency 最大 984ms だった。基準はそこから余裕を取った下限で、
+ * 「measured と同じ」ではない。1〜2件の揺れは通し、本当の退行だけ落とす。
+ */
+const CRITERIA = {
+	/** 上位1件が正解である割合。 */
+	recallAt1: 0.8,
+	/** 上位3件のどれかが正解である割合。読むべき箇所を探す用途の主指標。 */
+	recallAt3: 0.9,
+	/**
+	 * Stage 2 単体の p95。`JEV_TIMEOUT_MS` が3,500msで、超えるとSDKが
+	 * timeout扱いでretryし遅延が倍になる。その内側に収める。
+	 */
+	p95LatencyMs: 3000,
+	/**
+	 * リクエスト全体のtoken上限（64k）に対する使用率の上限。
+	 * 予算の半分を超えたらコーパスの大きさを見直す。
+	 */
+	maxRequestTokenRatio: 0.5
+} as const;
 
-	it(
-		'gold case で Recall と latency を測る',
+type Measured = {
+	rows: Row[];
+	model: string;
+	recallAt1: number;
+	recallAt3: number;
+	p95LatencyMs: number;
+	maxInputTokens: number;
+};
+
+type Row = {
+	kind: string;
+	query: string;
+	accept: string[];
+	at1: boolean;
+	at3: boolean;
+	abstained: boolean;
+	top: string[];
+	topProb: number | null;
+	unresolved: string[];
+	latency: number;
+	inputTokens: number;
+};
+
+describe.skipIf(!LIVE)('SPEC FIND 実機評価', () => {
+	let measured: Measured;
+
+	// 上流は1回だけ回し、基準ごとに別々のitで判定する。どの基準を満たせて
+	// いないかがそのまま出るようにする。
+	beforeAll(
 		async () => {
-			// クライアントの生成は it の中で行う。describe.skipIf でも
+			// クライアントの生成は hook の中で行う。describe.skipIf でも
 			// コールバック本体は収集時に評価されるため、外に置くと API キーの
 			// 無い環境（CI）でファイル全体が失敗する。
 			const client = new TypeSafeClient({
@@ -121,8 +168,10 @@ describe.skipIf(!LIVE)('SPEC FIND 実機評価', () => {
 				defaultModel: process.env.TYPESAFE_DEFAULT_MODEL || 'jev-latest',
 				timeout: 30_000
 			});
+			const candidates = toSemanticCandidates(corpus);
+			const order = corpus.passages.map((p) => p.passageId);
 
-			const rows: Record<string, unknown>[] = [];
+			const rows: Row[] = [];
 			let model = '';
 
 			for (const gold of GOLD) {
@@ -131,7 +180,7 @@ describe.skipIf(!LIVE)('SPEC FIND 実機評価', () => {
 				const scores = await evaluateSemanticFit(
 					candidates,
 					SPEC_POLICY,
-					{ mode: 'spec_find', text: gold.query },
+					{ mode: 'spec', text: gold.query },
 					async ({ state, questions }) => {
 						const result = await client.systemOne({ state, questions });
 						inputTokens += result.usage.input_tokens;
@@ -141,56 +190,114 @@ describe.skipIf(!LIVE)('SPEC FIND 実機評価', () => {
 				);
 				const latency = Math.round(performance.now() - startedAt);
 				const ranked = rankCandidates(scores, order, SPEC_RANKING);
-				const hits = joinSpecEvidence(corpus, ranked.ranked).hits;
-				const top = hits.map((h) => h.passageId);
-
-				const wantAbstain = gold.accept.length === 0;
-				const at1 = top.length > 0 && gold.accept.includes(top[0]);
-				const at3 = top.some((p) => gold.accept.includes(p));
-				const ok = wantAbstain ? ranked.abstained : at3;
+				const { hits, unresolved } = joinSpecEvidence(corpus, ranked.ranked);
+				const top = hits.map((hit) => hit.passageId);
 
 				rows.push({
 					kind: gold.kind,
 					query: gold.query,
-					ok,
-					at1,
-					at3,
-					abstained: ranked.abstained,
-					top: top.map((p) => p.replace('common-feature-2.7.', '')),
+					accept: gold.accept,
+					at1: top.length > 0 && gold.accept.includes(top[0]),
+					at3: top.some((passageId) => gold.accept.includes(passageId)),
+					abstained: ranked.abstained || hits.length === 0,
+					top,
 					topProb: hits[0]?.fitProbability ?? null,
+					unresolved,
 					latency,
 					inputTokens
 				});
 			}
 
-			// --- 集計 ---
-			const answerable = rows.filter((r) => (r.top as string[]).length >= 0 && r.kind !== '対象外');
-			const recall1 = answerable.filter((r) => r.at1).length / answerable.length;
-			const recall3 = answerable.filter((r) => r.at3).length / answerable.length;
-			const offTopic = rows.filter((r) => r.kind === '対象外');
-			const latencies = rows.map((r) => r.latency as number).sort((a, b) => a - b);
-			const tokens = rows.reduce((n, r) => n + (r.inputTokens as number), 0);
+			const answerable = rows.filter((row) => row.accept.length > 0);
+			const latencies = rows.map((row) => row.latency).sort((a, b) => a - b);
+			measured = {
+				rows,
+				model,
+				recallAt1: answerable.filter((row) => row.at1).length / answerable.length,
+				recallAt3: answerable.filter((row) => row.at3).length / answerable.length,
+				// 標本が少ないので p95 は「上から5%を切り捨てた最大値」として扱う。
+				p95LatencyMs:
+					latencies[Math.min(latencies.length - 1, Math.ceil(latencies.length * 0.95) - 1)],
+				maxInputTokens: Math.max(...rows.map((row) => row.inputTokens))
+			};
 
-			console.log(
-				`\nmodel ${model} / passage ${corpus.passages.length} 件 / gold ${GOLD.length} 件\n`
-			);
-			for (const r of rows) {
-				console.log(
-					`${r.ok ? 'OK  ' : 'MISS'} [${String(r.kind).padEnd(4)}] ${String(r.query).slice(0, 26).padEnd(28)} top=${(r.top as string[]).join(',') || '(abstain)'} p=${r.topProb ?? '-'} ${r.latency}ms`
-				);
-			}
-			console.log(
-				`\nRecall@1 ${(recall1 * 100).toFixed(0)}%  Recall@3 ${(recall3 * 100).toFixed(0)}%  ` +
-					`対象外のabstain ${offTopic.filter((r) => r.abstained).length}/${offTopic.length}`
-			);
-			console.log(
-				`latency 中央値 ${latencies[Math.floor(latencies.length / 2)]}ms 最大 ${latencies[latencies.length - 1]}ms  ` +
-					`入力token 合計 ${tokens} 平均 ${Math.round(tokens / rows.length)}  ` +
-					`推計コスト $${((tokens / 1_000_000) * 0.042).toFixed(5)}`
-			);
-
-			expect(rows).toHaveLength(GOLD.length);
+			report(measured);
 		},
 		10 * 60 * 1000
 	);
+
+	it('Recall@1 が基準を満たす', () => {
+		expect(measured.recallAt1, missesOf(measured, 'at1')).toBeGreaterThanOrEqual(
+			CRITERIA.recallAt1
+		);
+	});
+
+	it('Recall@3 が基準を満たす', () => {
+		expect(measured.recallAt3, missesOf(measured, 'at3')).toBeGreaterThanOrEqual(
+			CRITERIA.recallAt3
+		);
+	});
+
+	it('対象外の入力をすべて abstain する', () => {
+		// 関係の薄いpassageを回答のように見せないことは安全性の要件であり、
+		// 取りこぼしを許さない。
+		const offTopic = measured.rows.filter((row) => row.accept.length === 0);
+		const shown = offTopic.filter((row) => !row.abstained);
+		expect(offTopic.length).toBeGreaterThan(0);
+		expect(shown.map((row) => `${row.query} -> ${row.top.join(',')}`)).toEqual([]);
+	});
+
+	it('正解を出した入力で abstain していない', () => {
+		// 見つかるはずの入力を「見つからない」と言うのも失敗である。
+		const missed = measured.rows.filter((row) => row.accept.length > 0 && row.abstained);
+		expect(missed.map((row) => row.query)).toEqual([]);
+	});
+
+	it('出典をすべて解決できる', () => {
+		const broken = measured.rows.filter((row) => row.unresolved.length > 0);
+		expect(broken.map((row) => `${row.query} -> ${row.unresolved.join(',')}`)).toEqual([]);
+	});
+
+	it('p95 latency が予算に収まる', () => {
+		expect(measured.p95LatencyMs).toBeLessThanOrEqual(CRITERIA.p95LatencyMs);
+	});
+
+	it('リクエストがtoken予算の半分を超えない', () => {
+		// 64k tokens/request の制限に対する使用率。超えたらコーパスを見直す。
+		expect(measured.maxInputTokens / 64_000).toBeLessThanOrEqual(CRITERIA.maxRequestTokenRatio);
+	});
 });
+
+/** 失敗時に、どの入力が外したかをそのまま出す。 */
+function missesOf(measured: Measured, at: 'at1' | 'at3'): string {
+	const missed = measured.rows.filter((row) => row.accept.length > 0 && !row[at]);
+	return missed.map((row) => `${row.query} -> ${row.top.join(',') || '(abstain)'}`).join(' / ');
+}
+
+function report(measured: Measured): void {
+	const { rows } = measured;
+	const offTopic = rows.filter((row) => row.accept.length === 0);
+	const tokens = rows.reduce((sum, row) => sum + row.inputTokens, 0);
+
+	console.log(
+		`\nmodel ${measured.model} / passage ${corpus.passages.length} 件 / gold ${rows.length} 件\n`
+	);
+	for (const row of rows) {
+		const ok = row.accept.length === 0 ? row.abstained : row.at3;
+		console.log(
+			`${ok ? 'OK  ' : 'MISS'} [${row.kind.padEnd(4)}] ${row.query.slice(0, 26).padEnd(28)} ` +
+				`top=${row.top.map((p) => p.replace('common-feature-2.7.', '')).join(',') || '(abstain)'} ` +
+				`p=${row.topProb ?? '-'} ${row.latency}ms`
+		);
+	}
+	console.log(
+		`\nRecall@1 ${(measured.recallAt1 * 100).toFixed(0)}% (基準 ${CRITERIA.recallAt1 * 100}%)  ` +
+			`Recall@3 ${(measured.recallAt3 * 100).toFixed(0)}% (基準 ${CRITERIA.recallAt3 * 100}%)  ` +
+			`対象外のabstain ${offTopic.filter((row) => row.abstained).length}/${offTopic.length}`
+	);
+	console.log(
+		`p95 latency ${measured.p95LatencyMs}ms (基準 ${CRITERIA.p95LatencyMs}ms)  ` +
+			`入力token 最大 ${measured.maxInputTokens} 平均 ${Math.round(tokens / rows.length)}  ` +
+			`推計コスト $${((tokens / 1_000_000) * 0.042).toFixed(5)}`
+	);
+}
