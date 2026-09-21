@@ -38,6 +38,14 @@
 	let revealed = $state(0);
 	let revealTimer: ReturnType<typeof setInterval> | null = null;
 
+	/**
+	 * 入力欄を畳むか。
+	 *
+	 * 10行のtextareaが残ると、処理の流れと結果が画面の下へ押し出される。
+	 * 判定したら畳んで、見たいものを上へ出す。編集はいつでも開ける。
+	 */
+	let inputOpen = $state(true);
+
 	const shown = $derived(response ? response.results.slice(0, revealed) : []);
 	const revealing = $derived(response !== null && revealed < response.results.length);
 
@@ -93,6 +101,7 @@
 		theme = next;
 		status = 'idle';
 		response = null;
+		inputOpen = true;
 		// 例文を入れていたテーマの文章を残すと、別テーマの判定に見えてしまう。
 		input = '';
 	}
@@ -102,6 +111,7 @@
 		cancelInFlight();
 		status = 'idle';
 		response = null;
+		inputOpen = true;
 		input = current.samples.join('\n');
 	}
 
@@ -109,6 +119,7 @@
 		cancelInFlight();
 		status = 'idle';
 		response = null;
+		inputOpen = true;
 		input = '';
 	}
 
@@ -132,6 +143,7 @@
 			if (outcome.ok) {
 				response = outcome.response;
 				status = 'success';
+				inputOpen = false;
 				startReveal(outcome.response.results.length);
 			} else {
 				errorMessage = outcome.message;
@@ -203,74 +215,105 @@
 		>。実際の個人情報は入力しないでください。試すだけなら下の「例文を入れる」をお使いください。
 	</p>
 
-	<div class="mt-4 flex flex-wrap items-center gap-2">
+	{#if inputOpen}
+		<div class="mt-4 flex flex-wrap items-center gap-2">
+			<button
+				type="button"
+				class="rounded-md border border-neutral-300 px-3 py-1.5 text-xs focus:outline-2
+				focus:outline-offset-2 focus:outline-neutral-900 dark:border-neutral-700
+				dark:focus:outline-neutral-100"
+				onclick={fillSamples}
+			>
+				例文を入れる（{current.cases}件）
+			</button>
+			<button
+				type="button"
+				class="rounded-md border border-neutral-300 px-3 py-1.5 text-xs focus:outline-2
+				focus:outline-offset-2 focus:outline-neutral-900 dark:border-neutral-700
+				dark:focus:outline-neutral-100"
+				onclick={clearInput}
+				disabled={input.length === 0}
+			>
+				消す
+			</button>
+		</div>
+
+		<label class="mt-3 block" for="batch-input">
+			<span class="text-xs text-neutral-500">1行に1件。空行は無視します。</span>
+		</label>
+		<textarea
+			id="batch-input"
+			bind:value={input}
+			rows="8"
+			spellcheck="false"
+			placeholder="明日の会議室を予約したい&#10;窓口の待ち時間が長い"
+			class="mt-1 w-full rounded-md border border-neutral-300 bg-transparent px-3 py-2 font-mono
+			text-sm focus:outline-2 focus:outline-offset-2 focus:outline-neutral-900
+			dark:border-neutral-700 dark:focus:outline-neutral-100"></textarea>
+
+		<div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+			<span
+				class="font-mono tabular-nums {tooMany
+					? 'text-amber-700 dark:text-amber-400'
+					: 'text-neutral-500'}"
+			>
+				{cases.length} / {MAX_BATCH_CASES} 件
+			</span>
+			{#if tooMany}
+				<span class="text-amber-700 dark:text-amber-400">
+					{MAX_BATCH_CASES}件までです。{cases.length - MAX_BATCH_CASES}行減らしてください。
+				</span>
+			{/if}
+			{#if tooLong.length > 0}
+				<span class="text-amber-700 dark:text-amber-400">
+					{MAX_BATCH_CASE_CHARS}文字を超える行が {tooLong.length} 件あります。
+				</span>
+			{/if}
+		</div>
+
 		<button
 			type="button"
-			class="rounded-md border border-neutral-300 px-3 py-1.5 text-xs focus:outline-2
-			focus:outline-offset-2 focus:outline-neutral-900 dark:border-neutral-700
-			dark:focus:outline-neutral-100"
-			onclick={fillSamples}
+			class="mt-4 rounded-md border border-neutral-900 px-4 py-2 text-sm font-medium
+			focus:outline-2 focus:outline-offset-2 focus:outline-neutral-900
+			disabled:opacity-40 dark:border-neutral-100 dark:focus:outline-neutral-100"
+			disabled={status === 'judging' || !ready}
+			onclick={run}
 		>
-			例文を入れる（{current.cases}件）
+			{status === 'judging' ? '判定中…' : `${cases.length}件をまとめて判定`}
 		</button>
-		<button
-			type="button"
-			class="rounded-md border border-neutral-300 px-3 py-1.5 text-xs focus:outline-2
-			focus:outline-offset-2 focus:outline-neutral-900 dark:border-neutral-700
-			dark:focus:outline-neutral-100"
-			onclick={clearInput}
-			disabled={input.length === 0}
-		>
-			消す
-		</button>
-	</div>
-
-	<label class="mt-3 block" for="batch-input">
-		<span class="text-xs text-neutral-500">1行に1件。空行は無視します。</span>
-	</label>
-	<textarea
-		id="batch-input"
-		bind:value={input}
-		rows="10"
-		spellcheck="false"
-		placeholder="明日の会議室を予約したい&#10;窓口の待ち時間が長い"
-		class="mt-1 w-full rounded-md border border-neutral-300 bg-transparent px-3 py-2 font-mono
-		text-sm focus:outline-2 focus:outline-offset-2 focus:outline-neutral-900
-		dark:border-neutral-700 dark:focus:outline-neutral-100"></textarea>
-
-	<div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-		<span
-			class="font-mono tabular-nums {tooMany
-				? 'text-amber-700 dark:text-amber-500'
-				: 'text-neutral-500'}"
-		>
-			{cases.length} / {MAX_BATCH_CASES} 件
-		</span>
-		{#if tooMany}
-			<span class="text-amber-700 dark:text-amber-500">
-				{MAX_BATCH_CASES}件までです。{cases.length - MAX_BATCH_CASES}行減らしてください。
-			</span>
-		{/if}
-		{#if tooLong.length > 0}
-			<span class="text-amber-700 dark:text-amber-500">
-				{MAX_BATCH_CASE_CHARS}文字を超える行が {tooLong.length} 件あります。
-			</span>
-		{/if}
-	</div>
-
-	<button
-		type="button"
-		class="mt-4 rounded-md border border-neutral-900 px-4 py-2 text-sm font-medium
-		focus:outline-2 focus:outline-offset-2 focus:outline-neutral-900
-		disabled:opacity-40 dark:border-neutral-100 dark:focus:outline-neutral-100"
-		disabled={status === 'judging' || !ready}
-		onclick={run}
-	>
-		{status === 'judging' ? '判定中…' : `${cases.length}件をまとめて判定`}
-	</button>
+	{:else}
+		<!--
+			判定したら入力欄を畳む。10行のtextareaが残ると、処理の流れと結果が
+			画面の下へ押し出される。
+		-->
+		<div class="mt-4 flex flex-wrap items-center gap-3">
+			<span class="font-mono text-xs text-neutral-500 tabular-nums">{cases.length}件を判定</span>
+			<button
+				type="button"
+				class="rounded-md border border-neutral-300 px-3 py-1.5 text-xs focus:outline-2
+				focus:outline-offset-2 focus:outline-neutral-900 dark:border-neutral-700
+				dark:focus:outline-neutral-100"
+				onclick={() => (inputOpen = true)}
+			>
+				入力を編集する
+			</button>
+			<button
+				type="button"
+				class="rounded-md border border-neutral-900 px-3 py-1.5 text-xs font-medium
+				focus:outline-2 focus:outline-offset-2 focus:outline-neutral-900
+				disabled:opacity-40 dark:border-neutral-100 dark:focus:outline-neutral-100"
+				disabled={status === 'judging' || !ready}
+				onclick={run}
+			>
+				{status === 'judging' ? '判定中…' : 'もう一度判定'}
+			</button>
+		</div>
+	{/if}
 
 	{#if status === 'judging' || response}
-		<BatchProcess {response} pending={status === 'judging'} caseCount={cases.length} />
+		<div class="mt-6">
+			<BatchProcess {response} pending={status === 'judging'} caseCount={cases.length} />
+		</div>
 	{/if}
 
 	<section class="mt-8" aria-live="polite" aria-busy={status === 'judging'}>
@@ -322,39 +365,27 @@
 				{/each}
 			</ul>
 
-			<!-- 数値はすべて実測値。設計段階の見本を出さない（§6）。 -->
+			<!--
+				数値はすべて実測値。設計段階の見本を出さない（§6）。
+				件数・質問数・リクエスト数・入力tokenは「処理の流れ」に出るので、
+				ここでは費用と時間だけにする。同じ数字を2箇所へ置かない。
+			-->
 			<dl class="mt-6 grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-4">
 				<div>
-					<dt class="text-xs text-neutral-500">判定した件数</dt>
-					<dd class="font-mono tabular-nums">{response.caseCount}</dd>
-				</div>
-				<div>
-					<dt class="text-xs text-neutral-500">質問数</dt>
-					<dd class="font-mono tabular-nums">{response.questionCount}</dd>
-				</div>
-				<div>
-					<dt class="text-xs text-neutral-500">所要時間</dt>
+					<dt class="text-xs text-neutral-500">所要時間（往復）</dt>
 					<dd class="font-mono tabular-nums">{response.latencyMs} ms</dd>
 				</div>
 				<div>
-					<dt class="text-xs text-neutral-500">入力トークン</dt>
-					<dd class="font-mono tabular-nums">{response.usage.inputTokens.toLocaleString()}</dd>
+					<dt class="text-xs text-neutral-500">1件あたり</dt>
+					<dd class="font-mono tabular-nums">{perCaseMs.toFixed(0)} ms</dd>
 				</div>
 				<div>
 					<dt class="text-xs text-neutral-500">推計コスト</dt>
 					<dd class="font-mono tabular-nums">{formatCostUsd(response.usage.estimatedCostUsd)}</dd>
 				</div>
 				<div>
-					<dt class="text-xs text-neutral-500">モデル</dt>
-					<dd class="font-mono text-xs">{response.model}</dd>
-				</div>
-				<div>
-					<dt class="text-xs text-neutral-500">リクエスト数</dt>
-					<dd class="font-mono tabular-nums">{response.upstreamCalls}</dd>
-				</div>
-				<div>
-					<dt class="text-xs text-neutral-500">1件あたり</dt>
-					<dd class="font-mono tabular-nums">{perCaseMs.toFixed(0)} ms</dd>
+					<dt class="text-xs text-neutral-500">出力トークン</dt>
+					<dd class="font-mono tabular-nums">{response.usage.outputTokens.toLocaleString()}</dd>
 				</div>
 			</dl>
 

@@ -87,6 +87,7 @@ export function batchResponse(overrides: Record<string, unknown> = {}) {
 		stateChars: 92,
 		upstreamCalls: 1,
 		userProvided: true,
+		stages: { buildMs: 0.4, upstreamMs: 1018.2, readMs: 0.3, decideMs: 0.2 },
 		labelStatus: 'draft',
 		latencyMs: 1024,
 		usage: { inputTokens: 18_125, outputTokens: 3_404, estimatedCostUsd: 0.00076125 },

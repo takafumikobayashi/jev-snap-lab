@@ -45,6 +45,11 @@ export function isBatchJudgeEnabled(): boolean {
 	return env.BATCH_JUDGE_ENABLED?.trim() === 'true';
 }
 
+/** 1ミリ秒未満の段階がある。小数1桁まで残さないと 0ms ばかりになる。 */
+function round(ms: number): number {
+	return Math.round(ms * 10) / 10;
+}
+
 const RAW: Record<BatchTheme, unknown> = {
 	privacy: rawPrivacy,
 	deadline: rawDeadline,
@@ -127,11 +132,26 @@ export async function runBatchJudge(
 	}
 > {
 	const dataset = loadDataset(theme);
+
+	// 段階ごとに計る。**画面の「処理の流れ」はこの値を出す。** 計らずに段階を
+	// 見せると、名前だけが本物で進み方は演出になる。
+	const buildStartedAt = performance.now();
 	const cases = texts === undefined ? dataset.cases : toCases(dataset, texts);
 	const request = buildBatchRequest(dataset, cases);
+	const buildMs = performance.now() - buildStartedAt;
+
+	const upstreamStartedAt = performance.now();
 	const raw = await send(request);
+	const upstreamMs = performance.now() - upstreamStartedAt;
+
+	const readStartedAt = performance.now();
 	// 欠落と契約違反はここで弾く。**見ていない事例を安全に見せない**（§5.5.4）。
 	const answers = readBatchAnswers(raw.answers, request);
+	const readMs = performance.now() - readStartedAt;
+
+	const decideStartedAt = performance.now();
+	const results = cases.map((item) => toResult(theme, item, answers));
+	const decideMs = performance.now() - decideStartedAt;
 
 	return {
 		mode: 'batch',
@@ -141,11 +161,17 @@ export async function runBatchJudge(
 		caseCount: request.caseCount,
 		questionCount: request.questionCount,
 		stateChars: cases.reduce((sum, item) => sum + countCodePoints(item.text), 0),
+		stages: {
+			buildMs: round(buildMs),
+			upstreamMs: round(upstreamMs),
+			readMs: round(readMs),
+			decideMs: round(decideMs)
+		},
 		// 分割していない。画面で示すために数として返す。
 		upstreamCalls: 1,
 		userProvided: texts !== undefined,
 		labelStatus: dataset.labelStatus,
-		results: cases.map((item) => toResult(theme, item, answers)),
+		results,
 		inputTokens: raw.inputTokens,
 		outputTokens: raw.outputTokens
 	};

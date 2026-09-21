@@ -46,9 +46,11 @@ test.describe('BATCH JUDGE', () => {
 		await expect(page.getByText('要確認シグナルなし', { exact: true }).first()).toBeVisible();
 
 		// 数値はすべて実測値。設計段階の見本を出さない（§6）。
+		// 入力tokenとモデルは「処理の流れ」にある（重複させない）。
 		await expect(page.getByText('1024 ms')).toBeVisible();
-		await expect(page.getByText('18,125', { exact: true })).toBeVisible();
-		await expect(page.getByText('jev-1.13.0', { exact: true })).toBeVisible();
+		const body = await screenText(page);
+		expect(body).toContain('18,125tokens');
+		expect(body).toContain('jev-1.13.0');
 	});
 
 	test('画面に「安全」と出さない', async ({ page }) => {
@@ -180,10 +182,13 @@ test.describe('BATCH JUDGE', () => {
 		const body = await screenText(page);
 		expect(body).toContain('処理の流れ');
 		// 件数・本文の長さ・質問数・リクエスト数はすべてレスポンスの値。
-		expect(body).toContain('4件・本文92字');
-		expect(body).toContain('12問（1件あたり3問）');
-		expect(body).toContain('1リクエスト。分割しない');
+		expect(body).toContain('4件/本文92字→12問（1件あたり3問）');
+		expect(body).toContain('1リクエスト・分割なし');
 		expect(body).toContain('12問すべてに回答あり');
+		// **段階ごとの所要時間もサーバーの実測値。** 名前だけ並べて進み方を
+		// 演出しない。
+		expect(body).toContain('1018.2ms');
+		expect(body).toContain('サーバー内1019.1ms');
 	});
 
 	test('結果のまとめを出す', async ({ page }) => {
@@ -271,6 +276,41 @@ test.describe('BATCH JUDGE', () => {
 		await expect(page.getByText('判定に失敗しました。')).toBeVisible();
 		await page.getByRole('button', { name: '再試行' }).click();
 		await expect(page.getByRole('heading', { name: '4 CASES' })).toBeVisible();
+	});
+
+	test('判定したら入力欄を畳み、編集で戻せる', async ({ page }) => {
+		// textarea が残ると、処理の流れと結果が画面の下へ押し出される。
+		await stubBatch(page, () => ({ status: 200, body: batchResponse() }));
+		await page.goto('/batch');
+		await fillAndRun(page);
+
+		await expect(page.locator('#batch-input')).toHaveCount(0);
+		await expect(page.getByRole('button', { name: 'もう一度判定' })).toBeVisible();
+
+		await page.getByRole('button', { name: '入力を編集する' }).click();
+		await expect(page.locator('#batch-input')).toBeVisible();
+	});
+
+	test('判定中はどの段階にいるかを出さない', async ({ page }) => {
+		// ブラウザはサーバーがどこにいるかを知らない。知らないものを光らせない。
+		await stubBatch(page, () => ({ status: 200, body: batchResponse(), delayMs: 600 }));
+		await page.goto('/batch');
+		await page.getByRole('button', { name: /例文を入れる/ }).click();
+		await page.getByRole('button', { name: /件をまとめて判定/ }).click();
+
+		const pending = await screenText(page);
+		expect(pending).toContain('サーバーの段階は完了後に実測値で出ます');
+		expect(pending).not.toContain('ms');
+	});
+
+	test('同じ数字を2箇所へ置かない', async ({ page }) => {
+		// 入力トークンと質問数は「処理の流れ」にある。下の表へ重ねない。
+		await stubBatch(page, () => ({ status: 200, body: batchResponse() }));
+		await page.goto('/batch');
+		await fillAndRun(page);
+
+		await expect(page.getByText('18,125', { exact: true })).toHaveCount(0);
+		await expect(page.getByText('入力トークン')).toHaveCount(0);
 	});
 
 	test('テーマを切り替えると前の結果を捨てる', async ({ page }) => {
