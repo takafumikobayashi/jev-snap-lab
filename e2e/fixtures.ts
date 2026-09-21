@@ -68,3 +68,81 @@ export async function stubJudge(
 		});
 	});
 }
+
+/**
+ * BATCH JUDGE のレスポンスの見本。
+ *
+ * 形は docs/BATCH_JUDGE_DESIGN.md §5.5.5 の契約に合わせている。
+ * `labelStatus` を落とさない。一致率を状態なしで表示させないため。
+ */
+export function batchResponse(overrides: Record<string, unknown> = {}) {
+	return {
+		requestId: 'req_e2e_batch',
+		mode: 'batch',
+		theme: 'privacy',
+		model: 'jev-1.13.0',
+		datasetFingerprint: 'sha256-0123456789abcdef',
+		caseCount: 3,
+		questionCount: 9,
+		labelStatus: 'draft',
+		latencyMs: 1024,
+		usage: { inputTokens: 18_125, outputTokens: 3_404, estimatedCostUsd: 0.00076125 },
+		results: [
+			{
+				caseId: 'privacy_001',
+				text: '令和8年度の粗大ごみ収集は、毎月第2・第4水曜日に実施します。',
+				verdict: 'no_signal',
+				signals: [
+					{ key: 'identifies', probability: 0.02 },
+					{ key: 'personal', probability: 0.02 },
+					{ key: 'sensitive', probability: 0.02 }
+				],
+				gold: 'no_signal',
+				agrees: true
+			},
+			{
+				caseId: 'privacy_022',
+				text: '山田花子さん（甲市桜町2-14-3）から、上下水道の名義変更の相談がありました。',
+				verdict: 'review',
+				signals: [
+					{ key: 'identifies', probability: 0.99 },
+					{ key: 'personal', probability: 0.96 },
+					{ key: 'sensitive', probability: 0.45 }
+				],
+				gold: 'review',
+				agrees: true
+			},
+			{
+				caseId: 'privacy_043',
+				text: '甲市青葉町の空き家について、所有者の氏名と連絡先を調べたい。',
+				verdict: 'review',
+				signals: [
+					{ key: 'identifies', probability: 0.53 },
+					{ key: 'personal', probability: 0.28 },
+					{ key: 'sensitive', probability: 0.37 }
+				],
+				gold: 'no_signal',
+				agrees: false
+			}
+		],
+		...overrides
+	};
+}
+
+/** `/api/batch` を差し替える。 */
+export async function stubBatch(
+	page: Page,
+	handler: (call: number) => { status: number; body: unknown; delayMs?: number }
+) {
+	let calls = 0;
+	await page.route('**/api/batch', async (route) => {
+		calls += 1;
+		const { status, body, delayMs } = handler(calls);
+		if (delayMs) await new Promise((resolve) => setTimeout(resolve, delayMs));
+		await route.fulfill({
+			status,
+			contentType: 'application/json; charset=utf-8',
+			body: JSON.stringify(body)
+		});
+	});
+}

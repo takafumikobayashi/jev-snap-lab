@@ -132,6 +132,14 @@ export type BatchDataset = {
  */
 export type BatchJudgeResult = {
 	caseId: string;
+	/**
+	 * 判定した本文。
+	 *
+	 * ブラウザへ返すのは fixture の本文だけである。`gold` と `agrees` も
+	 * 画面で一致を見せるために返すが、**Jevへは送らない**（`BatchJevCase`）。
+	 * 送り先が違うので混同しないこと。
+	 */
+	text: string;
 	verdict: string;
 	signals: { key: string; probability: number }[];
 	/** fixture を評価したときだけ入る。利用者の入力には gold が無い。 */

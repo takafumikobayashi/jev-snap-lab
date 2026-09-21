@@ -130,9 +130,14 @@ for (const file of DOC_FILES) {
 			);
 		}
 		for (const feature of STARTED) {
-			if (!NOT_STARTED.test(line) || !feature.pattern.test(around) || !existsSync(feature.path)) {
-				continue;
-			}
+			if (!NOT_STARTED.test(line) || !existsSync(feature.path)) continue;
+			// 機能名が同じ行にあればそれで決まる。無いときだけ前後を見るが、
+			// **その行が別の機能を名指ししているなら窓を使わない。**
+			// 「SPEC FIND v1 は着手前」の隣に BATCH JUDGE の行があると、
+			// 別の機能の宣言として拾ってしまう。実際に踏んだ。
+			const named = feature.pattern.test(line);
+			const otherFeature = /SPEC ?FIND|CITY/i.test(line) && !named;
+			if (!named && (otherFeature || !feature.pattern.test(around))) continue;
 			// 何が未実装かを書き分けている行は落とさない。
 			if (/一部実装|schema|fixture|UI|経路/.test(around)) continue;
 			problems.push(

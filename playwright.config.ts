@@ -31,7 +31,10 @@ export default defineConfig({
 			PUBLIC_SITE_URL: 'http://localhost:4173',
 			// SPEC FIND は既定で無効。UI を検証するため E2E でだけ有効にする。
 			// 既定が無効であることは spec-find-flag.spec.ts で固定している。
-			SPEC_FIND_ENABLED: 'true'
+			SPEC_FIND_ENABLED: 'true',
+			// BATCH JUDGE も既定で無効。UI を検証するため E2E でだけ有効にする。
+			// 既定が無効であることは batch-judge-flag.spec.ts で固定している。
+			BATCH_JUDGE_ENABLED: 'true'
 		}
 	}
 });

@@ -182,7 +182,7 @@ scripts/
 └── build-spec-corpus.mjs         # 公式PDFからコーパスを生成する（PDFは同梱しない）
 ```
 
-BATCH JUDGE で追加した構成は次のとおり。**Jev呼び出しの経路とUIはまだ無い。** 方式を決めるための実測までが入っている。
+BATCH JUDGE で追加した構成は次のとおり。
 
 ```text
 data/batch/
@@ -196,9 +196,15 @@ src/lib/types/
 src/lib/server/
 ├── batch-questions.server.ts     # Jevとの契約。質問ID・primitive・instructions・
 │                                 # criteria・stateの参照パス・answer欠落時の扱い
+├── batch-judge.server.ts         # feature flag と1テーマぶんの判定
 ├── batch-dataset.server.ts       # fixture の読み込み時検証と内訳の集計
 ├── batch-questions.spec.ts       # 契約の検査
 ├── batch-dataset.spec.ts         # 検証と配布fixtureの性質を確かめる
+└── batch-judge-flag.spec.ts      # 既定が無効であることを固定する
+
+src/routes/
+├── api/batch/+server.ts          # POST /api/batch。theme だけを受け取る
+└── batch/+page.svelte            # 一括判定の画面。入力欄を持たない
 └── batch-judge.live.spec.ts      # 方式を決めるための実測。既定でスキップし、
                                   # LIVE_JEV=1 のときだけ上流を呼ぶ
 ```

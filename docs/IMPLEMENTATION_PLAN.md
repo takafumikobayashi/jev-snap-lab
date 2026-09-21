@@ -658,22 +658,28 @@ BATCH JUDGE は新規モード、SPEC FIND v1 は既存モードの拡張。設�
 
 ### Phase 13: BATCH JUDGE の実装
 
-依存: Phase 12。
+依存: Phase 12。**完了。**
 
-- [ ] feature flagの既定無効で追加する
-- [ ] **質問定義は [batch-questions.server.ts](../src/lib/server/batch-questions.server.ts) から使う。書き写さない。** 書き写すと実測時と本番で質問文がずれる（契約テストが検査している）
-- [ ] 一括評価、順位表示、gold との一致、低confidence・不一致の確認
-- [ ] latency / tokens / cost を表示する。1件あたりの時間は参考値である旨を注記する
-- [ ] 精度は「このデモ用ケースに対する人手ラベルとの一致率」と表現する
-- [ ] PRIVACYは断定せず、Jevを唯一の制御にしない旨を画面へ常時出す
-- [ ] **PRIVACYの結論に「安全」と書かない。** `要確認シグナルなし` / `要確認` の二値にする
-- [ ] **入力欄の手前に、入力文がTypeSafe AIへ送信される旨を出す。** このモード自身が入力をAIへ送る
-- [ ] デモ用の例文を置き、自分の文章を貼らなくても動きを確認できるようにする
+- [x] feature flagの既定無効で追加する（`BATCH_JUDGE_ENABLED`）
+- [x] **質問定義は [batch-questions.server.ts](../src/lib/server/batch-questions.server.ts) から使う。書き写さない**
+- [x] 一括評価、gold との一致、不一致のケースの確認
+- [x] latency / tokens / cost を表示する。1件あたりの時間は参考値である旨を注記する
+- [x] 精度は「このデモ用ケースに対する**暫定ラベル**との一致率」と表現する
+- [x] PRIVACYは断定せず、Jevを唯一の制御にしない旨を画面へ常時出す
+- [x] **PRIVACYの結論に「安全」と書かない。** `要確認シグナルなし` / `要確認` の二値
+- [x] **入力欄を置かない。** 例文がTypeSafe AIへ送信されることを先に出す
+- [x] デモ用の例文だけで動きを確認できる
+
+成果物: `src/lib/server/batch-judge.server.ts`、`src/routes/api/batch/+server.ts`、`src/routes/batch/`、`src/lib/client/batch-api.ts`、`src/lib/batch-display.ts`、`src/lib/components/BatchRow.svelte`
 
 完了条件:
 
-- [ ] 既存4モードのE2Eとテストが変わらない
-- [ ] 表示する数値がすべて実測値である
+- [x] 既存4モードのE2Eとテストが変わらない（既存42件はそのまま、BATCH JUDGE で9件追加して51件）
+- [x] 表示する数値がすべて実測値である（§4.8）
+
+**入力を受け付けない判断.** 「AIにそのまま入れてよい？」を判定するモードが、判定のために利用者の文章をAIへ送る。実際の個人情報を貼られると、判定より先に送信が起きる。見せ場は「数十件を一度に」であり、利用者が50件を打ち込む使い方も現実的でない。入力を足すなら、注意文とデモ用例文、検証（`batch-input.ts`）を一緒に設計し直す。
+
+**残件:** goldラベルの人手確認（Phase 11 の残件）。一致率は暫定ラベルに対する値のままである。
 
 ### Phase 14: SPEC FIND の gold dataset と Source Gap の確認
 

@@ -25,12 +25,12 @@ CITY は正式な行政案内サービスではなく、Jev と根拠付きル�
 | ----------------- | ------------------------------------------------------------------------------------------ |
 | SPEC FIND         | **実装済み**。`SPEC_FIND_ENABLED=true` で有効。本番で有効にする                            |
 | CITY Semantic Fit | **実装済み（shadow）**。`CITY_SEMANTIC_EXPERIMENT=true` で有効。本番では無効のまま据え置く |
-| BATCH JUDGE       | **一部実装**。schema・fixture・方式の実測まで。Jev呼び出しとUIはこれから                   |
+| BATCH JUDGE       | **実装済み（既定無効）**。`BATCH_JUDGE_ENABLED=true` で `/batch` が開く                    |
 | SPEC FIND v1      | 着手前。設計は [SPEC_FIND_DESIGN.md](docs/SPEC_FIND_DESIGN.md) の §10                      |
 
 実装済みの2つはどちらも既定が無効で、既存のLOVE / SOCIAL / CITYの動作は変わりません。
 
-BATCH JUDGE は `data/batch/*.json`（3テーマ各50件。**暫定goldラベル付き。人手確認前**）、その検証（`src/lib/server/batch-dataset.server.ts`）、方式を決めるための実測（`src/lib/server/batch-judge.live.spec.ts`。既定でスキップ）まで進んでいます。**アプリの経路とUIはまだありません。** 実測の結果は [BATCH_JUDGE_DESIGN.md](docs/BATCH_JUDGE_DESIGN.md) §4.6 にあります。
+BATCH JUDGE は `/batch` で、短文50件を**1回のリクエストで**まとめて判定します。判定するのは同梱した例文（`data/batch/*.json`、3テーマ各50件。**暫定goldラベル付き。人手確認前**）で、**入力欄はありません**。「AIにそのまま入れてよい？」を判定するモードが利用者の文章をAIへ送ってしまうためです。実測の結果は [BATCH_JUDGE_DESIGN.md](docs/BATCH_JUDGE_DESIGN.md) §4.6 にあります。
 
 ## 設計ドキュメント
 
