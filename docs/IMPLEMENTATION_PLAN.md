@@ -528,18 +528,18 @@ Jevの制限は **`state` と最長の質問で 32k tokens**、リクエスト�
 
 依存: Phase 6.5、Phase 7、Phase 8の実機評価、CITYの現行受入テスト。SPEC FINDで共通処理の有効性を確かめてから着手する。
 
-- [ ] `CITY_SEMANTIC_EXPERIMENT=false` を既定にする
-- [ ] 現行 `route_to` 上位1課から代表分掌を最大12件選ぶ
-- [ ] 追加Jev呼び出しを最大1回に制限する
-- [ ] 既存結果を返せるrequest-level deadlineとfallbackを実装する
-- [ ] base / semanticのlatency、tokens、推計コスト、hit@k、abstainを入力本文なしで記録する
+- [x] `CITY_SEMANTIC_EXPERIMENT=false` を既定にする
+- [x] 現行 `route_to` 上位1課から代表分掌を最大12件選ぶ
+- [x] 追加Jev呼び出しを最大1回に制限する
+- [x] 既存結果を返せるrequest-level deadlineとfallbackを実装する（`REQUEST_BUDGET_MS = 16,000`）
+- [x] base / semanticのlatency、tokens、推計コスト、hit@k、abstainを入力本文なしで記録する
 - [ ] 直接語彙、言い換え、課境界、対象外、情報不足のFit / Gapケースを比較する
 
 完了条件:
 
-- [ ] Semantic Fit失敗時も現行CITY結果が返る
-- [ ] 追加分がVercel `maxDuration`とコスト上限に収まる
-- [ ] 根拠表示は既存の静的データjoinであり、Jev生成文を出典としていない
+- [x] Semantic Fit失敗時も現行CITY結果が返る
+- [x] 追加分がVercel `maxDuration`とコスト上限に収まる（合計約1,350ms、入力token約10,700）
+- [x] 根拠表示は既存の静的データjoinであり、Jev生成文を出典としていない
 - [ ] 既定UIへ昇格するか、shadowのままにするかを評価記録へ残す
 
 ### Phase 10: 実機評価と採否

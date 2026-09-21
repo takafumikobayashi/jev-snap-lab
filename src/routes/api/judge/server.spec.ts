@@ -206,6 +206,15 @@ describe('POST /api/judge', () => {
 			}
 		});
 
+		it('CITY Semantic Fit は既定で無効なので追加呼び出しをしない', async () => {
+			// 実験機能。CITY_SEMANTIC_EXPERIMENT が真のときだけ動かす。
+			mockSuccess('city');
+			const response = await post({ mode: 'city', text: '家の前の防犯灯が切れてます' });
+			expect(response.status).toBe(200);
+			// Stage 1 の1回だけ。
+			expect(evaluate).toHaveBeenCalledTimes(1);
+		});
+
 		it('SPEC FIND は既定で無効なので 400 を返す', async () => {
 			// 実験機能。SPEC_FIND_ENABLED が真のときだけ受け付ける。
 			const response = await post({ mode: 'spec', text: 'Excelにデータを出したい' });

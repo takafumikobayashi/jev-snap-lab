@@ -18,6 +18,7 @@ import { normalizeAnswers } from '$lib/server/normalize-response.server';
 import { buildCatalog, buildState } from '$lib/server/question-catalog.server';
 import { buildCityBlock } from '$lib/server/city-evidence.server';
 import { findSpecPassages, isSpecFindEnabled } from '$lib/server/spec-find.server';
+import { runCitySemanticShadow } from '$lib/server/city-semantic.server';
 import { createRateLimiter, parseRateLimit } from '$lib/server/rate-limit.server';
 import { describeFailure, validateJudgeInput } from '$lib/validation/judge-input';
 import { readJsonBody } from '$lib/server/request-body.server';
@@ -34,6 +35,19 @@ export const config: Config = {
 	maxDuration: 20,
 	split: true
 };
+
+/**
+ * 1リクエスト全体で上流に使える時間。
+ *
+ * `JEV_TOTAL_TIMEOUT_MS`（既定12,000ms）は**1回の evaluate の予算**であり、
+ * 2回呼べることを意味しない。12,000 × 2 = 24,000ms は `maxDuration` の
+ * 20,000ms を超え、先にプラットフォームへ切られてアプリの504にも
+ * fallback にも到達しない。
+ *
+ * 応答の組み立てとネットワークのぶんを引いて16,000msを全体の上限とし、
+ * Stage 1 が使った残りを Stage 2 の予算にする。
+ */
+const REQUEST_BUDGET_MS = 16_000;
 
 const JSON_HEADERS = {
 	'Content-Type': 'application/json; charset=utf-8'
@@ -178,6 +192,44 @@ async function respondSpecFind(
 	}
 }
 
+/**
+ * CITY Stage 2 を shadow で走らせ、観測値だけ残す。
+ *
+ * 画面には出さない。既定経路の結果を上書きしないことと、失敗しても既定の
+ * 結果が返ることを成功条件にする（docs/CITY_SEMANTIC_EXPERIMENT.md §4.4）。
+ * そのため例外はここで吸収し、呼び出し側へ伝播させない。
+ */
+async function observeCitySemantic(
+	response: JudgeResponse,
+	text: string,
+	requestId: string,
+	startedAt: number
+): Promise<void> {
+	const remaining = REQUEST_BUDGET_MS - (performance.now() - startedAt);
+	try {
+		const metrics = await runCitySemanticShadow(response, text, remaining, async (request) => {
+			const { result } = await evaluate(request.state, request.questions, remaining);
+			return {
+				answers: result.answers as Record<string, unknown>,
+				inputTokens: result.usage.input_tokens
+			};
+		});
+		if (!metrics) return;
+
+		// 入力本文は残さない。IDと数値だけで比較できるようにする。
+		log({ requestId, mode: 'city', experiment: 'city_semantic', ...metrics });
+	} catch (error) {
+		// 実験の失敗で既定の結果を落とさない。原因だけ残す。
+		log({
+			requestId,
+			mode: 'city',
+			experiment: 'city_semantic',
+			failed: true,
+			detail: error instanceof JudgeError ? error.logDetail : describeUnhandled(error)
+		});
+	}
+}
+
 export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 	// requestId は入力本文から生成しない（docs/ARCHITECTURE.md §3）。
 	const requestId = `req_${crypto.randomUUID()}`;
@@ -268,6 +320,8 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 			inputTokens: result.usage.input_tokens,
 			questionCount: Object.keys(catalog.questions).length
 		});
+
+		if (mode === 'city') await observeCitySemantic(response, text, requestId, startedAt);
 
 		return jsonResponse(response, 200);
 	} catch (error) {

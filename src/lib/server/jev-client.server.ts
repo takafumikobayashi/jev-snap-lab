@@ -65,10 +65,15 @@ export type EvaluateResult = {
  * SDK に総 retry 予算は無いため、`AbortSignal` で総時間の上限を強制する。
  * この signal は送信中のリクエストだけでなく**待機中の retry も中断する**
  * ため、`Retry-After` による長い待機もここで打ち切られる。
+ *
+ * `budgetMs` を渡すと、1回ぶんの総予算と比べて短い方を使う。CITY の
+ * 2段階判定のように1リクエストで2回呼ぶ経路が、`maxDuration` を
+ * 超えないようにするための引数である。
  */
 export async function evaluate(
 	state: EvaluateState,
-	questions: Questions
+	questions: Questions,
+	budgetMs?: number
 ): Promise<EvaluateResult> {
 	const { client, config } = getClient();
 
@@ -81,8 +86,12 @@ export async function evaluate(
 		);
 	}
 
+	// 2回呼ぶ経路では、1回ぶんの予算をそのまま使うとリクエスト全体が
+	// `maxDuration` を超える。呼び出し側が残り時間を渡せるようにし、
+	// 渡されない場合だけ既定の総予算を使う。
+	const allowance = Math.min(config.totalTimeoutMs, budgetMs ?? config.totalTimeoutMs);
 	const controller = new AbortController();
-	const budget = setTimeout(() => controller.abort(), config.totalTimeoutMs);
+	const budget = setTimeout(() => controller.abort(), Math.max(1, allowance));
 	const startedAt = performance.now();
 
 	try {
