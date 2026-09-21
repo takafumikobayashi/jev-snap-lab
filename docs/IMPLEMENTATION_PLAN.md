@@ -550,7 +550,9 @@ Jevの制限は **`state` と最長の質問で 32k tokens**、リクエスト�
 - [ ] versioned modelで再現性を確認する
 - [ ] p50 / p95、input token、推計コスト、429 / 529 / timeoutを比較する
 - [ ] 閾値を固定値として移植せず、採用した値と校正根拠を記録する
-- [ ] 採用、shadow継続、撤回のいずれかを決定する
+- [x] 採用、shadow継続、撤回のいずれかを決定する
+  - SPEC FIND: **採用**。本番で有効にする（[SPEC_FIND_DESIGN.md](SPEC_FIND_DESIGN.md) §8.1）
+  - CITY Semantic Fit: **据え置き**。本番では無効のまま（[CITY_SEMANTIC_EXPERIMENT.md](CITY_SEMANTIC_EXPERIMENT.md) §7.3）
 
 ### 次期拡張のDefinition of Done
 
