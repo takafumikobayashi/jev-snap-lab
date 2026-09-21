@@ -118,11 +118,19 @@ const DEADLINE_CRITERIA = {
 	none: 'The text expresses no time pressure at all.'
 };
 
+/**
+ * DEADLINE の3択。
+ *
+ * **基準日を state で与える。** 「9月25日17時まで」のような絶対日付は、
+ * 今日が何日かを知らなければどの区分にも決まらない。日付はアプリが持つ
+ * Knowledge であり、Jevに推測させない（§9）。日付そのもののparserは作らず、
+ * 「基準日から見てどれくらい先か」という意味判断だけをさせる。
+ */
 const DEADLINE_CHOICE: Axis = {
 	key: 'class',
 	build: (path) =>
 		choice(
-			`How soon does \`${path}.text\` ask for a response? Judge the urgency the wording conveys, not a calendar date.`,
+			`How soon does \`${path}.text\` ask for a response? Today's date is given in \`referenceDate\`; read any explicit date against it. Judge how far off the deadline is, not the calendar arithmetic itself.`,
 			DEADLINE_CRITERIA
 		)
 };
@@ -183,7 +191,12 @@ type Built = { state: Record<string, JsonValue>; questions: Questions; questionC
  * 配列インデックス参照は候補が20件を超えると確率が隣へ滲む（§4.3）。
  * 並び順を変えてもキーは動かないため、混線の検査はこの形のままできる。
  */
-function build(dataset: BatchDataset, cases: BatchDataset['cases'], axes: Axis[]): Built {
+function build(
+	dataset: BatchDataset,
+	cases: BatchDataset['cases'],
+	axes: Axis[],
+	referenceDate = dataset.referenceDate
+): Built {
 	const bag: Record<string, { text: string }> = {};
 	const questions: Questions = {};
 	for (const item of cases) {
@@ -193,7 +206,13 @@ function build(dataset: BatchDataset, cases: BatchDataset['cases'], axes: Axis[]
 		}
 	}
 	return {
-		state: { mode: 'batch', theme: dataset.theme, cases: bag },
+		state: {
+			mode: 'batch',
+			theme: dataset.theme,
+			// 基準日のあるテーマだけ入れる。判定に寄与しない値をstateへ入れない。
+			...(referenceDate ? { referenceDate } : {}),
+			cases: bag
+		},
 		questions,
 		questionCount: Object.keys(questions).length
 	};
@@ -528,6 +547,40 @@ describe.runIf(LIVE)('BATCH JUDGE benchmark', () => {
 		expect(first.missing).toEqual([]);
 		expect(second.missing).toEqual([]);
 		expect(control.missing).toEqual([]);
+	});
+
+	it('基準日を動かすと絶対日付の判定が動く', { timeout: 600_000 }, async () => {
+		// 基準日をstateへ置くだけでは、使われている証明にならない。**同じ文で
+		// 基準日だけを変え、判定が動くかを見る。** 動かなければ、絶対日付を
+		// 含む事例のgoldは再現しない。
+		const absolute = deadline.cases.filter((item) => /\d+月\d+日/.test(item.text));
+		expect(absolute.length, '絶対日付を含む事例が無いと検査にならない').toBeGreaterThan(0);
+
+		const dated = (referenceDate: string) =>
+			build(deadline, absolute, [DEADLINE_CHOICE], referenceDate);
+
+		// 2026-09-21（月）から見た9月25日は今週の金曜。9月25日から見れば当日。
+		const before = await run([dated('2026-09-21')]);
+		const after = await run([dated('2026-09-25')]);
+
+		const moved = absolute.filter(
+			(item) =>
+				before.answers[`${item.id}__class`]?.choice !== after.answers[`${item.id}__class`]?.choice
+		);
+		report.push(
+			`基準日シフト 9/21 -> 9/25  動いた ${moved.length}/${absolute.length}`,
+			...absolute.map(
+				(item) =>
+					`    ${item.id} ${before.answers[`${item.id}__class`]?.choice} -> ${
+						after.answers[`${item.id}__class`]?.choice
+					}  gold(9/21)=${item.gold as string}  ${item.text}`
+			)
+		);
+
+		expect(before.missing).toEqual([]);
+		expect(after.missing).toEqual([]);
+		// 基準日を無視しているなら、どの事例も動かない。
+		expect(moved.length, '基準日を変えても判定が動かない').toBeGreaterThan(0);
 	});
 
 	it('成立する最大の「件数 × 軸数」を探る', { timeout: 600_000 }, async () => {

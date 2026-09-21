@@ -45,6 +45,20 @@ function fail(detail: string): never {
 	throw new Error(`batch-dataset の検証に失敗: ${detail}`);
 }
 
+/** `YYYY-MM-DD` の実在する日付。gold の基準になるため、形だけでは足りない。 */
+function requireDate(value: unknown, where: string): string {
+	const text = requireString(value, where);
+	const parsed = new Date(`${text}T00:00:00Z`);
+	if (
+		!/^\d{4}-\d{2}-\d{2}$/.test(text) ||
+		Number.isNaN(parsed.getTime()) ||
+		parsed.toISOString().slice(0, 10) !== text
+	) {
+		fail(`${where} が YYYY-MM-DD の日付でない`);
+	}
+	return text;
+}
+
 function requireString(value: unknown, where: string): string {
 	if (typeof value !== 'string' || value.length === 0) fail(`${where} が空でない文字列でない`);
 	return value;
@@ -64,6 +78,10 @@ export function validateDataset(value: unknown): BatchDataset {
 	const theme = dataset.theme;
 	if (!BATCH_THEMES.includes(theme as never)) fail('theme が既知のテーマでない');
 	requireString(dataset.label, 'label');
+	// DEADLINE は絶対日付を含む。基準日が無いと gold が再現しない。
+	if (theme === 'deadline' || dataset.referenceDate !== undefined) {
+		requireDate(dataset.referenceDate, 'referenceDate');
+	}
 
 	if (!Array.isArray(dataset.cases)) fail('cases が配列でない');
 	const cases = dataset.cases as Record<string, unknown>[];

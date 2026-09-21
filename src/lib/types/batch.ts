@@ -17,7 +17,14 @@ export type BatchTheme = (typeof BATCH_THEMES)[number];
 export const PRIVACY_VERDICTS = ['safe', 'review'] as const;
 export type PrivacyVerdict = (typeof PRIVACY_VERDICTS)[number];
 
-/** DEADLINE の意味カテゴリ。厳密な日時ではなく、対応の緊急度を表す。 */
+/**
+ * DEADLINE の意味カテゴリ。厳密な日時ではなく、対応の緊急度を表す。
+ *
+ * 「9月25日17時まで」のような絶対日付は、**基準日が無ければどの区分にも
+ * 決まらない。** 基準日はアプリが持つ Knowledge であり、Jev に推測させる
+ * ものではない（docs/BATCH_JUDGE_DESIGN.md §9）。`BatchDataset.referenceDate`
+ * で与える。
+ */
 export const DEADLINE_CLASSES = ['now', 'today', 'soon', 'later', 'none'] as const;
 export type DeadlineClass = (typeof DEADLINE_CLASSES)[number];
 
@@ -57,5 +64,12 @@ export type BatchDataset = {
 	theme: BatchTheme;
 	/** 画面と評価に出す表示名。 */
 	label: string;
+	/**
+	 * gold を決めた日。`YYYY-MM-DD`。
+	 *
+	 * DEADLINE では必須。これが無いと絶対日付の gold が再現しない。本番では
+	 * 実行時の日付を state へ入れる。
+	 */
+	referenceDate?: string;
 	cases: BatchCase[];
 };

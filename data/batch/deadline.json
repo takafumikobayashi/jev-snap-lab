@@ -2,6 +2,7 @@
 	"schemaVersion": "1",
 	"theme": "deadline",
 	"label": "いつまでに対応が必要？",
+	"referenceDate": "2026-09-21",
 	"cases": [
 		{
 			"id": "deadline_001",
@@ -129,8 +130,8 @@
 			"id": "deadline_021",
 			"text": "9月25日17時までに提出してください",
 			"difficulty": "hard",
-			"gold": "today",
-			"note": "日付が今日かは文面から決まらない"
+			"gold": "soon",
+			"note": "絶対日付。基準日2026-09-21（月）から見て9月25日は同じ週の金曜"
 		},
 		{
 			"id": "deadline_022",
@@ -215,7 +216,8 @@
 			"id": "deadline_035",
 			"text": "納期は3月末です",
 			"difficulty": "medium",
-			"gold": "later"
+			"gold": "later",
+			"note": "絶対日付。基準日は9月なので年度末はまだ先"
 		},
 		{
 			"id": "deadline_036",
@@ -261,9 +263,10 @@
 		},
 		{
 			"id": "deadline_043",
-			"text": "差し支えなければ今月中にお願いします",
-			"difficulty": "medium",
-			"gold": "soon"
+			"text": "9月30日までにご提出ください",
+			"difficulty": "hard",
+			"gold": "soon",
+			"note": "絶対日付。基準日から見て翌週だが同じ月の末"
 		},
 		{
 			"id": "deadline_044",
@@ -298,9 +301,10 @@
 		},
 		{
 			"id": "deadline_049",
-			"text": "週明けまでにお願いします",
-			"difficulty": "easy",
-			"gold": "soon"
+			"text": "10月15日までに報告書をまとめてください",
+			"difficulty": "hard",
+			"gold": "later",
+			"note": "絶対日付。基準日から見て翌月"
 		},
 		{
 			"id": "deadline_050",

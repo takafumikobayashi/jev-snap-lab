@@ -53,6 +53,7 @@ describe('validateDataset', () => {
 			expect(
 				broken((d) => {
 					d.theme = 'deadline';
+					d.referenceDate = '2026-09-21';
 					for (const [index, item] of (d.cases as Record<string, unknown>[]).entries()) {
 						item.id = `deadline_${index + 1}`;
 						item.gold = 'now';
@@ -145,6 +146,49 @@ describe('validateDataset', () => {
 		).toThrow(/上限 50 を超える/);
 	});
 
+	describe('referenceDate', () => {
+		/** theme だけ deadline へ変えた、それ以外は正しいデータセット。 */
+		const asDeadline = (mutate: (dataset: Record<string, unknown>) => void) =>
+			broken((d) => {
+				d.theme = 'deadline';
+				d.referenceDate = '2026-09-21';
+				for (const [index, item] of (d.cases as Record<string, unknown>[]).entries()) {
+					item.id = `deadline_${index + 1}`;
+					item.gold = 'now';
+				}
+				mutate(d);
+			});
+
+		it('deadline では必須である', () => {
+			// 「9月25日17時まで」のような絶対日付は、基準日が無ければ gold が
+			// どの区分にも決まらない。無いまま通すと、Jevの誤判定とgoldの
+			// 不整合を区別できなくなる。
+			expect(
+				asDeadline((d) => {
+					delete d.referenceDate;
+				})
+			).toThrow(/referenceDate/);
+		});
+
+		it('日付として実在しない値を拒む', () => {
+			expect(asDeadline((d) => (d.referenceDate = '2026-02-30'))).toThrow(
+				/referenceDate が YYYY-MM-DD/
+			);
+			expect(asDeadline((d) => (d.referenceDate = '2026/09/21'))).toThrow(
+				/referenceDate が YYYY-MM-DD/
+			);
+		});
+
+		it('正しい値なら通る', () => {
+			expect(asDeadline(() => {})).not.toThrow();
+		});
+
+		it('他のテーマでは省いてよいが、あるなら検証する', () => {
+			expect(broken(() => {})).not.toThrow();
+			expect(broken((d) => (d.referenceDate = '2026-13-01'))).toThrow(/referenceDate/);
+		});
+	});
+
 	it('未知の difficulty を拒む', () => {
 		expect(
 			broken((d) => {
@@ -168,6 +212,19 @@ describe('配布する fixture', () => {
 			expect(summary.difficulty.medium + summary.difficulty.hard).toBeGreaterThanOrEqual(10);
 		});
 	}
+
+	it('deadline は基準日を持ち、絶対日付の事例がそれに依存する', () => {
+		const dataset = validateDataset(
+			JSON.parse(readFileSync('data/batch/deadline.json', 'utf8')) as unknown
+		);
+		expect(dataset.referenceDate).toBe('2026-09-21');
+		// 基準日があっても、それに依る事例が無ければ検査にならない。
+		const absolute = dataset.cases.filter((item) => /\d+月\d+日/.test(item.text));
+		expect(absolute.length).toBeGreaterThanOrEqual(2);
+		for (const item of absolute) {
+			expect(item.note, `${item.id} に基準日との関係を書く`).toMatch(/基準日/);
+		}
+	});
 
 	it('privacy と deadline はどのラベルにも事例がある', () => {
 		for (const theme of ['privacy', 'deadline'] as const) {
