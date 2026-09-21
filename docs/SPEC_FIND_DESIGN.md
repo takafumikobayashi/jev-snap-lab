@@ -74,14 +74,13 @@ Excelはファイルサイズだけを見ると小さくても、行ごとの機
 
 ```ts
 type SpecDocument = {
-  documentId: string;        // 例: local-common-feature-2.7
+  documentId: string;        // 例: common-feature-2.7
   title: string;
   version: string;           // 例: 2.7
   publishedAt: string | null;
   retrievedAt: string;
   sourceUrl: string;
   contentHash: string;
-  passageIds: string[];
 };
 ```
 
@@ -104,6 +103,8 @@ type SpecPassage = {
   normalized: boolean;
 };
 ```
+
+データセットは `{ schemaVersion, document, passages }` の形にし、`document.passageIds` のような重複した索引は持たない。同じ事実を2箇所に持つと必ず片方が古くなる（CITYデータで同種の取りこぼしを経験している）。実装は `src/lib/types/spec.ts` と `src/lib/server/spec-corpus.server.ts`。
 
 `text`と出典メタデータを分離する。Jevには短い `text` と候補IDを渡し、画面に出すタイトル、章、ページ、URLはローカルデータからjoinする。PDFページは改版でずれる可能性があるため、`sourceLocator`を主キーに近い表示根拠とし、ページは補助情報とする。
 

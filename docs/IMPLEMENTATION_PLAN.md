@@ -459,25 +459,34 @@ Semantic Fit / SPEC FINDの設計根拠は [CITY_SEMANTIC_EXPERIMENT.md](CITY_SE
 
 **測定の限界**: クエリ1本、データセット1つ、セルあたり2〜3回。「40件は成立する」「配列indexは使えない」を判断するには足りるが、境界の正確な位置（何件から滲み始めるか）は詰めていない。モデル更新で変わりうるため、`model` を記録した数字として扱う。
 
-### Phase 7: 共通Semantic Matchのfixture
+### Phase 7: 共通Semantic Matchのfixture — 完了
 
-依存: Phase 5。Phase 6のProduction公開は必須ではないが、Preview相当の観測環境を用意する。question builderの候補数と呼び出し方は Phase 6.5 の実測値を反映する。
-
-- [ ] `SpecDocument` / `SpecPassage` とCITY `responsibilityId` の安定ID設計を確定する
-- [ ] passageの重複、文字数、版、取得日、hash、source URLを検証する
-- [ ] Noul question builderをfixtureだけで実装する
-- [ ] Choiceの比較分布とNoulの独立 `yesProbability` を別型で保持する
-- [ ] アプリ側の順位付け、top-k、abstain、source joinを実装する
-- [ ] Engineの境界を `候補集合 -> Map<候補ID, probability>` にし、上流の呼び出し回数を内側へ隠す
-- [ ] 質問IDは連番にし、候補IDとの対応表をサーバー側に持つ（文字列変換で復元しない）
-- [ ] Jevのmock responseでanswer欠落、未知ID、確率範囲外を検証する
+- [x] `SpecDocument` / `SpecPassage` とCITY `responsibilityId` の安定ID設計を確定する
+- [x] passageの重複、文字数、版、取得日、hash、source URLを検証する
+- [x] Noul question builderをfixtureだけで実装する
+- [x] Choiceの比較分布とNoulの独立 `yesProbability` を別型で保持する
+- [x] アプリ側の順位付け、top-k、abstain、source joinを実装する
+- [x] Engineの境界を `候補集合 -> Map<候補ID, probability>` にし、上流の呼び出し回数を内側へ隠す
+- [x] 質問IDは連番にし、候補IDとの対応表をサーバー側に持つ（文字列変換で復元しない）
+- [x] Jevのmock responseでanswer欠落、未知ID、確率範囲外を検証する
 
 完了条件:
 
-- [ ] 自由生成なしで候補IDから結果を再現できる
-- [ ] 出典joinに失敗した候補を公式根拠付きで表示しない
-- [ ] 既存LOVE / SOCIAL / CITYの型・APIレスポンスに影響しない
-- [ ] 上流を1回呼ぶか複数回呼ぶかを変えても、順位付け以降の層を書き換えずに済む
+- [x] 自由生成なしで候補IDから結果を再現できる
+- [x] 出典joinに失敗した候補を公式根拠付きで表示しない
+- [x] 既存LOVE / SOCIAL / CITYの型・APIレスポンスに影響しない（追加のみ、既存ファイルの変更なし）
+- [x] 上流を1回呼ぶか複数回呼ぶかを変えても、順位付け以降の層を書き換えずに済む
+
+追加したファイル:
+
+| ファイル | 役割 |
+|---|---|
+| `src/lib/types/semantic.ts` | 候補、スコア、順位付けの共通型 |
+| `src/lib/types/spec.ts` | `SpecDocument` / `SpecPassage` / `SpecCorpus` |
+| `src/lib/server/semantic-match.server.ts` | 評価エンジン。リクエスト組み立て、契約検証、順位付け、abstain |
+| `src/lib/server/semantic-policies.server.ts` | CITY / SPEC の質問文と閾値 |
+| `src/lib/server/spec-corpus.server.ts` | コーパス検証と PDL 1.0 の出典表示 |
+| `src/lib/server/spec-evidence.server.ts` | 候補IDから出典への join |
 
 ### Phase 8: SPEC FIND PDF v0
 
