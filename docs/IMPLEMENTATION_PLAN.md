@@ -371,9 +371,17 @@ Semantic Fit / SPEC FINDの設計根拠は [CITY_SEMANTIC_EXPERIMENT.md](CITY_SE
 - 障害時: requestId、status、model、latency、usageのみで原因を追跡
 - 誤判定報告時: 入力本文を自動収集せず、利用者の同意がある場合だけ手動で再現用fixtureを作る
 
-## 8. 次期拡張の実装計画（未着手）
+## 8. Semantic 拡張の実装計画（完了）
 
-この節はMVP完了後に着手する候補であり、現在の3モードの既定経路を変更する作業ではない。新機能の設計が確定しても、実装前に実機でtoken・latency・コストを測る。
+Phase 6.5 から Phase 10 まで完了している。いずれもLOVE / SOCIAL / CITYの既定経路を変更していない。
+
+| Phase | 内容 | 結果 |
+|---|---|---|
+| 6.5 | Jevの前提を実測 | 40件まで1リクエストで成立。**候補はキー参照**（§8.1） |
+| 7 | 共通Semantic Matchのfixture | 完了 |
+| 8 | SPEC FIND PDF v0 | 完了。Recall@3 100% |
+| 9 | CITY Semantic Fit のshadow | 完了。本番では無効のまま |
+| 10 | 実機評価と採否 | SPEC FIND は採用、CITY は据え置き |
 
 ### 8.0 合意事項
 

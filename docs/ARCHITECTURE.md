@@ -66,7 +66,7 @@ question catalog / labels ─────────┴─ server only
 7. CITYでは `route_to`の候補IDを静的データへjoinし、根拠情報を付加する。
 8. ブラウザは結果を表示する。入力文は保存せず、レスポンスにも不要なら再掲しない。
 
-### 次期拡張の論理フロー（未実装）
+### Semantic Fit の論理フロー（実装済み）
 
 #### CITY Semantic Fit
 
@@ -161,18 +161,26 @@ SPEC FIND v0はランタイムで公式サイトへアクセスしない。機�
 └── vite.config.ts       # SvelteKit + Tailwind + adapter-vercel + Vitest
 ```
 
-次期拡張で追加する予定の構成は次のとおり。**まだ作成していないため、現在のディレクトリツリーには含めない。**
+Semantic 拡張で追加した構成は次のとおり。
 
 ```text
-data配下のspec用ディレクトリ/
-├── common-feature-2.7.json       # 公式PDFから正規化したbounded passage corpus
-└── common-feature-2.7.meta.json  # 版、取得日、URL、content hash
+data/spec/
+└── common-feature-2.7.json       # 公式PDFから正規化したbounded passage corpus
+                                  # 版・取得日・URL・content hash を同じファイルへ持つ
 
 src/lib/server/
-└── semantic-match.server.ts      # CITY / SPEC FIND共通のNoul評価・順位付け
+├── semantic-match.server.ts      # CITY / SPEC FIND共通のNoul評価・順位付け
+├── semantic-policies.server.ts   # ドメインごとの質問文と閾値
+├── spec-corpus.server.ts         # コーパス検証と PDL 1.0 の出典表示
+├── spec-evidence.server.ts       # passageIdから出典へのjoin
+├── spec-find.server.ts           # SPEC FINDの入口。feature flagとコーパス読み込み
+└── city-semantic.server.ts       # CITY Stage 2 の shadow 実験
+
+scripts/
+└── build-spec-corpus.mjs         # 公式PDFからコーパスを生成する（PDFは同梱しない）
 ```
 
-`data`配下のspec用passage JSONは静的・バージョン管理対象とし、公式サイトからのランタイム取得は行わない。PDF本文そのものを同梱するかは、公開条件と更新運用を確認してから決める。
+`data/spec`のpassage JSONは静的・バージョン管理対象とし、公式サイトからのランタイム取得は行わない。PDF本体は1.6MBあり公式URLから常に取得できるため同梱せず、出力JSONだけをコミットする。メタデータは別ファイルに分けず同じJSONへ入れる。同じ事実を2箇所に持つと必ず片方が古くなるため（[SPEC_FIND_DESIGN.md](SPEC_FIND_DESIGN.md) §4）。
 
 本プロジェクトでは設定を `vite.config.ts` へ集約し、`svelte.config.js` を置かない。SvelteKit 2.62 以降は `sveltekit()` プラグインが `KitConfig` を直接受け取れるようになっており、その場合 `svelte.config.js` は無視される。`svelte.config.js` を使う方式も引き続きサポートされているため、必要になれば移せる。adapter、CSP、runes モード（Svelte 5）の強制はいずれも `vite.config.ts` に置く。
 
@@ -192,22 +200,26 @@ src/lib/server/
 | `CITY_DIRECTORY` | No | CITYのデータセット名。既定は架空データ `fictional-m-city`（[CITY_DATA.md](CITY_DATA.md) の §9） | No |
 | `CITY_SOURCE_HOSTS` | No | 出典URLに許可するホスト（カンマ区切り）。未設定ならURLを持つ出典を許さない | No |
 | `PUBLIC_SITE_URL` | No | サイトの起点URL。OGPの絶対URL生成に使う。未設定なら画像系のmetaを出さない | Yes |
-| `PUBLIC_SITE_URL` | No | OGP画像の絶対URL生成用。未設定時は相対URL | Yes |
 | `PUBLIC_APP_LABEL` | No | CITYのデモ注意文など公開可能な表示設定 | Yes可 |
+| `SPEC_FIND_ENABLED` | No | SPEC FINDを有効にする。明示的な `true` だけ | No |
+| `CITY_SEMANTIC_EXPERIMENT` | No | CITY Stage 2 のshadow実験を有効にする。明示的な `true` だけ | No |
 
-次期拡張で追加を検討する環境変数は次のとおり。**現時点では未実装であり、`.env.example`へは追加しない。** 実装時はfeature flagの既定値を安全側（無効）にする。
+Semantic 拡張で追加した環境変数は次のとおり。どちらもfeature flagで、既定は安全側（無効）である。明示的な `true` だけを有効とし、`1` や `TRUE` では有効にならない。
 
-| 変数（予定） | 既定案 | 用途 |
+| 変数 | 既定 | 用途 |
 |---|---|---|
-| `CITY_SEMANTIC_EXPERIMENT` | `false` | CITY Semantic Fitのshadow / experimental経路 |
-| `CITY_SEMANTIC_MAX_CANDIDATES` | `1` | 追加評価する課数の上限。初期は1、設定時のみ2まで |
-| `CITY_SEMANTIC_MAX_RESPONSIBILITIES` | `12` | 1課あたりの代表分掌上限 |
-| `SPEC_FIND_ENABLED` | `false` | SPEC FIND UI/APIの公開フラグ |
-| `SPEC_FIND_DATASET` | `common-feature-2.7` | 固定済みPDF passageデータセットのID |
-| `SPEC_FIND_MAX_PASSAGES` | `40` | 1リクエストへ渡せるpassage数 |
-| `SPEC_FIND_MAX_CHARS` | 実測で決定 | 1リクエストへ渡せる候補テキストの上限 |
+| `SPEC_FIND_ENABLED` | 無効 | SPEC FIND の UI と API。**本番で有効にする** |
+| `CITY_SEMANTIC_EXPERIMENT` | 無効 | CITY Stage 2 の shadow 経路。**本番では無効のまま** |
 
-feature flagを環境変数で公開する場合も、クライアントから任意値を受け取らず、server route側で検証する。APIキー、データセット、source URLのallowlistは引き続きserver-onlyで扱う。
+候補数や上限は環境変数にしていない。実測で決めた値をコードの定数として持ち、変更するときは測り直す前提にする。
+
+- `MAX_CANDIDATES_PER_REQUEST = 40`（`semantic-match.server.ts`）
+- `MAX_PASSAGES = 40` / `MAX_PASSAGE_CHARS = 600` / `MAX_CORPUS_CHARS = 20,000`（`spec-corpus.server.ts`）
+- `MAX_RESPONSIBILITIES = 12` / `MAX_SECTIONS = 1`（`city-semantic.server.ts`）
+
+データセットのIDも固定する。SPEC FIND は第2.7版のコーパスを直接importしており、環境変数で差し替えられない。差し替えを許すと、検証していないデータで公開する経路ができる。
+
+feature flagはクライアントから任意値を受け取らず、server route側で判定する。APIキー、データセット、source URLのallowlistは引き続きserver-onlyで扱う。
 
 `.env`はコミットしない。VercelではPreview / Productionごとに分離する。`PUBLIC_` prefix以外の秘密はSvelteのpublic env importへ渡さない。
 

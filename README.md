@@ -19,7 +19,14 @@ CITY は正式な行政案内サービスではなく、Jev と根拠付きル�
 - **CITY Semantic Fit** — 現行の課レベルChoiceを既定経路として残し、候補を限定した分掌適合度の実験を行う。追加呼び出し、全分掌の送信、正式な担当確定はMVPに含めない。
 - **SPEC FIND** — デジタル庁の共通機能標準仕様書第2.7版の公式PDFだけを対象に、短い要望から関連passageと出典箇所を探す。回答生成、適合性判定、Excel対応は後続検討とする。
 
-設計の詳細は [CITY Semantic Fit](docs/CITY_SEMANTIC_EXPERIMENT.md) と [SPEC FIND](docs/SPEC_FIND_DESIGN.md) を参照してください。いずれも現時点では未実装で、既存のLOVE / SOCIAL / CITYのMVP動作を変更しません。
+設計と評価結果は [CITY Semantic Fit](docs/CITY_SEMANTIC_EXPERIMENT.md) と [SPEC FIND](docs/SPEC_FIND_DESIGN.md) を参照してください。
+
+| 機能              | 状態                                                                                       |
+| ----------------- | ------------------------------------------------------------------------------------------ |
+| SPEC FIND         | **実装済み**。`SPEC_FIND_ENABLED=true` で有効。本番で有効にする                            |
+| CITY Semantic Fit | **実装済み（shadow）**。`CITY_SEMANTIC_EXPERIMENT=true` で有効。本番では無効のまま据え置く |
+
+どちらも既定は無効で、既存のLOVE / SOCIAL / CITYの動作は変わりません。
 
 ## 設計ドキュメント
 

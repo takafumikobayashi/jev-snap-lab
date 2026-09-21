@@ -2,7 +2,9 @@
 
 ## 1. 位置づけ
 
-この文書は、CITYの担当候補判定にセマンティックな適合度評価を追加する場合の実験設計である。**設計段階であり、現行のMVP実装には含まれない。**
+この文書は、CITYの担当候補判定にセマンティックな適合度評価を追加する実験の設計と評価記録である。
+
+**実装済みだが、本番では無効のまま据え置く。** `CITY_SEMANTIC_EXPERIMENT=true` のときだけ Stage 2 が動き、結果は画面へ出さず観測ログだけ残す。採否の判断は §7.3 にある。
 
 現行の既定経路は次のまま維持する。
 
@@ -138,7 +140,9 @@ JEV_TOTAL_TIMEOUT_MS  12000  x 2 回 = 24000 ms
 maxDuration           20000 ms
 ```
 
-先にVercel側で切られ、アプリの504にも既定結果のfallbackにも到達しない。Semantic Fitを実装する段階で、リクエスト全体の予算を新設してStage 1 / Stage 2で分け合い、`maxDuration` と同時に見直す。SPEC FINDは1回呼び出しなのでこの宿題は無く、[IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) でSPEC FINDを先行させる理由の一つになっている。
+先にVercel側で切られ、アプリの504にも既定結果のfallbackにも到達しない。
+
+**実装済み。** `/api/judge` が `REQUEST_BUDGET_MS = 16,000ms` を持ち、**すべての** `evaluate` 呼び出しへ残り時間を渡す。`evaluate` は1回ぶんの総予算と渡された残りの短い方を使うため、`JEV_TOTAL_TIMEOUT_MS` に16秒を超える値を設定しても16秒で頭打ちになる。Stage 2 は Stage 1 の後にさらに時間が経っているため、固定値を使い回さずその場で測り直す。
 
 ## 5. レスポンスと根拠join
 
@@ -331,14 +335,25 @@ Stage 2 を走らせたリクエストは、次の1行を残す。集計で別�
 - Stage 1 の confidence が低いときだけ Stage 2 を走らせる条件付き実行を実装し、閾値を校正した場合
 - 包括的な分掌を分割し、`water_enterprise` のような候補の揺れが解消した場合
 
-## 8. 未決定事項
+## 8. 決まったことと、残っていること
 
-- 上位1件で十分か、どの条件で上位2件にするか
-- 課ごとの分掌候補上限（初期12件）の再校正
+### 決まったこと
+
+| 論点 | 決定 |
+|---|---|
+| 1リクエストへ入れられるNoulの数 | 40件まで成立（[IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) §8.1） |
+| request-level deadline | `REQUEST_BUDGET_MS = 16,000ms`。すべての `evaluate` へ渡す（§4.4） |
+| 追加呼び出しの料金 | Stage 2 は入力2,100〜2,250 tokens、1判定あたり約0.0001ドル（§7.1） |
+| 上位何課を対象にするか | v0は上位1課（`MAX_SECTIONS = 1`） |
+| 課ごとの分掌候補上限 | 12件（`MAX_RESPONSIBILITIES`）。実測でtoken予算に収まっている |
+| CITYの既定APIレスポンスへ含めるか | **含めない。** shadow は観測ログだけ残す |
+| 既定UIへ昇格するか | **しない。** 本番では無効のまま据え置く（§7.3） |
+
+### 残っていること
+
+既定UIへ出す判断をしたときにだけ必要になる。今は決めない。
+
 - `fitProbability`を表示するか、順位と根拠だけを表示するか
 - abstainの表示閾値と、候補差が小さい場合の表示方法
-- CITYの既定APIレスポンスへexperimental blockを含めるか
-- 追加呼び出しを許すrequest-level deadlineと料金上限（現行の12000×2が `maxDuration` 20000を超える点を含む）
-- 1リクエストへ何件のNoulを入れられるか（Phase 6.5の実測待ち）
-
-これらは実装前に評価fixtureと実機観測で決める。決定までは、Semantic Fitを本番の既定ルートへ入れない。
+- 上位2課へ広げる条件（`MAX_SECTIONS` を2にする判断）
+- 包括的な分掌を1件だけ持つ候補（`water_enterprise`）の扱い（§7.2の弱点）

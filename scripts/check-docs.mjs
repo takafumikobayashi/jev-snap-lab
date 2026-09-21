@@ -78,6 +78,33 @@ for (const file of DOC_FILES) {
 	}
 }
 
+// 4. 実装済みの機能を「未実装」と書いていないか。
+//    ドキュメントとコードのずれは何度も踏んでいる。機能ごとに「実装されて
+//    いれば必ず存在するファイル」を決め、それがあるのに未実装と書いてある
+//    行を落とす。
+const SHIPPED = [
+	{ label: 'SPEC FIND', path: 'src/lib/server/spec-find.server.ts', pattern: /SPEC ?FIND/i },
+	{
+		label: 'CITY Semantic Fit',
+		path: 'src/lib/server/city-semantic.server.ts',
+		pattern: /Semantic Fit/
+	}
+];
+const STALE = /未実装|設計段階|未着手|まだ作成していない/;
+
+for (const file of DOC_FILES) {
+	const lines = readFileSync(file, 'utf8').split('\n');
+	for (const [index, line] of lines.entries()) {
+		if (!STALE.test(line)) continue;
+		for (const feature of SHIPPED) {
+			if (!feature.pattern.test(line) || !existsSync(feature.path)) continue;
+			problems.push(
+				`${file}:${index + 1}: ${feature.label} は実装済みだが未実装と書いてある（${feature.path}）`
+			);
+		}
+	}
+}
+
 if (problems.length > 0) {
 	console.error(`ドキュメントの参照に問題があります: ${problems.length} 件`);
 	for (const problem of problems) console.error(`  ${problem}`);

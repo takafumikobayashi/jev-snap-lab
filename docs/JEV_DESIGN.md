@@ -271,7 +271,7 @@ other_or_unclear
 
 ## 7.5 Semantic Fit実験の共通方針
 
-CITYの分掌適合度と、後続のSPEC FINDのpassage検索は、どちらも「候補ごとの意味的な適合度をNoulで測り、根拠情報をアプリ側でjoinする」設計を共有する。**この節は将来の実験方針であり、現行MVPの既定経路を変更しない。**
+CITYの分掌適合度とSPEC FINDのpassage検索は、どちらも「候補ごとの意味的な適合度をNoulで測り、根拠情報をアプリ側でjoinする」設計を共有する。実装は `src/lib/server/semantic-match.server.ts` にあり、**どちらもLOVE / SOCIAL / CITYの既定経路を変更しない。**
 
 ### Jevにさせること・させないこと
 
