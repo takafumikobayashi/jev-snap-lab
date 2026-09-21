@@ -19,6 +19,15 @@ export type SpecValidationOptions = {
 	allowedHosts: string[];
 };
 
+/**
+ * v0 が扱う資料の拡張子。
+ *
+ * 機能要件Excel、項目定義書、API仕様書はv0の対象外である（合意事項）。
+ * 混入すると出典表示の責任範囲と候補の重複設計が変わるため、データ側で
+ * 弾く（docs/SPEC_FIND_DESIGN.md §2）。
+ */
+const ALLOWED_EXTENSIONS = ['.pdf'];
+
 function fail(detail: string): never {
 	throw new Error(`spec-corpus の検証に失敗: ${detail}`);
 }
@@ -77,7 +86,11 @@ export function validateCorpus(value: unknown, options: SpecValidationOptions): 
 	requireString(document.contentHash, 'document.contentHash');
 	requireDate(document.retrievedAt, 'document.retrievedAt');
 	requireDateOrNull(document.publishedAt, 'document.publishedAt');
-	requireHttpsUrl(document.sourceUrl, 'document.sourceUrl', options.allowedHosts);
+	const sourceUrl = requireHttpsUrl(document.sourceUrl, 'document.sourceUrl', options.allowedHosts);
+	if (!ALLOWED_EXTENSIONS.some((ext) => new URL(sourceUrl).pathname.toLowerCase().endsWith(ext))) {
+		// Excel・項目定義書・API仕様書はv0の対象外。別データセットとして扱う。
+		fail('document.sourceUrl が v0 の対象（PDF）でない');
+	}
 
 	if (!Array.isArray(corpus.passages)) fail('passages が配列でない');
 	const passages = corpus.passages as Record<string, unknown>[];
