@@ -678,7 +678,7 @@ test.describe('SPEC FIND', () => {
 
 		// 順位、見出し、適合度、locator、原文への導線が揃う。
 		await expect(page.getByText('EUC 機能 / EUC 機能とは1')).toBeVisible();
-		await expect(page.getByText('見つけやすさ 94%')).toBeVisible();
+		await expect(page.getByText('適合度（実験値） 94%')).toBeVisible();
 		await expect(page.getByText('§2.5.1 / p.51')).toBeVisible();
 		await expect(page.getByRole('link', { name: '原文を見る' }).first()).toHaveAttribute(
 			'href',
@@ -699,6 +699,20 @@ test.describe('SPEC FIND', () => {
 		await expect(page.getByText('を加工して作成').first()).toBeVisible();
 	});
 
+	test('適合度が実験値であることを明示する', async ({ page }) => {
+		// Noul の独立した値で、仕様適合率でも検索の正答率でもない。
+		// Choice の分布と違い合計は100%にならない。
+		await stubJudge(page, () => ({ status: 200, body: specBody() }));
+		await page.goto('/');
+		await page.getByRole('tab', { name: 'spec' }).click();
+		await textarea(page).fill('データを出したい');
+		await judge(page).click();
+
+		await expect(page.getByText('適合度（実験値） 94%')).toBeVisible();
+		await expect(page.getByText('合計は100%になりません')).toBeVisible();
+		await expect(page.getByText('仕様への適合率や検索の正答率ではありません')).toBeVisible();
+	});
+
 	test('該当が無ければ無理に候補を出さない', async ({ page }) => {
 		await stubJudge(page, () => ({
 			status: 200,
@@ -710,7 +724,7 @@ test.describe('SPEC FIND', () => {
 		await judge(page).click();
 
 		await expect(page.getByText('十分に近い仕様箇所を見つけられませんでした')).toBeVisible();
-		await expect(page.getByText('見つけやすさ')).toHaveCount(0);
+		await expect(page.getByText('適合度（実験値）')).toHaveCount(0);
 	});
 
 	test('仕様への適合判定でないことを常時表示する', async ({ page }) => {

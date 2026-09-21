@@ -233,15 +233,20 @@
 											<span class="text-neutral-400">{hit.rank}.</span>
 											{hit.headingPath.join(' / ')}
 										</p>
-										<!-- 色だけに頼らず数値を併記する（docs/PRODUCT_SPEC.md §10）。 -->
+										<!--
+											色だけに頼らず数値を併記する（docs/PRODUCT_SPEC.md §10）。
+											Noul の独立した値なので、仕様適合率でも検索の正答率でもない。
+											実験値であることを数値の隣で示す（docs/JEV_DESIGN.md §7）。
+										-->
 										<span class="shrink-0 text-xs text-neutral-500 tabular-nums">
-											見つけやすさ {toPercent(hit.fitProbability)}%
+											適合度（実験値） {toPercent(hit.fitProbability)}%
 										</span>
 									</div>
 
 									<div
 										class="mt-1 h-1.5 w-full rounded-full"
 										style="background-color: var(--viz-track)"
+										title="意味的な近さの実験値です。仕様への適合率でも、検索の正答率でもありません。"
 									>
 										<div
 											class="h-1.5 rounded-full"
@@ -278,7 +283,18 @@
 						</ol>
 					{/if}
 
-					<p class="mt-3 text-xs text-neutral-400">
+					{#if !spec.abstained}
+						<!--
+							Choice の分布と取り違えさせない。各候補を独立に評価しているため
+							合計は100%にならず、複数が同時に高くてよい（docs/JEV_DESIGN.md §7）。
+						-->
+						<p class="mt-3 text-xs text-neutral-500">
+							適合度は仕様箇所ごとに<strong>独立して</strong
+							>評価した実験値です。合計は100%になりません。仕様への適合率や検索の正答率ではありません。
+						</p>
+					{/if}
+
+					<p class="mt-2 text-xs text-neutral-400">
 						{spec.documentTitle} 第{spec.version}版 / 取得日 {spec.retrievedAt}
 					</p>
 				{/if}
