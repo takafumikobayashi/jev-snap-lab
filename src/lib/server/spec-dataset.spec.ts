@@ -80,6 +80,35 @@ describe('配布する SPEC コーパス', () => {
 		}
 	});
 
+	it('本文に節見出しが混ざらない', () => {
+		// 見出しの収集と本文の収集がずれると、次の節の見出しが前の節の本文
+		// 末尾へ入る。抜粋としても、Jevへ渡す候補としても壊れる。
+		for (const passage of corpus.passages) {
+			expect(passage.text, passage.passageId).not.toMatch(/\d+\.\d+\.\s/);
+		}
+	});
+
+	it('折り返した見出しをつないで持つ', () => {
+		// §1.5 は版面の幅で見出しが折り返される。つないでおかないと、
+		// パンくずが「…共通機能の関」で切れ、続きの「係性」が本文の先頭へ混ざる。
+		const wrapped = corpus.passages.find((passage) => passage.sectionId === '1.5');
+		expect(wrapped).toBeDefined();
+		expect(wrapped?.headingPath.at(-1)).toBe(
+			'標準準拠システム以外のシステムと本仕様書が対象とする共通機能の関係性'
+		);
+		expect(wrapped?.text.startsWith('標準準拠システム以外のシステムが')).toBe(true);
+	});
+
+	it('見出しが連体修飾で終わらない', () => {
+		// 折り返しを取りこぼすと、見出しが文の途中で切れる。
+		// 「◯◯とは」は正当な見出しなので対象外にする。
+		for (const passage of corpus.passages) {
+			const heading = passage.headingPath.at(-1) ?? '';
+			if (heading.endsWith('とは')) continue;
+			expect(heading, passage.passageId).not.toMatch(/[のへをがはでや]$/);
+		}
+	});
+
 	it('複数の節をまとめたpassageはページを持たない', () => {
 		// 統合元は別々のページにある。1つを代表に選ぶと、どれが当たっても
 		// 同じページを引用として示すことになる。locator に全節を並べる。

@@ -90,17 +90,33 @@ if (mismatches.length > 0) {
 const sections = [];
 pages.forEach((page, i) => {
 	if (i < FRONT_MATTER_PAGES) return;
-	page.split('\n').forEach((line, at) => {
+	const lines = page.split('\n');
+	lines.forEach((line, at) => {
 		const match = line.match(HEADING);
 		// 目次行はリーダー（...）を持つ。
 		if (!match || line.includes('...')) return;
 		// 章見出しは短い。長ければ本文中の箇条書きなので拾わない。
 		if (!match[1].includes('.') && match[2].trim().length > CHAPTER_TITLE_MAX) return;
+
+		// 見出しが版面の幅で折り返されることがある。続きは見出しの直後に
+		// 空行なしで現れ、本文は必ず空行を挟む（全48見出しで確認）。つないで
+		// おかないと、見出しが途中で切れ（「…共通機能の関」）、続き（「係性」）が
+		// 本文の先頭へ混ざる。Jev へ渡す文脈も画面のパンくずも壊れる。
+		const wrapped = [];
+		let tail = at + 1;
+		while (lines[tail] !== undefined && lines[tail].trim() !== '') {
+			wrapped.push(lines[tail].trim());
+			tail += 1;
+		}
+
 		sections.push({
 			number: match[1],
-			title: normalizeInline(match[2]),
+			title: normalizeInline([match[2], ...wrapped].join('')),
 			page: i + 1,
+			// 見出しがある行。次の節の開始を判定するために使う。
 			at,
+			// 本文の収集を始める行。折り返した見出しの続きを本文へ入れない。
+			bodyFrom: tail,
 			lines: []
 		});
 	});
@@ -119,7 +135,8 @@ pages.forEach((page, i) => {
 			cursor += 1;
 		}
 		const current = sections[cursor];
-		if (current && (i + 1 > current.page || at > current.at)) current.lines.push(line);
+		// 折り返した見出しの続きは本文へ入れない（`bodyFrom` は見出しの次の行）。
+		if (current && (i + 1 > current.page || at >= current.bodyFrom)) current.lines.push(line);
 	});
 });
 
