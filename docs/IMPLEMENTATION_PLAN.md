@@ -355,6 +355,14 @@ latestの速度と更新を体験できる一方、回答が変わり得るた�
 
 全課を候補に含めることで「架空の自治体組織」を避けられる。教育委員会や消防本部などの詳細な個別分掌は、初回MVPの主要問い合わせカテゴリ外なら候補と注意表示に留め、後続で拡張する。
 
+### E. 次期Semantic拡張の範囲
+
+**推奨:** CITYは現行の課レベルChoiceを既定のまま残し、Semantic Fitは上位1課（必要時のみ2課）×代表分掌12件以内の限定実験にする。SPEC FINDはデジタル庁の共通機能標準仕様書第2.7版の公式PDFを20〜40件程度のbounded passageへ正規化し、1回のJev requestで評価する。
+
+機能要件Excel、項目定義書、API仕様書、ランタイムのWeb取得はSPEC FIND v0に含めない。Excelは後続で別データセットとして、セル・行locator、機能ID、版差分、PDFとの重複を設計してから追加する。
+
+Semantic Fit / SPEC FINDの設計根拠は [CITY_SEMANTIC_EXPERIMENT.md](CITY_SEMANTIC_EXPERIMENT.md) と [SPEC_FIND_DESIGN.md](SPEC_FIND_DESIGN.md) に分離する。どちらも本MVPのDefinition of Doneへ遡って追加しない。
+
 ## 7. 実装後の運用タスク
 
 - 月次: Jevのmodel、料金、rate limit、SDK changelogを確認
@@ -362,3 +370,129 @@ latestの速度と更新を体験できる一方、回答が変わり得るた�
 - リリースごと: question snapshotと受入テストの再実行
 - 障害時: requestId、status、model、latency、usageのみで原因を追跡
 - 誤判定報告時: 入力本文を自動収集せず、利用者の同意がある場合だけ手動で再現用fixtureを作る
+
+## 8. 次期拡張の実装計画（未着手）
+
+この節はMVP完了後に着手する候補であり、現在の3モードの既定経路を変更する作業ではない。新機能の設計が確定しても、実装前に実機でtoken・latency・コストを測る。
+
+### 8.0 合意事項
+
+着手前に固定する。ここを動かす場合は、この節を先に更新する。
+
+| 項目 | 決定 |
+|---|---|
+| CITYの既定経路 | 現行の課レベルChoiceを維持する。Semantic Fitはshadowから始める |
+| CITY Semantic Fitの候補 | 上位1課（必要時のみ2課）× 代表分掌12件以内 |
+| SPEC FINDのソース | デジタル庁 共通機能標準仕様書 第2.7版（2026-02-27公開）のPDFのみ |
+| SPEC FINDのコーパス | 固定passage 20〜40件程度。ランタイムのWeb取得はしない |
+| 後回しにするもの | 機能要件Excel、項目定義書、API仕様書、ランタイム取得 |
+| 出典の扱い | digital.go.jpは**PDL 1.0（公共データ利用規約 第1.0版）**。出典表示と加工表示を必須とする（[SPEC_FIND_DESIGN.md](SPEC_FIND_DESIGN.md) §2） |
+| 候補IDの復元 | 質問IDから候補IDを**文字列変換で復元しない**。連番の質問IDとサーバー側の対応表で引く |
+| 質問とstateの結び付き | 1リクエストの全質問は同じstateを見る。候補配列をstateへ置き、instructionsからバックティックのパスで対象を指す |
+| Semantic Match Engineの境界 | `候補集合 -> Map<候補ID, probability>`。上流を何回呼ぶかはengineの内側の実装詳細にする |
+
+**合意事項ではないもの（検証対象の仮説）**
+
+「N件の独立Noulを1回のリクエストで評価できる」ことは、TypeSafeの公式ドキュメントで裏が取れていない。
+
+- 1リクエストあたりの質問数上限は文書化されていない
+- rerank cookbookは1ペア1コール（40クエリ×30候補で1,200コール）で、「明快さのために1ペア1質問にした」と明記している
+- fan-outパターンは「**同じ文書**に複数の質問」であり、配列要素ごとに質問を割り当てる例は無い
+
+Phase 6.5で実測し、結果が出るまで「1回のリクエスト」を前提として固定しない。上の「Engineの境界」を守っておけば、仮説が外れても順位付け・abstain・source joinの層は影響を受けない。
+
+### Phase 6.5: Jevの前提を実測する（スパイク）
+
+依存: Phase 5。捨てコードでよい。ここで得た数字だけを次フェーズの前提にする。
+
+- [ ] 判定基準を**測る前に**決める（成立とみなす質問数、許容するp95 latency、1リクエストあたりの入力token上限）
+- [ ] stateへ候補配列を置き、instructionsからバックティックのパスで対象を指す最小の質問セットを作る
+- [ ] N = 5 / 12 / 24 / 40 で実測する（成立可否、latency、input tokens、エラー内容）
+- [ ] 失敗する場合、何が先に壊れるかを記録する（422か、token上限か、精度低下か）
+- [ ] パス参照が効かない場合に備え、候補1件ずつ送る形の数字も1点だけ取る
+
+完了条件:
+
+- [ ] Phase 7以降で使う「1リクエストあたりの候補数」を実測値として決めた
+- [ ] 仮説が外れた場合の代替（分割呼び出し）のコストとlatencyを把握した
+- [ ] 結果を [CITY_SEMANTIC_EXPERIMENT.md](CITY_SEMANTIC_EXPERIMENT.md) と [SPEC_FIND_DESIGN.md](SPEC_FIND_DESIGN.md) へ反映した
+
+### Phase 7: 共通Semantic Matchのfixture
+
+依存: Phase 5。Phase 6のProduction公開は必須ではないが、Preview相当の観測環境を用意する。question builderの候補数と呼び出し方は Phase 6.5 の実測値を反映する。
+
+- [ ] `SpecDocument` / `SpecPassage` とCITY `responsibilityId` の安定ID設計を確定する
+- [ ] passageの重複、文字数、版、取得日、hash、source URLを検証する
+- [ ] Noul question builderをfixtureだけで実装する
+- [ ] Choiceの比較分布とNoulの独立 `yesProbability` を別型で保持する
+- [ ] アプリ側の順位付け、top-k、abstain、source joinを実装する
+- [ ] Engineの境界を `候補集合 -> Map<候補ID, probability>` にし、上流の呼び出し回数を内側へ隠す
+- [ ] 質問IDは連番にし、候補IDとの対応表をサーバー側に持つ（文字列変換で復元しない）
+- [ ] Jevのmock responseでanswer欠落、未知ID、確率範囲外を検証する
+
+完了条件:
+
+- [ ] 自由生成なしで候補IDから結果を再現できる
+- [ ] 出典joinに失敗した候補を公式根拠付きで表示しない
+- [ ] 既存LOVE / SOCIAL / CITYの型・APIレスポンスに影響しない
+- [ ] 上流を1回呼ぶか複数回呼ぶかを変えても、順位付け以降の層を書き換えずに済む
+
+### Phase 8: SPEC FIND PDF v0
+
+依存: Phase 6.5、Phase 7。CITYより先に行う。SPEC FINDは新モードの追加だけで、先日作り直したばかりの `city.candidates[]` の型とE2Eに触れない。上流呼び出しも1回なので、CITY固有のrequest-level deadlineの宿題を後ろへ回せる。
+
+- [ ] デジタル庁公式の共通機能標準仕様書第2.7版を固定する
+- [ ] 20〜40件程度の代表passageをオフライン抽出し、`data`配下のspec用ディレクトリへ追加する
+- [ ] `maxPassages` / `maxChars`を超えないデータ検査を追加する
+- [ ] 1回のbounded Jev requestでpassageごとの独立Noulを評価する
+- [ ] top-3、abstain、章節・ページ・公式PDFリンクを表示する
+- [ ] SPEC FINDをserver-side feature flagの既定無効で追加する
+- [ ] Excel、項目定義書、API仕様書を混入させない検査を追加する
+- [ ] gold caseでRecall@1 / Recall@3、source join、p95 latency、tokens、コストを測る
+
+完了条件:
+
+- [ ] 入力、候補、版、source locatorの対応がfixtureで再現できる
+- [ ] 十分に近い候補がない場合に、無理な回答を出さずabstainできる
+- [ ] 仕様適合、実装可否、行政・法的判断と誤認させない注意文が常時表示される
+- [ ] 公式サイトへランタイムアクセスせず、固定データセットの版が結果へ残る
+- [ ] 既存3モードのE2EとMVP Definition of Doneが変わらない
+
+### Phase 9: CITY Semantic Fitのshadow実験（任意）
+
+依存: Phase 6.5、Phase 7、Phase 8の実機評価、CITYの現行受入テスト。SPEC FINDで共通処理の有効性を確かめてから着手する。
+
+- [ ] `CITY_SEMANTIC_EXPERIMENT=false` を既定にする
+- [ ] 現行 `route_to` 上位1課から代表分掌を最大12件選ぶ
+- [ ] 追加Jev呼び出しを最大1回に制限する
+- [ ] 既存結果を返せるrequest-level deadlineとfallbackを実装する
+- [ ] base / semanticのlatency、tokens、推計コスト、hit@k、abstainを入力本文なしで記録する
+- [ ] 直接語彙、言い換え、課境界、対象外、情報不足のFit / Gapケースを比較する
+
+完了条件:
+
+- [ ] Semantic Fit失敗時も現行CITY結果が返る
+- [ ] 追加分がVercel `maxDuration`とコスト上限に収まる
+- [ ] 根拠表示は既存の静的データjoinであり、Jev生成文を出典としていない
+- [ ] 既定UIへ昇格するか、shadowのままにするかを評価記録へ残す
+
+### Phase 10: 実機評価と採否
+
+依存: Phase 8またはPhase 9の該当機能。SPEC FIND（Phase 8）の評価を先に行う。
+
+- [ ] `jev-latest`で日本語gold caseを実機評価する
+- [ ] versioned modelで再現性を確認する
+- [ ] p50 / p95、input token、推計コスト、429 / 529 / timeoutを比較する
+- [ ] 閾値を固定値として移植せず、採用した値と校正根拠を記録する
+- [ ] 採用、shadow継続、撤回のいずれかを決定する
+
+### 次期拡張のDefinition of Done
+
+- [ ] CITY既定経路の候補・根拠・匿名化方針を壊さない
+- [ ] SPEC FINDはPDF v2.7の固定コーパスだけを使い、Excelを参照しない
+- [ ] リクエストへ渡す候補数・文字数に上限がある
+- [ ] Noulの適合度とChoiceの分布をUI・型・ログで混同しない
+- [ ] 順位、閾値、abstainがアプリ側で決定される
+- [ ] source locator、版、取得日、hashが再現可能である
+- [ ] Jev障害時にCITYはfallback、SPEC FINDは再試行または空振り表示となる
+- [ ] 実機測定で遅延・コスト・精度のトレードオフを確認している

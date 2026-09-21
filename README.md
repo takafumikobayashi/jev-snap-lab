@@ -14,11 +14,20 @@
 
 CITY は正式な行政案内サービスではなく、Jev と根拠付きルーティングの技術デモです。Jev の出力だけを正解とみなさず、公式の組織・分掌データを併記します。
 
+## 次期拡張（設計中）
+
+- **CITY Semantic Fit** — 現行の課レベルChoiceを既定経路として残し、候補を限定した分掌適合度の実験を行う。追加呼び出し、全分掌の送信、正式な担当確定はMVPに含めない。
+- **SPEC FIND** — デジタル庁の共通機能標準仕様書第2.7版の公式PDFだけを対象に、短い要望から関連passageと出典箇所を探す。回答生成、適合性判定、Excel対応は後続検討とする。
+
+設計の詳細は [CITY Semantic Fit](docs/CITY_SEMANTIC_EXPERIMENT.md) と [SPEC FIND](docs/SPEC_FIND_DESIGN.md) を参照してください。いずれも現時点では未実装で、既存のLOVE / SOCIAL / CITYのMVP動作を変更しません。
+
 ## 設計ドキュメント
 
 - [プロダクト仕様](docs/PRODUCT_SPEC.md)
 - [Jev 設計](docs/JEV_DESIGN.md)
 - [CITY データ設計](docs/CITY_DATA.md)
+- [CITY Semantic Fit 実験設計](docs/CITY_SEMANTIC_EXPERIMENT.md)
+- [SPEC FIND 設計](docs/SPEC_FIND_DESIGN.md)
 - [アーキテクチャ](docs/ARCHITECTURE.md)
 - [実装計画](docs/IMPLEMENTATION_PLAN.md)
 - [デプロイ手順](docs/DEPLOY.md)

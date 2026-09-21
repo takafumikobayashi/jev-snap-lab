@@ -66,6 +66,38 @@ question catalog / labels ─────────┴─ server only
 7. CITYでは `route_to`の候補IDを静的データへjoinし、根拠情報を付加する。
 8. ブラウザは結果を表示する。入力文は保存せず、レスポンスにも不要なら再掲しない。
 
+### 次期拡張の論理フロー（未実装）
+
+#### CITY Semantic Fit
+
+```text
+Browser
+  -> /api/judge (mode=city, experimental flag)
+  -> 既存のCITY Choiceを1回評価
+  -> 上位1〜2課を決定、各課の代表分掌を最大12件へ絞る
+  -> Semantic Fit Noulを追加で最大1回評価
+  -> アプリ側で順位付け
+  -> responsibilityIdで静的CITYデータへjoin
+  -> 現行結果 + experimental block（任意）
+```
+
+既定のCITY経路はこの追加分岐を通らない。追加呼び出しの失敗、timeout、レート制限、answer欠落は、現行のChoiceと根拠joinを返すfallback条件とする。2回のJev呼び出しを許す場合は、既存の1回分 `JEV_TOTAL_TIMEOUT_MS` とは別にrequest-level deadlineを設ける。
+
+#### SPEC FIND PDF v0
+
+```text
+Browser
+  -> /api/judge (mode=spec-find)
+  -> server-onlyで固定済みのpassage JSONを読む
+  -> passage数・文字数の上限を検証
+  -> 1回のbounded Jev requestで各passageを独立Noul評価
+  -> アプリ側でfitProbability順に並べる
+  -> passageIdで文書版・章節・ページ・公式PDF URLへjoin
+  -> 上位候補またはabstainを表示
+```
+
+SPEC FIND v0はランタイムで公式サイトへアクセスしない。機能要件Excel、項目定義書、API仕様書もこのフローへ含めない。コーパスがbounded requestに収まらなくなった場合だけ、Stage 1 Choiceを含む二段階方式を再検討する。
+
 ### リクエスト相関
 
 - サーバーで `requestId` を発行し、レスポンスに含める。
@@ -129,6 +161,19 @@ question catalog / labels ─────────┴─ server only
 └── vite.config.ts       # SvelteKit + Tailwind + adapter-vercel + Vitest
 ```
 
+次期拡張で追加する予定の構成は次のとおり。**まだ作成していないため、現在のディレクトリツリーには含めない。**
+
+```text
+data配下のspec用ディレクトリ/
+├── common-feature-2.7.json       # 公式PDFから正規化したbounded passage corpus
+└── common-feature-2.7.meta.json  # 版、取得日、URL、content hash
+
+src/lib/server/
+└── semantic-match.server.ts      # CITY / SPEC FIND共通のNoul評価・順位付け
+```
+
+`data`配下のspec用passage JSONは静的・バージョン管理対象とし、公式サイトからのランタイム取得は行わない。PDF本文そのものを同梱するかは、公開条件と更新運用を確認してから決める。
+
 本プロジェクトでは設定を `vite.config.ts` へ集約し、`svelte.config.js` を置かない。SvelteKit 2.62 以降は `sveltekit()` プラグインが `KitConfig` を直接受け取れるようになっており、その場合 `svelte.config.js` は無視される。`svelte.config.js` を使う方式も引き続きサポートされているため、必要になれば移せる。adapter、CSP、runes モード（Svelte 5）の強制はいずれも `vite.config.ts` に置く。
 
 `*.server.ts`はブラウザへバンドルされないserver-only境界を意図する。Jevキーを持つモジュールは `src/lib/server/` からしかimportしない。
@@ -149,6 +194,20 @@ question catalog / labels ─────────┴─ server only
 | `PUBLIC_SITE_URL` | No | サイトの起点URL。OGPの絶対URL生成に使う。未設定なら画像系のmetaを出さない | Yes |
 | `PUBLIC_SITE_URL` | No | OGP画像の絶対URL生成用。未設定時は相対URL | Yes |
 | `PUBLIC_APP_LABEL` | No | CITYのデモ注意文など公開可能な表示設定 | Yes可 |
+
+次期拡張で追加を検討する環境変数は次のとおり。**現時点では未実装であり、`.env.example`へは追加しない。** 実装時はfeature flagの既定値を安全側（無効）にする。
+
+| 変数（予定） | 既定案 | 用途 |
+|---|---|---|
+| `CITY_SEMANTIC_EXPERIMENT` | `false` | CITY Semantic Fitのshadow / experimental経路 |
+| `CITY_SEMANTIC_MAX_CANDIDATES` | `1` | 追加評価する課数の上限。初期は1、設定時のみ2まで |
+| `CITY_SEMANTIC_MAX_RESPONSIBILITIES` | `12` | 1課あたりの代表分掌上限 |
+| `SPEC_FIND_ENABLED` | `false` | SPEC FIND UI/APIの公開フラグ |
+| `SPEC_FIND_DATASET` | `common-feature-2.7` | 固定済みPDF passageデータセットのID |
+| `SPEC_FIND_MAX_PASSAGES` | `40` | 1リクエストへ渡せるpassage数 |
+| `SPEC_FIND_MAX_CHARS` | 実測で決定 | 1リクエストへ渡せる候補テキストの上限 |
+
+feature flagを環境変数で公開する場合も、クライアントから任意値を受け取らず、server route側で検証する。APIキー、データセット、source URLのallowlistは引き続きserver-onlyで扱う。
 
 `.env`はコミットしない。VercelではPreview / Productionごとに分離する。`PUBLIC_` prefix以外の秘密はSvelteのpublic env importへ渡さない。
 
@@ -422,6 +481,16 @@ upstreamから429 / 529が返ったときは、公式SDKのbackoffと`retry-afte
 - Jev responseの`model`、`usage.input_tokens`、`usage.output_tokens`を取得できた場合のみ表示する。
 - コスト推計は `input_tokens / 1_000_000 * 0.042` を初期式とし、「推計」とラベル付けする。
 - 監視・ログに入力本文を含めない。
+
+次期拡張では、既存の1回判定とSemantic Fit追加分を分けて計測する。
+
+- `baseUpstreamLatencyMs`: 現行のChoice / Score / Noul呼び出し
+- `semanticUpstreamLatencyMs`: CITY追加評価またはSPEC FINDのbounded request
+- `latencyMs`: request-level deadline内の総処理時間
+- `baseInputTokens` / `semanticInputTokens`: それぞれの推計コストの元になる値
+- `passageCount`、`responsibilityCount`、`datasetVersion`
+
+入力本文、passage全文、CITYの分掌全文はログへ出さない。候補数・データセット版・token数だけで、token増加と精度差を追えるようにする。CITYの追加呼び出しを導入する場合は、既存の `JEV_TOTAL_TIMEOUT_MS` をそのまま2回適用せず、外側のdeadline、fallback、Vercel `maxDuration`を一組で設定する。
 
 ## 11. デプロイ
 
