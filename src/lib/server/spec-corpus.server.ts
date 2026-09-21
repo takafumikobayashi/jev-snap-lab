@@ -7,11 +7,18 @@
  */
 
 import type { SpecCorpus, SpecDocument, SpecPassage } from '$lib/types/spec';
+import { countCodePoints } from '$lib/types/judge';
 
 /** 1リクエストへ入れる上限。実測の40件に合わせる。 */
 export const MAX_PASSAGES = 40;
 
-/** 1 passage の文字数上限。長すぎる断片は複数の意味を混ぜる。 */
+/**
+ * 1 passage の文字数上限。長すぎる断片は複数の意味を混ぜる。
+ *
+ * 数え方は入力検証と同じ `countCodePoints` に揃える。`String.prototype.length`
+ * は UTF-16 の code unit 数で、サロゲートペアの漢字を2文字と数える
+ * （[judge.ts](../types/judge.ts)）。
+ */
 export const MAX_PASSAGE_CHARS = 600;
 
 /**
@@ -23,16 +30,19 @@ export const MAX_PASSAGE_CHARS = 600;
  * 質問は1問あたり 113 tokens しか増えないのに対し、state は候補の文字数に
  * 比例するためである。
  *
- * 実測（2026-09-21、model jev-1.13.0、配布コーパス15,317字）:
+ * 実測（2026-09-21、model jev-1.13.0、配布コーパス15,612字）:
  *
- * - state + 質問1問 = 16,651 tokens（32k の 52%）
- * - 文字あたり 1.087 state token
+ * - state + 質問1問 = 16,868 tokens（32k の 51%）
+ * - 文字あたり 1.080 state token
  *
  * 件数40件 × 1件600字を上限まで使うと約25,700字になり、state だけで
- * 32k の約88%に達する。測っていない領域へ入るため、総量でも止める。
- * 20,000字なら state + 質問1問が約68%に収まる。
+ * 32k の約85%に達する。測っていない領域へ入るため、総量でも止める。
+ * 20,000字なら state + 質問1問が約66%に収まる。
  *
  * この上限を上げるときは、先にトークンとレイテンシを測り直すこと。
+ * 手順は [spec-budget.live.spec.ts](spec-budget.live.spec.ts) にある。
+ * **コーパスを作り直すと文字数が変わり、この根拠だけが古くなる。**
+ * 実際に15,317字のまま残っていたため、check-docs.mjs で検査している。
  */
 export const MAX_CORPUS_CHARS = 20_000;
 
@@ -101,7 +111,7 @@ function requireHttpsUrl(value: unknown, where: string, allowedHosts: string[]):
  * 変えたときに予算の検査だけが古くなる。
  */
 export function stateCharsOf(passage: { text: string; headingPath: string[] }): number {
-	return passage.text.length + headingContextOf(passage).length;
+	return countCodePoints(passage.text) + countCodePoints(headingContextOf(passage));
 }
 
 /** 候補に添える文脈。本文だけでは章が分からないpassageがある。 */
@@ -147,8 +157,9 @@ export function validateCorpus(value: unknown, options: SpecValidationOptions): 
 		if (passage.documentId !== documentId) fail(`${id}.documentId が document と一致しない`);
 
 		const text = requireString(passage.text, `${id}.text`);
-		if (text.length > MAX_PASSAGE_CHARS) {
-			fail(`${id}.text が ${text.length} 文字で上限 ${MAX_PASSAGE_CHARS} を超える`);
+		const length = countCodePoints(text);
+		if (length > MAX_PASSAGE_CHARS) {
+			fail(`${id}.text が ${length} 文字で上限 ${MAX_PASSAGE_CHARS} を超える`);
 		}
 		// 同じ要件の重複passageは版内で一つにまとめる（§5.1）。
 		if (texts.has(text)) fail(`${id}.text が他のpassageと同一である`);

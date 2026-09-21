@@ -127,6 +127,36 @@ for (const file of DOC_FILES) {
 	}
 }
 
+// 5. 配布コーパスの文字数が、ドキュメントの記述と合っているか。
+//    コーパスを作り直すと文字数が変わる。`MAX_CORPUS_CHARS` の根拠は
+//    「文字あたり何 state token か」なので、**根拠の数値だけが古くなる。**
+//    実際に15,317字と書いたまま15,612字になっていた。
+const CORPUS_FILE = 'data/spec/common-feature-2.7.json';
+if (existsSync(CORPUS_FILE)) {
+	const corpus = JSON.parse(readFileSync(CORPUS_FILE, 'utf8'));
+	// `stateCharsOf` と同じ数え方。code point で数える。
+	const chars = corpus.passages.reduce(
+		(sum, passage) => sum + [...passage.text].length + [...passage.headingPath.join(' / ')].length,
+		0
+	);
+	const printed = chars.toLocaleString('en-US');
+	// 「15,612字」のような書き方を拾い、実際と違うものを落とす。
+	const pattern = /(\d{1,3}(?:,\d{3})+)\s*字/g;
+	for (const file of [...DOC_FILES, 'src/lib/server/spec-corpus.server.ts']) {
+		if (!existsSync(file)) continue;
+		const lines = readFileSync(file, 'utf8').split('\n');
+		for (const [index, line] of lines.entries()) {
+			if (!/配布コーパス|現在の配布/.test(line)) continue;
+			for (const [, found] of line.matchAll(pattern)) {
+				if (found === printed) continue;
+				problems.push(
+					`${file}:${index + 1}: 配布コーパスの文字数が ${found} 字と書いてあるが、実際は ${printed} 字`
+				);
+			}
+		}
+	}
+}
+
 // 5. 必要な Node のバージョンが package.json と食い違っていないか。
 //    1箇所だけ直して他が残るのを何度も踏んだ。宣言は engines が唯一の
 //    情報源で、ドキュメントはそれに追随する。

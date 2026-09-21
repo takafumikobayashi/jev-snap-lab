@@ -322,6 +322,8 @@ DEADLINE のデータセットは `referenceDate` を持つ。**gold を決め�
 
 実体は `data/batch/{privacy,deadline,dx}.json`（各50件）。読み込み時の検証は [batch-dataset.server.ts](../src/lib/server/batch-dataset.server.ts) にあり、goldの綴り違いを「不一致」として集計しないようにしている。
 
+1事例の上限は**画面の入力上限をそのまま使う**（`MAX_INPUT_CODE_POINTS`）。別の数字を書くと必ず片方が古くなる。数え方も入力検証と同じ `countCodePoints` に揃える。`String.prototype.length` は UTF-16 の code unit 数なので、サロゲートペアの漢字を2文字と数え、画面で入る文章が fixture に入らなくなる。
+
 > **現在のラベルは下書きである。** Phase 11 で用意した3ファイルのラベルはClaudeが起草したもので、人手の確認を経ていない。**Phase 13 の実装前に人が通しで確認すること。**
 >
 > PRIVACY は一度作り直している。最初のfixtureは「〜をまとめたい」という作業の説明文だったが、このモードが判断するのは貼り付けられる文章そのものなので、中身が個人情報である形へ置き換えた。氏名・住所・電話番号・メール・マイナンバーはすべて架空で、市名は既存テストと同じ「甲市」、電話は未割当の `0000` ブロック、メールは RFC 2606 の `example.jp` を使っている。

@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { BATCH_THEMES, DX_CLASSES, PRIVACY_VERDICTS } from '$lib/types/batch';
+import { countCodePoints, MAX_INPUT_CODE_POINTS } from '$lib/types/judge';
 import {
 	MAX_CASES,
 	MAX_CASE_CHARS,
@@ -122,12 +123,31 @@ describe('validateDataset', () => {
 			).toThrow(/他の事例と同一である/);
 		});
 
+		it('サロゲートペアを1文字として数える', () => {
+			// `String.prototype.length` は UTF-16 の code unit 数なので、𠮷 のような
+			// 漢字や絵文字を2文字と数える。入力検証（countCodePoints）と数え方が
+			// ずれると、画面で入る文章が fixture に入らなくなる。
+			const surrogate = '𠮷'.repeat(MAX_CASE_CHARS);
+			expect(surrogate.length).toBe(MAX_CASE_CHARS * 2);
+			expect(countCodePoints(surrogate)).toBe(MAX_CASE_CHARS);
+
+			const dataset = valid();
+			(dataset.cases as Record<string, unknown>[])[0].text = surrogate;
+			expect(() => validateDataset(dataset)).not.toThrow();
+		});
+
 		it('1件あたりの上限を超える本文を拒む', () => {
 			expect(
 				broken((d) => {
 					(d.cases as Record<string, unknown>[])[1].text = 'あ'.repeat(MAX_CASE_CHARS + 1);
 				})
 			).toThrow(/上限 280 を超える/);
+			// code point で数えるので、サロゲートペアでも281文字目で落ちる。
+			expect(
+				broken((d) => {
+					(d.cases as Record<string, unknown>[])[1].text = '𠮷'.repeat(MAX_CASE_CHARS + 1);
+				})
+			).toThrow(/が 281 文字で上限 280 を超える/);
 		});
 
 		it('本文の合計が state の予算に収まる形でしか作れない', () => {
@@ -202,6 +222,11 @@ describe('validateDataset', () => {
 			expect(broken(() => {})).not.toThrow();
 			expect(broken((d) => (d.referenceDate = '2026-13-01'))).toThrow(/referenceDate/);
 		});
+	});
+
+	it('1事例の上限が画面の入力上限と同じである', () => {
+		// 別々に持つと必ず片方が古くなる。画面で入る文章は fixture にも入る。
+		expect(MAX_CASE_CHARS).toBe(MAX_INPUT_CODE_POINTS);
 	});
 
 	it('未知の difficulty を拒む', () => {

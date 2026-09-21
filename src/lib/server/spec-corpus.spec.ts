@@ -50,6 +50,16 @@ const expectFail = (mutate: (c: Record<string, unknown>) => void, fragment: stri
 const first = (c: Record<string, unknown>) => (c.passages as Record<string, unknown>[])[0];
 const doc = (c: Record<string, unknown>) => c.document as Record<string, unknown>;
 
+describe('文字数の数え方', () => {
+	it('サロゲートペアを1文字として数える', () => {
+		// 入力検証（countCodePoints）と揃える。`String.prototype.length` は
+		// UTF-16 の code unit 数で、𠮷 を2文字と数える。
+		const passage = { text: '𠮷'.repeat(10), headingPath: ['𠮷𠮷'] };
+		expect(passage.text.length).toBe(20);
+		expect(stateCharsOf(passage)).toBe(12);
+	});
+});
+
 describe('validateCorpus', () => {
 	it('妥当なコーパスを通す', () => {
 		expect(() => validateCorpus(valid(), HOSTS)).not.toThrow();

@@ -18,12 +18,20 @@ import {
 	type BatchDifficulty,
 	type BatchTheme
 } from '$lib/types/batch';
+import { countCodePoints, MAX_INPUT_CODE_POINTS } from '$lib/types/judge';
 
 /** 1リクエストへ入れる事例の上限。benchmark の「件数」側の上限。 */
 export const MAX_CASES = 50;
 
-/** 1事例の文字数上限。画面の入力上限（280字）に合わせる。 */
-export const MAX_CASE_CHARS = 280;
+/**
+ * 1事例の文字数上限。
+ *
+ * 画面の入力上限をそのまま使う。**別の数字を書かない。** 同じ値を2箇所に
+ * 持つと必ず片方が古くなる。数え方も `countCodePoints` に揃える。
+ * `String.prototype.length` は UTF-16 の code unit 数なので、サロゲートペアの
+ * 漢字や絵文字で実際より大きい値を返す（[judge.ts](../types/judge.ts)）。
+ */
+export const MAX_CASE_CHARS = MAX_INPUT_CODE_POINTS;
 
 /**
  * 件数と1件あたりの上限から決まる、state 本文の最大文字数。
@@ -101,8 +109,9 @@ export function validateDataset(value: unknown): BatchDataset {
 		if (!id.startsWith(`${theme as string}_`)) fail(`${id} が theme の接頭辞で始まっていない`);
 
 		const text = requireString(item.text, `${id}.text`);
-		if (text.length > MAX_CASE_CHARS) {
-			fail(`${id}.text が ${text.length} 文字で上限 ${MAX_CASE_CHARS} を超える`);
+		const length = countCodePoints(text);
+		if (length > MAX_CASE_CHARS) {
+			fail(`${id}.text が ${length} 文字で上限 ${MAX_CASE_CHARS} を超える`);
 		}
 		// 同じ文が二度入ると、一致率がその文の難しさに引きずられる。
 		if (texts.has(text)) fail(`${id}.text が他の事例と同一である`);
