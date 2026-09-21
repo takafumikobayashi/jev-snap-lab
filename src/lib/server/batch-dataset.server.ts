@@ -87,6 +87,11 @@ export function validateDataset(value: unknown): BatchDataset {
 	const theme = dataset.theme;
 	if (!BATCH_THEMES.includes(theme as never)) fail('theme が既知のテーマでない');
 	requireString(dataset.label, 'label');
+	// 確認状態を省けない。省けるようにすると、書き忘れが「確認済み」と
+	// 区別できなくなる。
+	if (dataset.labelStatus !== 'draft' && dataset.labelStatus !== 'reviewed') {
+		fail(`labelStatus が 'draft' でも 'reviewed' でもない`);
+	}
 	// DEADLINE は絶対日付を含む。基準日が無いと gold が再現しない。
 	if (theme === 'deadline' || dataset.referenceDate !== undefined) {
 		requireDate(dataset.referenceDate, 'referenceDate');

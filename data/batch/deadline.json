@@ -2,6 +2,7 @@
 	"schemaVersion": "1",
 	"theme": "deadline",
 	"label": "いつまでに対応が必要？",
+	"labelStatus": "draft",
 	"referenceDate": "2026-09-21",
 	"cases": [
 		{

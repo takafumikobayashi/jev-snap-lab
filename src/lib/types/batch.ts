@@ -1,8 +1,11 @@
 /**
  * BATCH JUDGE のデータセット。
  *
- * 出所は docs/BATCH_JUDGE_DESIGN.md。短文を数十件まとめて判定し、人手で
- * 付けた正解ラベルとの一致を見る。**Jev自身の出力をgoldにしない。**
+ * 出所は docs/BATCH_JUDGE_DESIGN.md。短文を数十件まとめて判定し、正解ラベル
+ * との一致を見る。**Jev自身の出力をgoldにしない。**
+ *
+ * ラベルの確認状態は `labelStatus` が持つ。文章で書くと必ず docs と食い違う
+ * ため、データ側に持たせて画面とレスポンスへ運ぶ。
  */
 
 /** 判定テーマ。軸の数が違うため、1リクエストの質問数も変わる。 */
@@ -55,6 +58,19 @@ export type DeadlineClass = (typeof DEADLINE_CLASSES)[number];
 export const DX_CLASSES = ['bpr', 'digital', 'neither'] as const;
 export type DxClass = (typeof DX_CLASSES)[number];
 
+/**
+ * ラベルの確認状態。
+ *
+ * `draft` は**Claudeが起草し、人手の確認を経ていない**状態である。Jevの出力を
+ * goldにしてはいないが、人が通しで見たわけでもない。この状態で測った一致率は
+ * 「暫定ラベルに対する実測値」であり、**精度とは呼べない。**
+ *
+ * `reviewed` へ変えるのは人が全件を見たときだけである。fixture を作り直したら
+ * `draft` へ戻す。DXは5軸のラベルを一度確認してもらったが、その後3択へ作り
+ * 直したため `draft` に戻っている。
+ */
+export type LabelStatus = 'draft' | 'reviewed';
+
 /** 難易度。曖昧なケースを意図的に入れるため、評価時に分けて見る。 */
 export type BatchDifficulty = 'easy' | 'medium' | 'hard';
 
@@ -92,6 +108,8 @@ export type BatchDataset = {
 	theme: BatchTheme;
 	/** 画面と評価に出す表示名。 */
 	label: string;
+	/** ラベルの確認状態。画面へ運ぶため、文章ではなくデータで持つ。 */
+	labelStatus: LabelStatus;
 	/**
 	 * gold を決めた日。`YYYY-MM-DD`。
 	 *
@@ -142,6 +160,13 @@ export type BatchJudgeResponse = {
 	referenceDate?: string;
 	caseCount: number;
 	questionCount: number;
+	/**
+	 * gold の確認状態。
+	 *
+	 * **一致率を出すなら必ず一緒に出す。** `draft` のまま「精度96%」と書くと、
+	 * 人が確認していないラベルに対する値を性能として見せることになる。
+	 */
+	labelStatus: LabelStatus;
 	latencyMs: number;
 	usage: { inputTokens: number; outputTokens: number; estimatedCostUsd: number };
 	results: BatchJudgeResult[];

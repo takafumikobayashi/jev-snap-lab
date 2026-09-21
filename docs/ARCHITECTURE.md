@@ -186,8 +186,8 @@ BATCH JUDGE で追加した構成は次のとおり。**Jev呼び出しの経路
 
 ```text
 data/batch/
-├── privacy.json                  # 3テーマ各50件。人手で付けた正解ラベル付き
-├── deadline.json                 # gold は Jev の出力ではない（BATCH_JUDGE_DESIGN §5）
+├── privacy.json                  # 3テーマ各50件。**暫定gold（人手確認前）**
+├── deadline.json                 # gold は Jev の出力ではない。labelStatus が状態を持つ
 └── dx.json
 
 src/lib/types/

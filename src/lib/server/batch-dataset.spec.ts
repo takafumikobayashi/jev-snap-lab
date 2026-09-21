@@ -15,6 +15,7 @@ function valid(): Record<string, unknown> {
 		schemaVersion: '1',
 		theme: 'privacy',
 		label: 'AIにそのまま入れてよい？',
+		labelStatus: 'draft',
 		cases: [
 			{
 				id: 'privacy_001',
@@ -229,6 +230,25 @@ describe('validateDataset', () => {
 		expect(MAX_CASE_CHARS).toBe(MAX_INPUT_CODE_POINTS);
 	});
 
+	describe('labelStatus', () => {
+		it('省けない', () => {
+			// 省けるようにすると、書き忘れが「確認済み」と区別できなくなる。
+			expect(
+				broken((d) => {
+					delete d.labelStatus;
+				})
+			).toThrow(/labelStatus/);
+		});
+
+		it('未知の値を拒む', () => {
+			expect(broken((d) => (d.labelStatus = 'ok'))).toThrow(/labelStatus/);
+		});
+
+		it('reviewed も通る', () => {
+			expect(broken((d) => (d.labelStatus = 'reviewed'))).not.toThrow();
+		});
+	});
+
 	it('未知の difficulty を拒む', () => {
 		expect(
 			broken((d) => {
@@ -252,6 +272,17 @@ describe('配布する fixture', () => {
 			expect(summary.difficulty.medium + summary.difficulty.hard).toBeGreaterThanOrEqual(10);
 		});
 	}
+
+	it('配布しているgoldはまだ人手の確認を経ていない', () => {
+		// 確認済みへ変えるのは人が全件を見たときだけである。この検査が落ちたら、
+		// docs の「暫定ラベル」という記述と §4.6 の読み方を見直すこと。
+		for (const theme of BATCH_THEMES) {
+			const dataset = validateDataset(
+				JSON.parse(readFileSync(`data/batch/${theme}.json`, 'utf8')) as unknown
+			);
+			expect(dataset.labelStatus, `${theme} の labelStatus`).toBe('draft');
+		}
+	});
 
 	it('deadline は基準日を持ち、絶対日付の事例がそれに依存する', () => {
 		const dataset = validateDataset(

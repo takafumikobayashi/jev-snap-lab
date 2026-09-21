@@ -12,7 +12,9 @@
  * 通す。timeout、AbortSignal、retry、SDKエラーの写像、送信前の criteria
  * 検査を benchmark の対象外にしないためである。
  *
- * goldは人手のラベル（data/batch/*.json）。Jevの出力をgoldにしない。
+ * goldは `data/batch/*.json` のラベル。Jevの出力をgoldにしない。ただし
+ * `labelStatus: 'draft'` のあいだは人手の確認を経ておらず、**ここで出る一致率は
+ * 暫定ラベルに対する実測値であって精度ではない**（§5）。
  */
 
 import { readFileSync } from 'node:fs';
@@ -516,7 +518,7 @@ describe.runIf(LIVE)('BATCH JUDGE benchmark', () => {
 		// どのfixtureに対する数値かを一緒に出す。docsへ写した数値が後から
 		// 辿れなくなるのを防ぐ。
 		const fingerprints = [privacy, deadline, dx].map(
-			(dataset) => `${dataset.theme}=${datasetFingerprint(dataset)}`
+			(dataset) => `${dataset.theme}=${datasetFingerprint(dataset)}:${dataset.labelStatus}`
 		);
 		console.log(
 			[
@@ -530,6 +532,17 @@ describe.runIf(LIVE)('BATCH JUDGE benchmark', () => {
 		console.log(
 			`判定基準: 1リクエスト ${MAX_ACCEPTABLE_MS}ms 以内 / answer欠落0 / 並び替えの差 ${MAX_BLEED_DELTA} 以内`
 		);
+		// 一致率を状態なしで読ませない。draft のまま「精度」と書かれるのを防ぐ。
+		const draft = [privacy, deadline, dx].filter((dataset) => dataset.labelStatus !== 'reviewed');
+		if (draft.length > 0) {
+			console.log(
+				`注意: ${draft
+					.map((dataset) => dataset.theme)
+					.join(
+						' / '
+					)} の gold は人手確認前。上の一致率は暫定ラベルに対する実測値であり、精度ではない`
+			);
+		}
 		// 前の5本が計測を record している。空なら計測せずに通ってしまう。
 		expect(report.length).toBeGreaterThan(0);
 	});

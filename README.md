@@ -30,7 +30,7 @@ CITY は正式な行政案内サービスではなく、Jev と根拠付きル�
 
 実装済みの2つはどちらも既定が無効で、既存のLOVE / SOCIAL / CITYの動作は変わりません。
 
-BATCH JUDGE は `data/batch/*.json`（3テーマ各50件の正解ラベル付きfixture）、その検証（`src/lib/server/batch-dataset.server.ts`）、方式を決めるための実測（`src/lib/server/batch-judge.live.spec.ts`。既定でスキップ）まで進んでいます。**アプリの経路とUIはまだありません。** 実測の結果は [BATCH_JUDGE_DESIGN.md](docs/BATCH_JUDGE_DESIGN.md) §4.6 にあります。
+BATCH JUDGE は `data/batch/*.json`（3テーマ各50件。**暫定goldラベル付き。人手確認前**）、その検証（`src/lib/server/batch-dataset.server.ts`）、方式を決めるための実測（`src/lib/server/batch-judge.live.spec.ts`。既定でスキップ）まで進んでいます。**アプリの経路とUIはまだありません。** 実測の結果は [BATCH_JUDGE_DESIGN.md](docs/BATCH_JUDGE_DESIGN.md) §4.6 にあります。
 
 ## 設計ドキュメント
 

@@ -5,8 +5,10 @@
  *
  *   LIVE_JEV=1 node --env-file=.env ./node_modules/.bin/vitest run src/lib/server/spec-recall.live.spec.ts
  *
- * 正解ラベルは公式PDFの本文から人手で付けている。Jevの確率を正解に
- * しない（docs/SPEC_FIND_DESIGN.md §8）。
+ * 正解ラベルは公式PDFの本文を読んで1件ずつ付けたもので、**Claudeが起草し、
+ * 人手の確認を経ていない。** Jevの確率を正解にしてはいない（docs/
+ * SPEC_FIND_DESIGN.md §8）が、人が通しで見たわけでもない。ここで出る数値は
+ * 暫定ラベルに対する実測値である。
  */
 
 import { beforeAll, describe, expect, it, vi } from 'vitest';

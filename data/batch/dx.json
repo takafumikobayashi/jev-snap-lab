@@ -2,6 +2,7 @@
 	"schemaVersion": "1",
 	"theme": "dx",
 	"label": "この業務課題、何から手を付ける？",
+	"labelStatus": "draft",
 	"cases": [
 		{
 			"id": "dx_001",

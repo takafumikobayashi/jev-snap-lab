@@ -2,6 +2,7 @@
 	"schemaVersion": "1",
 	"theme": "privacy",
 	"label": "AIにそのまま入れてよい？",
+	"labelStatus": "draft",
 	"cases": [
 		{
 			"id": "privacy_001",

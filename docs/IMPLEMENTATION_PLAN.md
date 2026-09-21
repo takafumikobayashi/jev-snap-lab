@@ -615,8 +615,9 @@ BATCH JUDGE は新規モード、SPEC FIND v1 は既存モードの拡張。設�
 依存: なし。Jevを呼ばない。**完了。**
 
 - [x] 3テーマ（PRIVACY / DEADLINE / DX JUDGE）の判断軸を確定する
-- [x] 各テーマ30〜50件のfixtureを人手で作る。曖昧なケースを意図的に入れる（各50件）。PRIVACYは**貼り付けられる文章そのもの**の形にした
-- [x] 正解ラベルを人手で付ける。**Jev自身の出力をgoldにしない**
+- [x] 各テーマ30〜50件のfixtureを作る。曖昧なケースを意図的に入れる（各50件）。PRIVACYは**貼り付けられる文章そのもの**の形にした
+- [x] 正解ラベルを1件ずつ判断して付ける。**Jev自身の出力をgoldにしない**
+- [ ] **人が全件を確認する。** 現状は `labelStatus: 'draft'`（Claude起草・人手確認前）
 - [x] 共通の計測項目を既存実装から再利用できる形にする（`estimateCostUsd`、`result.usage`）
 
 成果物: `src/lib/types/batch.ts`、`data/batch/{privacy,deadline,dx}.json`、`src/lib/server/batch-dataset.server.ts`

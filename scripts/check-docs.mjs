@@ -127,6 +127,31 @@ for (const file of DOC_FILES) {
 	}
 }
 
+// 5. 未確認の gold を「人手で付けた正解ラベル」と書いていないか。
+//    確認状態は data/batch/*.json の `labelStatus` が持つ。文章で状態を
+//    書くと必ずデータと食い違う。実際に README・ARCHITECTURE・
+//    IMPLEMENTATION_PLAN の3箇所が古いまま残っていた。
+const BATCH_FIXTURES = ['privacy', 'deadline', 'dx'].map((theme) => `data/batch/${theme}.json`);
+const unreviewed = BATCH_FIXTURES.filter(
+	(file) => existsSync(file) && JSON.parse(readFileSync(file, 'utf8')).labelStatus !== 'reviewed'
+);
+if (unreviewed.length > 0) {
+	const CLAIMS_HUMAN = /人手で(付け|作っ)た?[^。]*正解ラベル|人手で付けた正解/;
+	const ABOUT_BATCH = /BATCH ?JUDGE|data\/batch|batch\/\*\.json/i;
+	for (const file of [...DOC_FILES, 'README.md']) {
+		if (!existsSync(file)) continue;
+		for (const [index, line] of readFileSync(file, 'utf8').split('\n').entries()) {
+			if (!CLAIMS_HUMAN.test(line) || !ABOUT_BATCH.test(line)) continue;
+			// 状態そのものを説明している行は除く。
+			if (/暫定|確認前|labelStatus|draft/.test(line)) continue;
+			problems.push(
+				`${file}:${index + 1}: gold は未確認（${unreviewed.join(', ')} が draft）だが、` +
+					`人手で付けた正解ラベルと書いてある`
+			);
+		}
+	}
+}
+
 // 5. 配布コーパスの文字数が、ドキュメントの記述と合っているか。
 //    コーパスを作り直すと文字数が変わる。`MAX_CORPUS_CHARS` の根拠は
 //    「文字あたり何 state token か」なので、**根拠の数値だけが古くなる。**
