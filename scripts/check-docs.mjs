@@ -105,6 +105,25 @@ for (const file of DOC_FILES) {
 	}
 }
 
+// 5. 必要な Node のバージョンが package.json と食い違っていないか。
+//    1箇所だけ直して他が残るのを何度も踏んだ。宣言は engines が唯一の
+//    情報源で、ドキュメントはそれに追随する。
+const required = JSON.parse(readFileSync('package.json', 'utf8')).engines?.node ?? '';
+const requiredVersion = required.replace(/^[^0-9]*/, '');
+
+for (const file of DOC_FILES) {
+	const lines = readFileSync(file, 'utf8').split('\n');
+	for (const [index, line] of lines.entries()) {
+		// 「Node.js 22.12 以上」のように前提として述べている箇所だけ見る。
+		for (const match of line.matchAll(/Node(?:\.js)? ?([0-9]+(?:\.[0-9]+)*) ?以上/g)) {
+			if (match[1] === requiredVersion) continue;
+			problems.push(
+				`${file}:${index + 1}: 必要な Node が ${match[1]} 以上と書いてあるが、engines は ${required}`
+			);
+		}
+	}
+}
+
 if (problems.length > 0) {
 	console.error(`ドキュメントの参照に問題があります: ${problems.length} 件`);
 	for (const problem of problems) console.error(`  ${problem}`);

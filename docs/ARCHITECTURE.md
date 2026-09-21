@@ -513,7 +513,7 @@ upstreamから429 / 529が返ったときは、公式SDKのbackoffと`retry-afte
 - Vercel projectへ接続し、framework presetをSvelteKitにする。
 - PreviewとProductionの環境変数を分離する。
 - `maxDuration` が `JEV_TOTAL_TIMEOUT_MS` より大きいことを `.vercel/output/**/.vc-config.json` で確認し、Previewで実際にtimeoutを踏んで504が返ることを確認する。
-- Node.js runtimeはTypeSafe JavaScript SDKの要件であるNode.js 20以上に合わせる。[JavaScript SDK](https://docs.typesafe.ai/sdk/javascript)
+- Node.js runtimeは **22.12以上**とする。TypeSafe JavaScript SDK が要求するのは `>=20` だが（[JavaScript SDK](https://docs.typesafe.ai/sdk/javascript)）、Node 20 系は 2026-04-30 にサポートが終了しており、`pnpm spec:build` が型ストリップ（Node 22.6以降）を使う。CI と Vercel（`nodejs22.x`）も 22 系である。`package.json` の `engines` と `.npmrc` の `engine-strict=true` で強制する。
 - 最初のProduction deploy前に、Previewで以下を確認する。
   - APIキーがクライアントbundleに存在しない
   - `POST /api/judge`がJevへ到達する

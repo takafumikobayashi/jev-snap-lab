@@ -45,7 +45,7 @@ CITY は正式な行政案内サービスではなく、Jev と根拠付きル�
 
 - SvelteKit + TypeScript
 - Tailwind CSS
-- Node.js 20 以上 / pnpm
+- Node.js 22.12 以上 / pnpm
 - TypeSafe 公式 JavaScript SDK (`@typesafe-ai/sdk`)
 - Vercel (`@sveltejs/adapter-vercel`)
 - 永続データベースなし。CITY データはバージョン管理する静的 JSON

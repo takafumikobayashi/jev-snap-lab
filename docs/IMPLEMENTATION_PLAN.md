@@ -7,7 +7,7 @@
 推奨ベースライン:
 
 - SvelteKit + TypeScript + Tailwind CSS
-- Node.js 20以上 / pnpm（開発環境の npm 10.9.3 でこの構成の依存をインストールできなかったため。詳細は README を参照）
+- Node.js 22.12以上 / pnpm（開発環境の npm 10.9.3 でこの構成の依存をインストールできなかったため。詳細は README を参照）
 - TypeSafe公式JavaScript SDK
 - Vercel
 - DBなし、入力永続化なし
@@ -23,7 +23,7 @@
 タスク:
 
 - TypeSafe ConsoleでAPIキーを取得し、開発用と本番用を分離
-- `@typesafe-ai/sdk`の現行インストールとNode.js 20 runtimeを確認
+- `@typesafe-ai/sdk`の現行インストールとNode.js runtimeを確認
 - JavaScript SDKのretry既定値の**実測確認**（既定値は [JEV_DESIGN.md](JEV_DESIGN.md) §9 に記載済み）。通常時に1試行3,500ms×3試行が12,000msに収まることと、`Retry-After` で待機が伸びた場合にtotal timeoutが待機ごと中断することの両方を確認する
 - Vercelの契約プランにおける関数 `maxDuration` の既定値と上限を確認する（設定先は `vite.config.ts` のアダプタ設定とルートの `export const config`。`vercel.json` の `functions` グロブは adapter-vercel では効かない）
 - `jev-latest`と`jev-1.13.0`の応答shapeを確認
