@@ -186,7 +186,7 @@ src/lib/server/
 | `TYPESAFE_DEFAULT_MODEL` | No | 既定モデル。推奨 `jev-latest` | No |
 | `TYPESAFE_BASE_URL` | No | SDKのAPI root。通常は既定値を使う | No |
 | `JEV_TIMEOUT_MS` | No | 1試行timeout。推奨3500（§6の算出根拠を参照） | No |
-| `JEV_TOTAL_TIMEOUT_MS` | No | retryを含む総予算。推奨12000 | No |
+| `JEV_TOTAL_TIMEOUT_MS` | No | retryを含む1回ぶんの総予算。推奨12000。**16,000msで頭打ち** | No |
 | `JEV_INPUT_PRICE_PER_MILLION_TOKENS` | No | コスト推計。既定0.042 | No |
 | `APP_RATE_LIMIT_PER_MINUTE` | No | アプリ側のbest-effort上限 | No |
 | `CITY_DIRECTORY` | No | CITYのデータセット名。既定は架空データ `fictional-m-city`（[CITY_DATA.md](CITY_DATA.md) の §9） | No |
@@ -216,6 +216,10 @@ feature flagを環境変数で公開する場合も、クライアントから�
 Vercelは関数に既定の最大実行時間を設定しており、超えるとプラットフォーム側が関数を終了させる。これは環境変数ではなくデプロイ設定で指定する。
 
 `JEV_TOTAL_TIMEOUT_MS` が既定値を超えていると、アプリのtimeout処理（504 / `UPSTREAM_TIMEOUT`）へ到達する前に関数が殺され、ユーザーにはプラットフォームのエラーが出る。**総予算より確実に大きい `maxDuration` を明示設定する。**
+
+そのうえで、`/api/judge` は**リクエスト全体の予算 `REQUEST_BUDGET_MS = 16,000ms`** を持ち、すべての `evaluate` 呼び出しへ残り時間を渡す。`evaluate` は1回ぶんの総予算と渡された残りの短い方を使うため、`JEV_TOTAL_TIMEOUT_MS` に16秒を超える値を設定しても16秒で頭打ちになる。設定が `maxDuration` を踏み抜くのを、環境変数の運用ではなくコードで防ぐ。
+
+渡し忘れるとこの上限が効かない。CITY Stage 2 と SPEC FIND を足したときに Stage 1 への受け渡しが漏れており、`JEV_TOTAL_TIMEOUT_MS` を大きくすると `maxDuration` を先に踏む状態になっていた。全モードの Stage 1 が予算を受け取ることをテストで固定している。
 
 **`vercel.json` の `functions` グロブは使えない。** adapter-vercelはBuild Output API v3を使い、`.vercel/output/functions/**/.vc-config.json` をアダプタ自身が書き出す。生成される関数名は `catchall.func` などであり、`src/routes/api/judge/+server.ts` のようなソースパスとは一致しないため、`vercel.json` に書いても適用されない。
 

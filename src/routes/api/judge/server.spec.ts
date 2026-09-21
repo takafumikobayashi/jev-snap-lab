@@ -206,6 +206,22 @@ describe('POST /api/judge', () => {
 			}
 		});
 
+		it('全モードの Stage 1 にリクエスト全体の予算を渡す', async () => {
+			// 渡さないと JEV_TOTAL_TIMEOUT_MS がそのまま使われ、16秒を超える
+			// 値を設定したときに maxDuration の20,000msを先に踏む。そうなると
+			// アプリの504にも fallback にも到達せず、HTMLの500が返る。
+			for (const mode of CATALOG_MODES) {
+				evaluate.mockClear();
+				mockSuccess(mode);
+				await post({ mode, text: 'テスト入力' });
+
+				const [, , budgetMs] = evaluate.mock.calls[0];
+				expect(typeof budgetMs, mode).toBe('number');
+				expect(budgetMs, mode).toBeLessThanOrEqual(16_000);
+				expect(budgetMs, mode).toBeGreaterThan(0);
+			}
+		});
+
 		it('CITY Semantic Fit は既定で無効なので追加呼び出しをしない', async () => {
 			// 実験機能。CITY_SEMANTIC_EXPERIMENT が真のときだけ動かす。
 			mockSuccess('city');

@@ -49,6 +49,18 @@ export const config: Config = {
  */
 const REQUEST_BUDGET_MS = 16_000;
 
+/**
+ * この時点で上流に使える残り時間。
+ *
+ * **すべての `evaluate` 呼び出しへ渡す。** 渡さないと `JEV_TOTAL_TIMEOUT_MS`
+ * がそのまま使われ、16秒を超える値を設定したときに `maxDuration` の
+ * 20,000ms を先に踏む。そうなるとアプリの504にも fallback にも到達せず、
+ * HTML の500が返る。
+ */
+function remainingBudgetMs(startedAt: number): number {
+	return REQUEST_BUDGET_MS - (performance.now() - startedAt);
+}
+
 const JSON_HEADERS = {
 	'Content-Type': 'application/json; charset=utf-8'
 };
@@ -136,7 +148,11 @@ async function respondSpecFind(
 
 	try {
 		const spec = await findSpecPassages(text, async ({ state, questions }) => {
-			const { result, latencyMs, config } = await evaluate(state, questions);
+			const { result, latencyMs, config } = await evaluate(
+				state,
+				questions,
+				remainingBudgetMs(startedAt)
+			);
 			calls += 1;
 			inputTokens += result.usage.input_tokens;
 			outputTokens += result.usage.output_tokens;
@@ -205,10 +221,15 @@ async function observeCitySemantic(
 	requestId: string,
 	startedAt: number
 ): Promise<void> {
-	const remaining = REQUEST_BUDGET_MS - (performance.now() - startedAt);
+	const remaining = remainingBudgetMs(startedAt);
 	try {
 		const metrics = await runCitySemanticShadow(response, text, remaining, async (request) => {
-			const { result } = await evaluate(request.state, request.questions, remaining);
+			// Stage 1 の後にさらに時間が経っているため、その場で測り直す。
+			const { result } = await evaluate(
+				request.state,
+				request.questions,
+				remainingBudgetMs(startedAt)
+			);
 			return {
 				answers: result.answers as Record<string, unknown>,
 				inputTokens: result.usage.input_tokens
@@ -289,7 +310,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 			result,
 			latencyMs,
 			config: jevConfig
-		} = await evaluate(buildState(mode, text), catalog.questions);
+		} = await evaluate(buildState(mode, text), catalog.questions, remainingBudgetMs(startedAt));
 		const results = normalizeAnswers(catalog, result);
 
 		const response: JudgeResponse = {

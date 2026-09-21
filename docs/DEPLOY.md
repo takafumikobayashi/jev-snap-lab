@@ -32,7 +32,7 @@ Vercelダッシュボードで **Add New → Project** から `takafumikobayashi
 | `PUBLIC_SITE_URL` | `https://<デプロイ先のドメイン>` | 推奨 | 未設定だとOGP画像のmetaを出力しない |
 | `TYPESAFE_DEFAULT_MODEL` | `jev-latest` | 任意 | 未設定でも既定値が同じ |
 | `JEV_TIMEOUT_MS` | `3500` | 任意 | 未設定でも既定値が同じ |
-| `JEV_TOTAL_TIMEOUT_MS` | `12000` | 任意 | 未設定でも既定値が同じ |
+| `JEV_TOTAL_TIMEOUT_MS` | `12000` | 任意 | 未設定でも既定値が同じ。**16,000msで頭打ち**（リクエスト全体の予算。`maxDuration` 20,000msから逆算） |
 | `APP_RATE_LIMIT_PER_MINUTE` | `10` | 任意 | 正の整数のみ。読めない値は既定値へ戻り、`RATE_LIMIT_INVALID` を警告に出す |
 | `SPEC_FIND_ENABLED` | `true` | **推奨** | SPEC FINDを有効にする。未設定なら無効で、タブも出ない。明示的な `true` だけを有効とする。1問あたり約0.13円と他モードより高い（[SPEC_FIND_DESIGN.md](SPEC_FIND_DESIGN.md) §8.1） |
 | `CITY_SEMANTIC_EXPERIMENT` | `true` | 任意 | CITY Stage 2 の shadow 実験を有効にする。**本番では設定しない**（下記） |
