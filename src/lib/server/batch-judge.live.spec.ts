@@ -319,7 +319,7 @@ function record(label: string, built: Built[], result: RunResult, agreement: str
  */
 function privacyVerdict(answers: Record<string, Answer>, id: string, threshold: number): string {
 	const at = (key: string) => answers[`${id}__${key}`]?.noul ?? 0;
-	return at('identifies') >= threshold || at('personal') >= threshold ? 'review' : 'safe';
+	return at('identifies') >= threshold || at('personal') >= threshold ? 'review' : 'no_signal';
 }
 
 function privacyAgreement(dataset: BatchDataset, answers: Record<string, Answer>): string {
@@ -333,10 +333,10 @@ function privacyAgreement(dataset: BatchDataset, answers: Record<string, Answer>
 	// 一致率は非対称である。**見逃しと過検知を分けて数える。** 個人情報を
 	// 見落とすのと、安全な文を要確認にするのとでは重さが違う。
 	const missed = dataset.cases.filter(
-		(item) => item.gold === 'review' && privacyVerdict(answers, item.id, 0.5) === 'safe'
+		(item) => item.gold === 'review' && privacyVerdict(answers, item.id, 0.5) === 'no_signal'
 	);
 	const over = dataset.cases.filter(
-		(item) => item.gold === 'safe' && privacyVerdict(answers, item.id, 0.5) === 'review'
+		(item) => item.gold === 'no_signal' && privacyVerdict(answers, item.id, 0.5) === 'review'
 	);
 	const axesOf = (id: string) =>
 		PRIVACY_AXES.map((axis) => (answers[`${id}__${axis.key}`]?.noul ?? 0).toFixed(2)).join('/');
@@ -344,7 +344,7 @@ function privacyAgreement(dataset: BatchDataset, answers: Record<string, Answer>
 		const top = Math.max(
 			...PRIVACY_AXES.map((axis) => answers[`${item.id}__${axis.key}`]?.noul ?? 0)
 		);
-		return (top >= 0.5 ? 'review' : 'safe') === item.gold;
+		return (top >= 0.5 ? 'review' : 'no_signal') === item.gold;
 	}).length;
 
 	// どちら向きに外したかが分からないと、ラベルを直すのか質問文を直すのか

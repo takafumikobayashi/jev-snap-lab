@@ -7,93 +7,93 @@
 			"id": "privacy_001",
 			"text": "令和8年度の粗大ごみ収集は、毎月第2・第4水曜日に実施します。",
 			"difficulty": "easy",
-			"gold": "safe"
+			"gold": "no_signal"
 		},
 		{
 			"id": "privacy_002",
 			"text": "甲市役所本庁舎の窓口受付時間は午前8時30分から午後5時15分までです。",
 			"difficulty": "easy",
-			"gold": "safe"
+			"gold": "no_signal"
 		},
 		{
 			"id": "privacy_003",
 			"text": "防災訓練を10月15日に市民体育館で実施します。参加は自由です。",
 			"difficulty": "easy",
-			"gold": "safe"
+			"gold": "no_signal"
 		},
 		{
 			"id": "privacy_004",
 			"text": "住民票の写しの交付手数料は1通300円です。",
 			"difficulty": "easy",
-			"gold": "safe"
+			"gold": "no_signal"
 		},
 		{
 			"id": "privacy_005",
 			"text": "今年度の市民アンケートの回答率は62.3％でした。",
 			"difficulty": "easy",
-			"gold": "safe"
+			"gold": "no_signal"
 		},
 		{
 			"id": "privacy_006",
 			"text": "子育て支援センターの利用者数は前年比で8％増加しました。",
 			"difficulty": "easy",
-			"gold": "safe"
+			"gold": "no_signal"
 		},
 		{
 			"id": "privacy_007",
 			"text": "次回の庁議は9月30日14時から第1会議室で行います。",
 			"difficulty": "easy",
-			"gold": "safe"
+			"gold": "no_signal"
 		},
 		{
 			"id": "privacy_008",
 			"text": "ごみ袋の有料化について市民から多数の意見が寄せられています。",
 			"difficulty": "easy",
-			"gold": "safe"
+			"gold": "no_signal"
 		},
 		{
 			"id": "privacy_009",
 			"text": "市内の保育所のうち3施設で定員に空きがあります。",
 			"difficulty": "easy",
-			"gold": "safe"
+			"gold": "no_signal"
 		},
 		{
 			"id": "privacy_010",
 			"text": "国民健康保険料の算定方法について、条例第12条の規定を確認したい。",
 			"difficulty": "easy",
-			"gold": "safe"
+			"gold": "no_signal"
 		},
 		{
 			"id": "privacy_011",
 			"text": "介護保険制度の改正内容を職員向けに説明する資料を作りたい。",
 			"difficulty": "easy",
-			"gold": "safe"
+			"gold": "no_signal"
 		},
 		{
 			"id": "privacy_012",
 			"text": "甲市立第一小学校の校庭開放は土日の9時から17時までです。",
 			"difficulty": "easy",
-			"gold": "safe"
+			"gold": "no_signal"
 		},
 		{
 			"id": "privacy_013",
 			"text": "4月から6月までの転入者数は1,248人でした。",
 			"difficulty": "medium",
-			"gold": "safe",
+			"gold": "no_signal",
 			"note": "集計値で個人に戻せない"
 		},
 		{
 			"id": "privacy_014",
 			"text": "来庁者のうち70代以上が全体の34％を占めています。",
 			"difficulty": "medium",
-			"gold": "safe",
+			"gold": "no_signal",
 			"note": "統計。個人は特定されない"
 		},
 		{
 			"id": "privacy_015",
 			"text": "株式会社甲野商事から公園清掃業務の見積書が届きました。",
 			"difficulty": "medium",
-			"gold": "safe",
+			"gold": "no_signal",
 			"note": "法人の情報は個人情報ではない"
 		},
 		{
@@ -107,34 +107,34 @@
 			"id": "privacy_017",
 			"text": "甲市長の記者会見の要旨をまとめたい。",
 			"difficulty": "medium",
-			"gold": "safe",
+			"gold": "no_signal",
 			"note": "公人の公務上の言動"
 		},
 		{
 			"id": "privacy_018",
 			"text": "市民相談の件数を月別に集計したところ、7月が最多でした。",
 			"difficulty": "easy",
-			"gold": "safe"
+			"gold": "no_signal"
 		},
 		{
 			"id": "privacy_019",
 			"text": "桜町3丁目の市道に大きな穴が空いており危険です。",
 			"difficulty": "medium",
-			"gold": "safe",
+			"gold": "no_signal",
 			"note": "場所の情報のみ。世帯は絞れない"
 		},
 		{
 			"id": "privacy_020",
 			"text": "甲市議会議員の政治資金収支報告書の記載内容を確認したい。",
 			"difficulty": "hard",
-			"gold": "safe",
+			"gold": "no_signal",
 			"note": "法令で公開が前提の公人情報。境界"
 		},
 		{
 			"id": "privacy_021",
 			"text": "市のホームページに載せる転入手続きの案内文を分かりやすくしたい。",
 			"difficulty": "easy",
-			"gold": "safe"
+			"gold": "no_signal"
 		},
 		{
 			"id": "privacy_022",
@@ -217,14 +217,14 @@
 			"id": "privacy_033",
 			"text": "生活保護受給世帯の一覧をExcelから抽出しました。",
 			"difficulty": "hard",
-			"gold": "safe",
+			"gold": "no_signal",
 			"note": "要配慮情報の一覧を指すが、この文に世帯も氏名も含まれない"
 		},
 		{
 			"id": "privacy_034",
 			"text": "令和8年8月分の児童手当で振込口座が変更になった方の一覧です。",
 			"difficulty": "hard",
-			"gold": "safe",
+			"gold": "no_signal",
 			"note": "口座情報の一覧を指すが、この文に氏名も口座も含まれない"
 		},
 		{
@@ -273,28 +273,28 @@
 			"id": "privacy_041",
 			"text": "市長への手紙に、実名で近隣トラブルの相談が書かれていました。",
 			"difficulty": "hard",
-			"gold": "safe",
+			"gold": "no_signal",
 			"note": "「実名で」とあるが実名はこの文に含まれない"
 		},
 		{
 			"id": "privacy_042",
 			"text": "同姓同名が2名いるため、生年月日で照合して特定したい。",
 			"difficulty": "hard",
-			"gold": "safe",
+			"gold": "no_signal",
 			"note": "照合の意図はあるが、この文に氏名も生年月日も含まれない。意図では判定しない"
 		},
 		{
 			"id": "privacy_043",
 			"text": "甲市青葉町の空き家について、所有者の氏名と連絡先を調べたい。",
 			"difficulty": "hard",
-			"gold": "safe",
+			"gold": "no_signal",
 			"note": "調べたい対象が個人だが、この文に氏名も連絡先も含まれない"
 		},
 		{
 			"id": "privacy_044",
 			"text": "アンケートの自由記述に回答者の勤務先が書かれているものがあります。",
 			"difficulty": "hard",
-			"gold": "safe",
+			"gold": "no_signal",
 			"note": "自由記述の中身はこの文に含まれない"
 		},
 		{
@@ -336,7 +336,7 @@
 			"id": "privacy_050",
 			"text": "昨年度の職員採用試験の合格者名簿を庁内で共有したい。",
 			"difficulty": "hard",
-			"gold": "safe",
+			"gold": "no_signal",
 			"note": "名簿の中身はこの文に含まれない"
 		}
 	]

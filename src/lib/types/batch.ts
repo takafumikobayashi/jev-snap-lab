@@ -13,8 +13,22 @@ export type BatchTheme = (typeof BATCH_THEMES)[number];
  * PRIVACY の結論。
  *
  * 「個人情報です／違います」と断定しない。人が確認すべきかどうかだけを示す。
+ *
+ * **`safe` という語を使わない。** 安全の保証と読まれるためである。
+ * `no_signal` が意味するのは次の一点だけである。
+ *
+ * > このモードが見る範囲で、明確な要確認シグナルが検出されなかった
+ *
+ * 次のいずれでもない。
+ *
+ * - 法的な「個人情報に該当しない」という判定
+ * - Jev や他のAIサービスへ送ってよいという保証
+ * - 組織の規程・契約・条例に照らした可否
+ *
+ * 見落としは起こる。実測では見逃し0だったが、それは50件のfixtureに対する
+ * 値であり、一般の入力に対する保証ではない（docs/BATCH_JUDGE_DESIGN.md §3.1）。
  */
-export const PRIVACY_VERDICTS = ['safe', 'review'] as const;
+export const PRIVACY_VERDICTS = ['no_signal', 'review'] as const;
 export type PrivacyVerdict = (typeof PRIVACY_VERDICTS)[number];
 
 /**

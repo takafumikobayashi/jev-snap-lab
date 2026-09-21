@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { BATCH_THEMES, DX_CLASSES } from '$lib/types/batch';
+import { BATCH_THEMES, DX_CLASSES, PRIVACY_VERDICTS } from '$lib/types/batch';
 import {
 	MAX_CASES,
 	MAX_CASE_CHARS,
@@ -15,7 +15,12 @@ function valid(): Record<string, unknown> {
 		theme: 'privacy',
 		label: 'AIにそのまま入れてよい？',
 		cases: [
-			{ id: 'privacy_001', text: '来月の会議の日程を決めたい', difficulty: 'easy', gold: 'safe' },
+			{
+				id: 'privacy_001',
+				text: '来月の会議の日程を決めたい',
+				difficulty: 'easy',
+				gold: 'no_signal'
+			},
 			{
 				id: 'privacy_002',
 				text: '住民Aさんの病歴をまとめたい',
@@ -33,6 +38,16 @@ function broken(mutate: (dataset: Record<string, unknown>) => void): () => void 
 	mutate(dataset);
 	return () => validateDataset(dataset);
 }
+
+describe('PRIVACY の結論の呼び方', () => {
+	it('「安全」と読める語を結論に使わない', () => {
+		// `safe` は安全の保証と読まれる。このモードが出せる結論ではない
+		// （docs/BATCH_JUDGE_DESIGN.md §3.1）。注釈で守ると必ず漏れるので、
+		// 値そのものを禁じる。
+		expect(PRIVACY_VERDICTS).not.toContain('safe');
+		expect(PRIVACY_VERDICTS).toEqual(['no_signal', 'review']);
+	});
+});
 
 describe('validateDataset', () => {
 	it('正しいデータセットは通る', () => {
@@ -127,7 +142,7 @@ describe('validateDataset', () => {
 				id: `privacy_${index + 1}`,
 				text: `${index}`.padStart(MAX_CASE_CHARS, 'あ'),
 				difficulty: 'easy',
-				gold: 'safe'
+				gold: 'no_signal'
 			}));
 			expect(() => validateDataset(dataset)).not.toThrow();
 		});
@@ -140,7 +155,7 @@ describe('validateDataset', () => {
 					id: `privacy_${index + 1}`,
 					text: `事例 ${index}`,
 					difficulty: 'easy',
-					gold: 'safe'
+					gold: 'no_signal'
 				}));
 			})
 		).toThrow(/上限 50 を超える/);
